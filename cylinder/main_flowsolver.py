@@ -13,6 +13,8 @@ Equations from DENIS SIPP in FreeFem++
 ----------------------------------------------------------------------
 """
 
+# export PKG_CONFIG_PATH=/Users/philipc/miniconda3/envs/fenics/lib/pkgconfig:$PKG_CONFIG_PATH
+
 from __future__ import print_function
 from dolfin import *
 import ufl
@@ -35,6 +37,8 @@ import petsc4py
 from petsc4py import PETSc
 
 import pdb
+
+from pathlib import Path
 
 import importlib
 import utils_flowsolver as flu
@@ -2190,10 +2194,11 @@ if __name__=='__main__':
                  'Tstart': 0, 
                  'num_steps': 10, 
                  'Tc': 0,
+                 'Trestartfrom': 0
                  } 
     params_save={'save_every': 5, 
                  'save_every_old': 100,
-                 'savedir0': '/scratchm/wjussiau/fenics-results/cylinder/',
+                 'savedir0': str(Path(__file__).parent) + '/data_output/',
                  'compute_norms': True}
     params_solver={'solver_type': 'Krylov', 
                    'equations': 'ipcs',
@@ -2235,10 +2240,11 @@ if __name__=='__main__':
     #               'segments': 540,
     #               }
     # o1
+
     params_mesh = {'genmesh': False,
                    'remesh': False,
                    'nx': 1,
-                   'meshpath': '/stck/wjussiau/fenics-python/mesh/', 
+                   'meshpath': Path(__file__).parent / 'data_input', 
                    'meshname': 'O1.xdmf',
                    'xinf': 20, # 50, # 20
                    'xinfa': -10, # -30, # -5
@@ -2258,8 +2264,8 @@ if __name__=='__main__':
     print('Compute steady state...')
     u_ctrl_steady = 0.0
     #fs.compute_steady_state(method='picard', max_iter=50, tol=1e-7, u_ctrl=u_ctrl_steady)
-    #fs.compute_steady_state(method='newton', max_iter=25, u_ctrl=u_ctrl_steady)
-    fs.load_steady_state(assign=True)
+    fs.compute_steady_state(method='newton', max_iter=25, u_ctrl=u_ctrl_steady)
+    #fs.load_steady_state(assign=True)
 
     print('Init time-stepping')
     sigma = 0.1
@@ -2268,6 +2274,7 @@ if __name__=='__main__':
     x0.vector()[:] /= np.linalg.norm(x0.vector()[:])
     fs.set_initial_state(x0=x0)
     fs.init_time_stepping()
+
    
     print('Step several times')
     #sspath = '/scratchm/wjussiau/fenics-python/cylinder/data/nx32/regulator/'
@@ -2276,9 +2283,9 @@ if __name__=='__main__':
     #sspath = '/scratchm/wjussiau/fenics-python/cylinder/data/m1/regulator/'
     #G = flu.read_ss(sspath + 'sysid_o16_ny=2_y1=[3,0]_y2=[1,05].mat')
     #Kss = flu.read_ss(sspath + 'K0_o8_y1=[3,0]_y2=[1,05]_S_KS_clpoles.mat')
-    sspath = '/scratchm/wjussiau/fenics-python/cylinder/data/o1/regulator/'
-    G = flu.read_ss(sspath + 'sysid_o16_d=3_ssest.mat')
-    Kss = flu.read_ss(sspath + 'Kopt_reduced13.mat')
+    sspath = Path(__file__).parent / 'data_input'
+    G = flu.read_ss(sspath / 'sysid_o16_d=3_ssest.mat')
+    Kss = flu.read_ss(sspath / 'Kopt_reduced13.mat')
     #G = flu.read_ss(sspath + 'sysid_o16_ny=5_y1=[2,0]_y2=[2,025]_y3=[2,05]_y4=[2,1]_y5=[3,0].mat')
     #Kss = flu.read_ss(sspath + 'K0_o8_y1=[2,0]_y2=[2,025]_y3=[2,05]_y4=[2,1]_y5=[3,0]_S_KS_clpoles.mat')
     #G = flu.read_ss(sspath + 'sysid_o16_ny=2_y1=[3,0]_y2=[1,05].mat')
