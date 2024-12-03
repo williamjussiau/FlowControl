@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Configuration data file for creamake with gfortran in OS X -->
+<!-- Suggested fflags: -std=f2008 -fall-intrinsics -Wall -fcheck=all -fbacktrace -ggdb -->
+<!-- 
+============================================================== 
+Remember to include the path to folder lib/ in the variable DYLD_LIBRARY_PATH with:
+export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:<path-to-lib> 
+============================================================== 
+-->
+<content>
+
+<prolog>
+BMODLIB = basicmod/lib/libbasicmod.dylib
+</prolog>
+
+<sources>
+source
+source/cuthill_mckee
+source/ansys
+source/patran
+source/unv
+source/mfm
+source/mum
+source/vtu
+source/mphtxt
+source/pmh
+source/flux
+source/freefem
+source/fem_extract
+source/gmsh
+source/main
+</sources>
+ 
+<include>
+$(BMODLIB)
+</include>
+
+<compiler>
+gfortran
+</compiler>
+
+<fflags>
+-Ibasicmod/include
+</fflags>
+
+<ldflags>
+-Lbasicmod/lib -lbasicmod
+</ldflags>
+
+<rules>
+.PHONY: lib cleanlib
+lib: $(BMODLIB)
+
+$(BMODLIB): 
+	${MAKE} -f Makefile.dynamic.gfortran.osx-10.11-elcapitan -C basicmod
+
+cleanlib: clean
+	${MAKE} -f Makefile.dynamic.gfortran.osx-10.11-elcapitan -C basicmod cleanlib
+</rules>
+</content>

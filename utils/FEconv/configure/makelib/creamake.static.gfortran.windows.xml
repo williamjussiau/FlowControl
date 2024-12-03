@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Configuration data file for creamake with gfortran in Windows with MinGW -->
+<!-- See https://www.codeproject.com/articles/84461/mingw-static-and-dynamic-libraries -->
+<!-- Suggested fflags: -std=f2008 -fall-intrinsics -Wall -fcheck=all -fbacktrace -ggdb -->
+<content>
+
+<os>
+windows
+</os>
+
+<prolog>
+BMODLIB = basicmod/lib/libbasicmod.a
+</prolog>
+
+<sources>
+source
+source/cuthill_mckee
+source/ansys
+source/patran
+source/unv
+source/mfm
+source/mum
+source/vtu
+source/mphtxt
+source/pmh
+source/flux
+source/freefem
+source/fem_extract
+source/gmsh
+</sources>
+
+<exec>
+libfeconv.a
+</exec>
+
+<include>
+$(BMODLIB)
+</include>
+
+<compiler>
+gfortran
+</compiler>
+
+<fflags>
+-Ibasicmod/include
+</fflags>
+
+<ldflags>
+-Lbasicmod/lib -lbasicmod
+</ldflags>
+
+<rules>
+$(ejecutable): $(includes) $(modulos_obj)
+	$(AR) rcs $(ejecutable) $(condir_modulos_obj)
+	-copy $(ejecutable) lib
+	-del $(ejecutable)
+	-copy object\*.mod include
+	-del object\*.mod
+.PHONY: lib cleanlib
+lib: $(BMODLIB)
+
+$(BMODLIB): 
+	${MAKE} -f Makefile.static.gfortran.windows -C basicmod
+
+cleanlib: clean
+	-del lib\$(ejecutable)
+	-del include\*.mod
+	${MAKE} -f Makefile.static.gfortran.windows -C basicmod cleanlib
+</rules>
+</content>

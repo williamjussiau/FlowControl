@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Configuration data file for creamake with gfortran in OS X -->
+<!-- Suggested fflags: -std=f2008 -fall-intrinsics -Wall -fcheck=all -fbacktrace -ggdb -->
+<content>
+
+<prolog>
+BMODLIB = basicmod/lib/libbasicmod.dylib
+</prolog>
+
+<sources>
+source
+source/cuthill_mckee
+source/ansys
+source/patran
+source/unv
+source/mfm
+source/mum
+source/vtu
+source/mphtxt
+source/pmh
+source/flux
+source/freefem
+source/fem_extract
+source/gmsh
+</sources>
+
+<exec>
+libfeconv.dylib
+</exec>
+
+<include>
+$(BMODLIB)
+</include>
+
+<compiler>
+gfortran
+</compiler>
+
+<fflags>
+-fPIC -Ibasicmod/include
+</fflags>
+
+<ldflags>
+-Lbasicmod/lib -lbasicmod
+</ldflags>
+
+<rules>
+$(ejecutable): $(includes) $(modulos_obj)
+	$(FC) -dynamiclib  -install_name $(ejecutable) -o $(ejecutable) $(condir_modulos_obj) $(LDFLAGS)
+	@mv $(ejecutable) lib/
+	@mv object/*.mod include/
+
+.PHONY: lib cleanlib
+lib: $(BMODLIB)
+
+$(BMODLIB): 
+	${MAKE} -f Makefile.dynamic.gfortran.osx-10.11-elcapitan -C basicmod
+
+cleanlib: clean
+	${RM} lib/$(ejecutable)
+	${RM} include/*
+	${MAKE} -f Makefile.dynamic.gfortran.osx-10.11-elcapitan -C basicmod cleanlib
+</rules>
+</content>

@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="content-type"  content="text/html; charset=UTF-8" />
+  <title>Feconv: Finite Element conversor</title>
+  <link href="../css/structure.css" rel="stylesheet" type="text/css" />
+  <link href="../css/breadcrumbs.css" rel="stylesheet" type="text/css" />
+  <link href="../css/menu.css" rel="stylesheet" type="text/css" />
+  <link href="../css/topics.css" rel="stylesheet" type="text/css" />
+
+  <script type="text/javascript" src="../js/btn.js"></script>
+  <script type="text/javascript" src="../js/enlargeit.js"></script>
+  <script type="text/javascript">
+        enl_ani = 0;
+        enl_brdsize = 30;
+        enl_shadow = 1;
+        enl_center = 1;
+        enl_dark = 1;
+        enl_darkprct = 30;
+        enl_drgdrop = 0;
+        enl_keynav = 1;
+        enl_wheelnav = 0;
+        enl_titlebar=0;
+  </script>
+  <script type="text/javascript" src="../js/jquery-2.1.1.min.js"></script>
+  <script>
+    $(document).ready(function(){
+      $("#art").animate({opacity:'0'},0);
+      $("#art").animate({opacity:'1'},"slow");
+    });
+  </script>
+
+</head>
+
+<body onload="showbtn()">
+
+  <header>
+    <img float="left" align="left" src="../images/gear.png"/>
+    <img float="right" align="right" src="../images/feconv.png"/>
+  </header>
+
+  <nav class="breadcrumbs">
+    <p><em><a href="../index.html">Home</a>><a href="../formats.xhtml">Formats</a>><a href="unv.xhtml">UNV</a></em></p>
+  </nav>
+
+  <nav class="menu mnu">
+    <h2 align="center" >Home</h2>
+    <ul>
+      <li><a href="../description.xhtml">Summary</a></li>
+      <li><a href="../install.xhtml">Install</a></li>
+      <li><a href="../formats.xhtml">Formats</a></li>
+      <li><a href="../options.xhtml">Options</a></li>
+      <li><a href="../examples.xhtml">Examples</a></li>
+      <li><a href="../underconstruction.xhtml">How to contribute</a></li>
+      <li><a href="../refguide.xhtml">Reference guide</a></li>
+    </ul>
+  </nav>
+
+  <aside class="mnu">
+    <nav class="menu mnu">
+      <h2 align="center" >Users</h2>
+      <ul>
+        <li><a href="../users/login.xhtml">Login</a></li>
+        <li><a href="../users/survey.xhtml">Survey</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <section>
+
+    <!-- Local section navigation menu -->
+    <nav id="top" class="topics">
+      <ul>
+        <li><a href="#desc">Description</a></li>
+        <li><a href="#feat">Features supported by feconv</a>
+          <ul>
+            <li><a href="#node">Node datasets</a></li><br/>
+            <li><a href="#element">Element dataset</a></li><br/>
+            <li><a href="#group">Group datasets</a></li><br/>
+            <li><a href="#fields">Field datasets</a></li><br/>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <article id="art"> 
+    <h2 id="desc"><input type="button" onclick="return toggleMe(this,'div1')" class="btn" value="-"/>  1. Description</h2>
+
+    <div id="div1">
+
+    <p>The Universal File formats were originally developed by the Structural Dynamics Research Corporation (SDRC) in the late 1960s and early 1970s to facilitate computer aided engineering (CAE). This format is described in the web page of the Structural Dynamics Research Lab at the <a href="http://sdrl.uc.edu">University of Cincinnati (UC-SDRL)</a>. The file extension for the format UNV is also <em>.unv</em>.</p>
+
+    <p>The main features of this format are:</p>
+    <ul>
+      <li>It can save hybrid meshes, that is, meshes that contain a several types of finite elements.</li>
+      <li>The global indexing of nodes, edges, faces and elements are defined by integers. </li>
+      <li>The vertex coordinates and field values are defined by floats of double precision.</li>
+      <li>Each set of coordinates, connectivities, references and fields  are stored in its own dataset.</li>
+      <ul>
+        <li>The node datasets contains the node number and their coordinates among other information</li>
+        <li>The element datasets contains the element number, element descriptor, number of nodes and their connectivities among other information</li>
+        <li>The group datasets contains the group number, group name and a set of entities with their tags and entity types among other information</li>
+        <li>The field datasets contains the field descriptors and a set of entities with their values and entity numbers among other information</li>
+      </ul>
+    </ul>
+    <div class="back"><a href="#top">Back to top</a></div>
+    </div>
+
+    <h2 id="feat"><input type="button" onclick="return toggleMe(this,'div2')" class="btn" value="-"/>  2. Features supported by feconv</h2>
+
+    <p> The identification number (ID) of nodes and elements must start in 1 and be consecutive.</p>
+
+    <div id="div2">
+
+    <h3 id="node"><input type="button" onclick="return toggleMe(this,'div3')" class="btn" value="-"/>  Node datasets</h3>
+
+
+    <div id="div3">
+    <p>The node dataset contains the node number and their coordinates among other information. Feconv supports the datasets <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2411">2411</a> and <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-781">781</a> for reading node definition and uses the dataset <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2411">2411</a> for writing node data.</p>
+    <div class="back"><a href="#top">Back to top</a></div>
+    </div>
+
+
+    <h3 id="element"><input type="button" onclick="return toggleMe(this,'div4')" class="btn" value="-"/>  Element dataset</h3>
+
+    <div id="div4">
+    <p>The element datasets contains the element number, element descriptor, number of nodes and their connectivities among other information. Feconv supports the dataset <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2412">2412</a> for reading and writing element definition.</p>
+
+
+    <h4 id="fetypes"><input type="button" onclick="return toggleMe(this,'div5')" class="btn" value="-"/>  UNV finite element types allowed in feconv</h4>
+
+    <div id="div5">
+
+    <p>The UNV format describes a lot of different types of finite elements. In the following table you can see the finite elements allowed and its meaning in FEconv.</p>
+
+    <p>
+    <div align="center">
+    <table class="tb" width="80%">
+      <thead>
+        <tr> <th width="30%">UNV descriptor</th> <th align="left" width="30%">UNV name</th>  <th align="left" width="30%">FE type</th> </tr>
+      </thead>
+      <tbody>
+        <tr><td>11</td> <td align="left">Rod</td> <td align="left">Edge Lagrange P1</td> </tr>
+        <tr><td>21</td> <td align="left">Linear Beam</td> <td align="left">Edge Lagrange P1</td> </tr>
+        <tr><td>22</td> <td align="left">Tapered Beam</td> <td align="left">Edge Lagrange P2</td> </tr>
+        <tr><td>24</td> <td align="left">Parabolic Beam</td> <td align="left">Edge Lagrange P2</td> </tr>
+        <tr><td>41</td> <td align="left">Plane Stress Linear Triangle</td> <td align="left">Triangle Lagrange P1</td> </tr>
+        <tr><td>42</td> <td align="left">Plane Stress Parabolic Triangle</td> <td align="left">Triangle Lagrange P2</td> </tr>
+        <tr><td>44</td> <td align="left">Plane Stress Linear Quadrilateral</td> <td align="left">Quadrilateral Lagrange P1</td> </tr>
+        <tr><td>45</td> <td align="left">Plane Stress Parabolic Quadrilateral</td> <td align="left">Quadrilateral Lagrange P2</td> </tr>
+        <tr><td>81</td> <td align="left">Axisymetric Solid Linear Triangle</td> <td align="left">Triangle Lagrange P1</td> </tr>
+        <tr><td>82</td> <td align="left">Axisymetric Solid Parabolic Triangle</td> <td align="left">Triangle Lagrange P2</td> </tr>
+        <tr><td>84</td> <td align="left">Axisymetric Solid Linear Quadrilateral</td> <td align="left">Quadrilateral Lagrange P1</td> </tr>
+        <tr><td>85</td> <td align="left">Axisymetric Solid Parabolic Quadrilateral</td> <td align="left">Quadrilateral Lagrange P2</td></tr>
+        <tr><td>91</td> <td align="left">Thin Shell Linear Triangle</td> <td align="left">Triangle Lagrange P1</td> </tr>
+        <tr><td>92</td> <td align="left">Thin Shell Parabolic Triangle</td> <td align="left">Triangle Lagrange P2</td> </tr>
+        <tr><td>94</td> <td align="left">Thin Shell Linear Quadrilateral</td> <td align="left">Quadrilateral Lagrange P1</td> </tr>
+        <tr><td>95</td> <td align="left">Thin Shell Parabolic Quadrilateral</td> <td align="left">Quadrilateral Lagrange P2</td> </tr>
+        <tr><td>111</td> <td align="left">Solid Linear Tetrahedron</td> <td align="left">Tetrahedron Lagrange P1</td> </tr>
+        <tr><td>112</td> <td align="left">Solid Linear Wedge</td> <td align="left">Wedge Lagrange P1</td> </tr>
+        <tr><td>115</td> <td align="left">Solid Linear Brick</td> <td align="left">Hexahedron Lagrange P1</td> </tr>
+        <tr><td>116</td> <td align="left">Solid Parabolic Brick</td> <td align="left">Hexahedron Lagrange P2</td> </tr>
+        <tr><td>118</td> <td align="left">Solid Parabolic Tetrahedron</td> <td align="left">Tetrahedron Lagrange P2</td> </tr>
+        <tr><td>122</td> <td align="left">Rigid Element</td> <td align="left">Quadrilateral Lagrange P1</td> </tr>
+      </tbody>
+    </table>
+    </div>
+    </p>
+
+    <div class="back"><a href="#top">Back to top</a></div>
+    </div>    
+
+    <h4 id="vord"><input type="button" onclick="return toggleMe(this,'div6')" class="btn" value="-"/>  Local order of nodes</h4>
+
+    <div id="div6">
+
+    <p>There is no a formal specification about node ordering of UNV finite elements, it has been checked that the node order used in some software like <a href="http://www.salome-platform.org/">Salome</a>, <a href="http://www.code-aster.org">Code Aster</a> or <a href="http://www.ansys.com/Products/Simulation+Technology/Fluid+Dynamics/Fluid+Dynamics+Products/ANSYS+Fluent">Ansys Fluent</a> introduces the nodes sandwiched between the vertices.</p>
+
+    <p><a href="http://www.salome-platform.org/">Salome</a> can create pure isoparametric elements, it means Lagrange P2 elements with curved sides. Feconv only works with elements that its nodes lie on the midpoint of the straight line that connects two vertices; note that feconv check de midnodes to build connectivities properly. The way to read this kind of elements in feconv is to use the <a href="options.xhtml#reor"><code>-r sandwich</code></a> option.</p>
+
+    <p>The local order of nodes in each element respect the following rules:</p>
+
+    <p align="center"> 
+
+      <div id="fig-1" align="center"> <table class="tb2" width="80%"> <tbody>
+        <tr>
+          <td width="30%">
+            <p>a)</p>
+            <img  src="../images/unv/edgep1_ord.png" width="30%" onclick="enlarge(this);" longdesc="../images/unv/edgep1_ord.png"/>
+            <p><span class="caption" align="center"> Edge Lagrange P1.</span></p>
+          </td>
+          <td width="30%">
+            <p>b)</p>
+            <img src="../images/unv/triap1_ord.png" width="65%" onclick="enlarge(this);" longdesc="../images/unv/triap1_ord.png"/> 
+            <p><span class="caption" align="center"> Triangle Lagrange P1.</span></p>
+          </td>
+          <td width="30%">
+            <p>c)</p>
+            <img src="../images/unv/quadp1_ord.png" width="50%" onclick="enlarge(this);" longdesc="../images/unv/quadp1_ord.png"/>
+            <p><span class="caption" align="center"> Quadrilateral Lagrange P1.</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td width="30%">
+            <p>d)</p>
+            <img src="../images/unv/tetrap1_ord.png" width="50%" onclick="enlarge(this);" longdesc="../images/unv/tetrap1_ord.png"/>
+            <p><span class="caption" align="center"> Tetrahedron Lagrange P1.</span></p>
+          </td>
+          <td>
+            <p>e)</p>
+            <img src="../images/unv/hexap1_ord.png" width="60%" onclick="enlarge(this);" longdesc="../images/unv/hexap1_ord.png"/>
+            <p><span class="caption" align="center"> Hexahedron Lagrange P1.</span></p>
+          </td>
+          <td>
+            <p>f)</p>
+            <img src="../images/unv/pentap1_ord.png" width="50%" onclick="enlarge(this);" longdesc="../images/unv/pentap1_ord.png"/>
+            <p><span class="caption" align="center"> Pentahedron Lagrange P1.</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <p>g)</p>
+            <img src="../images/unv/edgep2_ord.png" width="30%" onclick="enlarge(this);" longdesc="../images/unv/edgep2_ord.png"/>
+            <p><span class="caption" align="center"> Edge Lagrange P2.</span></p>
+          </td>
+          <td>
+            <p>h)</p>
+            <img src="../images/unv/triap2_ord.png" width="65%" onclick="enlarge(this);" longdesc="../images/unv/triap2_ord.png"/>
+            <p><span class="caption" align="center"> Triangle Lagrange P2.</span></p>
+          </td>
+          <td>
+            <p>i)</p>
+            <img src="../images/unv/quadp2_ord.png" width="50%" onclick="enlarge(this);" longdesc="../images/unv/quadp2_ord.png"/>
+            <p><span class="caption" align="center"> Quadrilateral Lagrange P2.</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <p>j)</p>
+            <img src="../images/unv/tetrap2_ord.png" width="50%" onclick="enlarge(this);" longdesc="../images/unv/tetrap2_ord.png"/>
+            <p><span class="caption" align="center"> Tetrahedron Lagrange P2.</span></p>
+          </td>
+          <td>
+            <p>k)</p>
+            <img src="../images/unv/hexap2_ord.png" width="60%" onclick="enlarge(this);" longdesc="../images/unv/hexap2_ord.png"/>
+            <p><span class="caption" align="center"> Hexahedron Lagrange P2.</span></p>
+          </td>
+        </tr>
+      </tbody> </table>
+      <table class="tb" width="80%"> <tbody>
+        <tr><span class="caption"><p><strong>Figure 1:</strong> Local order of nodes on UNV elements.</p></span></tr>
+      </tbody> </table> </div>
+    </p>
+
+    <div class="back"><a href="#top">Back to top</a></div>
+
+    </div>
+    </div>
+
+    <h3 id="group"><input type="button" onclick="return toggleMe(this,'div7')" class="btn" value="-"/>  Group datasets</h3>
+
+    <div id="div7">
+    <p>Groups behave as references, and are useful to apply boundary conditions, materials ans sources to the mesh. Groups can contain nodes, edges, faces or elements.</p>
+
+    <p>The group datasets contains the group number, group name and a set of entities with their tags and entity types among other information. Feconv supports the dataset <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2467">2467</a>, 2477,<a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2452">2452</a>, <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2435">2435</a>, <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2432">2432</a> and <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2430">2430</a> for reading groups definition. Feconv uses then dataset <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2467">2467</a> for writing UNV groups.</p>
+
+    <div class="back"><a href="#top">Back to top</a></div>
+    </div>
+
+    <h3 id="fields"><input type="button" onclick="return toggleMe(this,'div8')" class="btn" value="-"/>  Field datasets</h3>
+
+    <div id="div8">
+    <p>The field datasets contain the field descriptors and a set of entities with their values and entity numbers among other information. Feconv supports the dataset <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2414">2414</a>, <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-55">55</a>, <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-56">56</a> and <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-57">57</a> for reading field definition. Feconv uses the dataset <a href="http://www.sdrl.uc.edu/sdrl/referenceinfo/universalfileformats/file-format-storehouse/universal-dataset-number-2414">2414</a> for writing UNV fields.</p>
+
+    <p>There may be scalar and vector fields, vector fields can have 3 componentes, 6 components for symmetric global tensors or 9 componentes for general tensors.</p>
+
+    <p>The field values can be located at nodes, on elements or at nodes on elements. Feconv only allows fields at nodes and on elements; data at nodes on elements will be processed to calculate the average of all node values ​​and store it on the element barycenter.</p>
+
+    <p>Field identification, in addition to its name, is given by the information of the problem solved. <a href="http://www.code-aster.org">Code Aster</a> defines the relationship between these information and the field name through <a href="http://www.code-aster.org/V2/doc/default/en/man_u/u7/u7.02.01.pdf">lire_resu</a> function, you can use <a href="../options.xhtml#ca"><code>-ca</code></a> option to read/write <a href="http://www.code-aster.org">Code Aster</a> UNV files.</p>
+
+    <div class="back"><a href="#top">Back to top</a></div>
+    </div>
+    </div>
+
+
+
+    </article>
+
+  </section>
+
+  <footer>
+    <p>&copy; 2018 <a href="http://www.usc.es">Universidade de Santiago de Compostela</a></p> 
+  </footer>
+
+</body>
+</html>
+

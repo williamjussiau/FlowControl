@@ -1,0 +1,7 @@
+creamake configure/creamake.$1.xml
+mv       Makefile  Makefile.$1
+make     -f        Makefile.$1 cleanlib
+make     -f        Makefile.$1
+
+#ToDo: a mmake for makelib
+

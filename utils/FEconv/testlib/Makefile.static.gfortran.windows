@@ -1,0 +1,7 @@
+test: test.f90
+	gfortran -static -o test.exe test.f90 -L../lib/ -I../include/ -L../basicmod/lib/ -I../basicmod/include/ -lfeconv -lbasicmod
+
+.PHONY: clean
+clean:
+	-del test.exe
+	-del *.mod

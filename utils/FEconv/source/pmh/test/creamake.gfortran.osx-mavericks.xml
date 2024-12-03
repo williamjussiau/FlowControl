@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Configuration data file for creamake with gfortran in Linux-->
+<!-- suggested fflags: -std=f2003 -Wall -g -fcheck=all -fbacktrace -fall-intrinsics -->
+<content>
+
+<sources>
+.
+..
+../../basicmod
+../../basicmod/gfortran
+../../basicmod/args
+../../basicmod/alloc
+../../basicmod/vtk
+../../mfm
+../../vtu
+</sources>
+ 
+<compiler>
+gfortran
+</compiler>
+
+<fflags>
+-Wall -g -fcheck=all -fbacktrace -fall-intrinsics -L /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk/usr/lib
+</fflags>
+
+</content>

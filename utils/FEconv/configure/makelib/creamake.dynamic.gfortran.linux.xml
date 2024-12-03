@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Configuration data file for creamake with gfortran in Linux -->
+<!-- See https://www.codeproject.com/articles/84461/mingw-static-and-dynamic-libraries -->
+<!-- Suggested fflags: -std=f2008 -fall-intrinsics -Wall -fcheck=all -fbacktrace -ggdb -->
+<content>
+
+<prolog>
+BMODLIB = basicmod/lib/libbasicmod.so
+</prolog>
+
+<sources>
+source
+source/cuthill_mckee
+source/ansys
+source/patran
+source/unv
+source/mfm
+source/mum
+source/vtu
+source/mphtxt
+source/pmh
+source/flux
+source/freefem
+source/fem_extract
+source/gmsh
+</sources>
+
+<exec>
+libfeconv.so
+</exec>
+
+<include>
+$(BMODLIB)
+</include>
+
+<compiler>
+gfortran
+</compiler>
+
+<fflags>
+-fPIC -Ibasicmod/include
+</fflags>
+
+<ldflags>
+-Lbasicmod/lib -lbasicmod
+</ldflags>
+
+<rules>
+$(ejecutable): $(includes) $(modulos_obj)
+	$(FC) -shared -Wl,-soname,$(ejecutable) -o $(ejecutable) $(condir_modulos_obj) $(LDFLAGS)
+	-mv $(ejecutable) lib/
+	-mv object/*.mod include/
+
+.PHONY: lib cleanlib
+lib: $(BMODLIB)
+
+$(BMODLIB): 
+	${MAKE} -f Makefile.dynamic.gfortran.linux -C basicmod
+
+cleanlib: clean
+	${RM} lib/$(ejecutable)
+	${RM} include/*
+	${MAKE} -f Makefile.dynamic.gfortran.linux -C basicmod cleanlib
+</rules>
+</content>

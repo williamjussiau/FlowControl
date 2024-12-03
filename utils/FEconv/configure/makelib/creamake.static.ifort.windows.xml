@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Configuration data file for creamake with ifort in Windows -->
+<!-- See http://www.nacad.ufrj.br/online/intel/Documentation/en_US/compiler_f/main_for/bldaps_for/common/bldaps_create_stlib.htm -->
+<!-- Suggested fflags: /nologo /stand:f15 /warn:all /check:all,noarg_temp_created /traceback /debug -->
+<content>
+
+<os>
+windows
+</os>
+
+<prolog>
+BMODLIB = basicmod\lib\libbasicmod.lib 
+</prolog>
+
+<sources>
+source
+source/cuthill_mckee
+source/ansys
+source/patran
+source/unv
+source/mfm
+source/mum
+source/vtu
+source/mphtxt
+source/pmh
+source/flux
+source/freefem
+source/fem_extract
+source/gmsh
+</sources>
+
+<exec>
+libfeconv.lib
+</exec>
+
+<include>
+$(BMODLIB)
+</include>
+
+<compiler>
+ifort
+</compiler>
+
+<fflags>
+/nologo /Ibasicmod\include
+</fflags>
+
+<ldflags>
+/static /link basicmod\lib\libbasicmod.lib 
+</ldflags>
+
+<rules>
+$(ejecutable): $(includes) $(modulos_obj)
+	lib /out:$(ejecutable) $(condir_modulos_obj)
+	-copy $(ejecutable) lib
+	-del $(ejecutable)
+	-copy object\*.mod include
+	-del object\*.mod
+
+.PHONY: lib cleanlib
+lib: $(BMODLIB)
+
+$(BMODLIB): 
+	${MAKE} -f Makefile.static.ifort.windows -C basicmod
+
+cleanlib: clean
+	-del lib\$(ejecutable)
+	-del include\*.mod
+	${MAKE} -f Makefile.static.ifort.windows -C basicmod cleanlib
+</rules>
+</content>

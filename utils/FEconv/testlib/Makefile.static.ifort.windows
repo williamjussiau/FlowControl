@@ -1,0 +1,9 @@
+# Do not put a final backslah in option /I
+test: test.f90
+	ifort test.f90 /libs:static /exe:test.exe /I..\include /I..\basicmod\include /link ..\lib\libfeconv.lib ..\basicmod\lib\libbasicmod.lib
+
+.PHONY: clean
+clean:
+	-del test.exe
+	-del *.mod
+	-del *.obj
