@@ -13,27 +13,15 @@ Equations from DENIS SIPP in FreeFem++
 ----------------------------------------------------------------------
 """
 
-# export PKG_CONFIG_PATH=/Users/philipc/miniconda3/envs/fenics/lib/pkgconfig:$PKG_CONFIG_PATH
-
 from __future__ import print_function
 from dolfin import *
-import ufl
 from mshr import Rectangle, Circle, generate_mesh
 import numpy as np
-import sys
 import os 
 import time
 import pandas as pd
-#from fenicstools.Probe import Probe, Probes
-#from mpi4py import MPI as mpi 
 import sympy as sp
-import functools
-from scipy import signal as ss
-import control
 import scipy.sparse as spr
-import scipy.io as sio
-import matplotlib.pyplot as plt
-import petsc4py
 from petsc4py import PETSc
 
 import pdb
@@ -236,51 +224,6 @@ class FlowSolver():
         delta = self.actuator_angular_size * pi/180 # angular size of acutator, in rad
         theta_tol = 1*pi/180 
 
-        # as functions
-        #def close_to_cylinder(x):
-        #    return between(x[0], (-self.d/2, self.d/2)) and between(x[1], (-self.d/2, self.d/2)) 
-        #def get_theta(x):
-        #    return ufl.atan_2(x[1], x[0])
-        #def cone_ri(theta):
-        #    return between(theta, (-pi/2+delta/2 - theta_tol, +pi/2-delta/2 + theta_tol))
-        #def cone_le(theta):
-        #    return between(theta, (-pi, -pi/2-delta/2+theta_tol)) or between(theta, (pi/2+delta/2-theta_tol, pi))
-        #def cone_up(theta):
-        #    return between(theta - pi/2, (-delta/2 - theta_tol, +delta/2 + theta_tol))
-        #def cone_lo(theta):
-        #    return between(theta + pi/2, (-delta/2 - theta_tol, +delta/2 + theta_tol))
-        
-        # as lambdas
-        #close_to_cylinder = lambda x: between(x[0], (-self.d/2, self.d/2)) and between(x[1], (-self.d/2, self.d/2)) # slow af
-        #get_theta = lambda x: ufl.atan_2(x[1], x[0])
-        #cone_ri = lambda theta: between(theta, (-pi/2+delta/2 - theta_tol, +pi/2-delta/2 + theta_tol))
-        #cone_le = lambda theta: between(theta, (-pi, -pi/2-delta/2+theta_tol)) or between(theta, (pi/2+delta/2-theta_tol, pi))
-        #cone_up = lambda theta: between(theta - pi/2, (-delta/2 - theta_tol, +delta/2 + theta_tol))
-        #cone_lo = lambda theta: between(theta + pi/2, (-delta/2 - theta_tol, +delta/2 + theta_tol))
-
-        ## Unactuated boundary of cylinder
-        #class boundary_cylinder(SubDomain):
-        #    def inside(self, x, on_boundary):
-        #        theta = get_theta(x)
-        #        #return on_boundary and close_to_cylinder(x) and (not cone_up(theta)) and (not cone_lo(theta))
-        #        # this doesnt work because some elements have no bc
-        #        return on_boundary and close_to_cylinder(x) and (cone_le(theta) or cone_ri(theta))
-        #cylinder = boundary_cylinder()
-        #
-        ## Actuated boundary of cylinder (up)
-        #class boundary_cylinder_actuator_up(SubDomain):
-        #    def inside(self, x, on_boundary):
-        #        theta = get_theta(x)
-        #        return on_boundary and close_to_cylinder(x) and cone_up(theta)
-        #actuator_up = boundary_cylinder_actuator_up()
-
-        ## Actuated boundary of cylinder (lo(w))
-        #class boundary_cylinder_actuator_lo(SubDomain):
-        #    def inside(self, x, on_boundary):
-        #        theta = get_theta(x)
-        #        return on_boundary and close_to_cylinder(x) and cone_lo(theta)
-        #actuator_lo = boundary_cylinder_actuator_lo()
-
         # Compiled subdomains
         # define them as strings
         # increased speed but decreased readability
@@ -324,64 +267,11 @@ class FlowSolver():
                                            #cylinder_whole]})
         self.actuator_angular_size_rad = delta
         self.boundaries = boundaries_df
-
-
-##    def make_sensor(self):
-##        '''Define sensor as fenicstools.Probe
-##        Could be defined as a volume/surface sensor some day'''
-##        # Sensor definition ###########################################################
-##        # Square with given size on which pressure is integrated
-##        #sensor_lim = {'xmin': 5,
-##        #              'xmax': 6,
-##        #              'ymin': 0,
-##        #              'ymax': 1}
-##        #sensor_area = (sensor_lim['xmax']-sensor_lim['xmin'])*(sensor_lim['ymax']-sensor_lim['ymin']) 
-##        #class sensor_subdomain(SubDomain):
-##        #    def inside(self, x, on_boundary):
-##        #        return  between(x[0], (sensor_lim['xmin']-MESH_TOL, sensor_lim['xmax']+MESH_TOL)) \
-##        #            and between(x[1], (sensor_lim['ymin']-MESH_TOL, sensor_lim['ymax']+MESH_TOL))
-##        #sensor = sensor_subdomain()
-##        #sensor_point = {'x': 1.5, 'y': 0.5}
-##        
-##        #xs = np.array([1.5, 0.5]) # 1.5 0.5
-##        #xs = np.array([2.5, 0.5]) # 1.5 0.5
-##        #xs = self.xs #np.array([1.5, 0.0]) # 1.5 0.5
-##        probe = Probes(self.sensor_location, self.W) # measurement on P, at xs
-##        
-##        #indicf_expr = Expression('(x[0]<xmax) && (x[0]>xmin) && (x[1]<ymax) && (x[1]>ymin) ? 1 : 0',
-##        #    element=Pe,
-##        #    xmin=sensor_lim['xmin'], xmax=sensor_lim['xmax'], 
-##        #    ymin=sensor_lim['ymin'], ymax=sensor_lim['ymax'])
-##        
-##        self.sensor = probe
-##        #self.sensor_location = xs
 ##        ###############################################################################
 
     def make_actuator(self):
         '''Define actuator on boundary
         Could be defined as volume actuator some day'''
-        # Actuator definition ###########################################################
-        #actuator_lim = {'xcenter': 1.5,
-        #                'ycenter': 0.25,
-        #                'sigma': 2,
-        #                'nsig':3}
-        #actuator_area = 3.14*actuator_lim['sigma']**2*3
-        #class actuator_subdomain(SubDomain):
-        #    def inside(self, x, on_boundary):
-        #        rr = (x[0]-actuator_lim['xcenter'])**2 +(x[1]-actuator_lim['ycenter'])**2
-        #        return rr  <= actuator_lim['nsig']*actuator_lim['sigma']**2
-        #actuator = actuator_subdomain()
-        # Actuation function
-        #class actuator_exp(UserExpression):
-        #    def eval(self, value, x):
-        #        value[0] = 0.0
-        #        value[1] = 0.0
-        #        rr = (x[0]-actuator_lim['xcenter'])**2 +(x[1]-actuator_lim['ycenter'])**2
-        #        if(rr <= actuator_lim['nsig']*actuator_lim['sigma']**2):
-        #            value[1] = exp(-(1/2) * rr / actuator_lim['sigma']**2)
-        #    def value_shape(self):
-        #        return(2,)
-
         # objective: function is absolutely 0 @ distance L from center
         # so we set [virtual sigma] = L/n, 
         # so that the value @ L is the value at [n virtual sigma]
@@ -427,18 +317,6 @@ class FlowSolver():
         for i, boundary_index in enumerate(boundaries_idx):
             self.boundaries.iloc[i].subdomain.mark(boundary_markers, boundary_index)
             self.boundaries.iloc[i].subdomain.mark(cell_markers, boundary_index)
-
-        # Dirichlet BC
-        #inlet_tau = 100*d
-        #class inlet_velocity(UserExpression):
-        #    def eval(self, value, x):
-        #        value[0] = uinf * (1 - exp(-self.t / self.tau))
-        #        value[1] = 0.0
-        #    def value_shape(self):
-        #        return (2,)
-        #inlet_expr = inlet_velocity(element=Ve)
-        #inlet_expr.tau = inlet_tau
-        # bcu_inlet = DirichletBC(W.sub(0), inlet_expr, inlet)
         
         # inlet : u = uinf, v = 0
         bcu_inlet = DirichletBC(self.W.sub(0), Constant((self.uinf, 0)), 
@@ -474,11 +352,6 @@ class FlowSolver():
         self.boundaries['idx'] = boundaries_idx
         self.bc = {'bcu': bcu, 'bcp': bcp}
 
-        #print('area is: -----', assemble(Constant(1)*ds(self.boundaries.loc['cylinder_whole'].idx)))
-        #print('area is: -----', assemble(Constant(1)*ds(self.boundaries.loc['cylinder'].idx)))
-        #print('area is: -----', assemble(Constant(1)*ds(self.boundaries.loc['actuator_up'].idx)))
-        #print('area is: -----', assemble(Constant(1)*ds(self.boundaries.loc['actuator_lo'].idx)))
-
         # create zeroBC for perturbation formulation
         bcu_inlet = DirichletBC(self.W.sub(0), Constant((0, 0)), 
             self.boundaries.loc['inlet'].subdomain)
@@ -511,13 +384,6 @@ class FlowSolver():
             self.p0 = p0
             self.up0 = up0
             self.y_meas_steady = self.make_measurement(mixed_field=up0) 
-            # steady energy
-            #self.Eb = 1/2 * norm(u0, norm_type='L2', mesh=self.mesh) # same as <up, Q@up>
-            #self.Eb = self.compute_energy(full=True, diff=False, normalize=False) 
-            ## energy of restricted state
-            ##self.u_restrict.vector()[:] = self.u0.vector()[:] * self.IF.vector()[:]
-            ##self.Eb_r = 1/2 * norm(self.u_restrict, norm_type='L2', mesh=self.mesh) # Eb restricted by self.IF
-            #self.Eb_r = self.compute_energy(full=False, diff=False, normalize=False)
 
             # assign steady energy
             self.Eb = 1/2 * norm(u0, norm_type='L2', mesh=self.mesh)**2 # same as <up, Q@up>
@@ -580,7 +446,6 @@ class FlowSolver():
             print('Drag coefficient is: cd =', cd)
         
         # Set old actuator amplitude
-        # is it necessary???
         self.actuator_expression.ampl = actuation_ampl_old
 
         # assign steady state
@@ -595,24 +460,6 @@ class FlowSolver():
         # Eb restricted
         self.u_restrict.vector()[:] = self.u0.vector()[:] * self.IF.vector()[:]
         self.Eb_r = 1/2 * norm(self.u_restrict, norm_type='L2', mesh=self.mesh)**2 # Eb restricted by self.IF
-
-
-   # def make_form_mixed_steady(self):
-   #     '''Make nonlinear forms for steady state computation, in mixed element space.
-   #     Can be used to assign self.F0 and compute state spaces matrices.'''
-   #     v, q = TestFunctions(self.W)
-   #     up_ = Function(self.W)
-   #     u_, p_ = split(up_)
-   #     iRe = Constant(1/self.Re)
-   #     # Problem
-   #     F0 = dot(dot(u_, nabla_grad(u_)), v)*dx \
-   #         + iRe*inner(nabla_grad(u_), nabla_grad(v))*dx \
-   #         - p_*div(v)*dx \
-   #         - q*div(u_)*dx
-   #     self.F0 = F0
-   #     self.up_ = up_
-   #     self.u_ = u_
-   #     self.p_ = p_
 
 
     def make_form_mixed_steady(self, initial_guess=None):
@@ -638,22 +485,6 @@ class FlowSolver():
         self.p_ = p_
 
 
-#    def make_form_mixed_steady_perturbation(self):
-#        '''Make form for steady state (linearized perturbation formulation).
-#        Note: unused?'''
-#        v, q = TestFunctions(self.W)
-#        u, p = TrialFunctions(self.W)
-#        iRe = Constant(1/self.Re)
-#        # Problem
-#        u0 = self.u0
-#        F1 = dot( dot(u0, nabla_grad(u)), v)*dx \
-#           + dot( dot(u, nabla_grad(u0)), v)*dx \
-#           + iRe*inner(nabla_grad(u), nabla_grad(v))*dx \
-#           - p*div(v)*dx \
-#           - div(u)*q*dx 
-#        self.F0p = F1
-
-
     def compute_steady_state_newton(self, max_iter=25, initial_guess=None):
         '''Compute steady state with built-in nonlinear solver (Newton method)
         initial_guess is a (u,p)_0'''
@@ -662,11 +493,6 @@ class FlowSolver():
         #    print('- Newton solver without initial guess')
         up_ = self.up_
         u_, p_ = self.u_, self.p_
-        #else:
-        #    print('- Newton solver with initial guess')
-        #    up_ = initial_guess
-        #    #up_ = Function(self.W)
-        #    u_, p_ = up_.split(deepcopy=True)
         # Solver param
         nl_solver_param = {"newton_solver":
                                 {
@@ -765,33 +591,11 @@ class FlowSolver():
             
             # define drag & lift expressions
             # sum symbolic forces
-            drag_sym = sum([Fo[0]*self.ds(int(sfi)) for sfi in surfaces_idx])
-            lift_sym = sum([Fo[1]*self.ds(int(sfi)) for sfi in surfaces_idx])
+            drag_sym = sum([Fo[0]*self.ds(int(sfi)) for sfi in surfaces_idx]) # (forced int)
+            lift_sym = sum([Fo[1]*self.ds(int(sfi)) for sfi in surfaces_idx]) # (forced int)
             # integrate sum of symbolic forces
             drag = assemble(drag_sym)
             lift = assemble(lift_sym)
-
-            ## integrate forces on each surface
-            #drag_sum = [assemble(Fo[0]*self.ds(sfi)) for sfi in surfaces_idx]
-            #lift_sum = [assemble(Fo[1]*self.ds(sfi)) for sfi in surfaces_idx]
-            ##print('drag_sum, lift_sum:', drag_sum, lift_sum)
-            ### sum integrands
-            #drag = sum(drag_sum)
-            #lift = sum(lift_sum)
-
-            #print('----------- diagnostic from compute_force_coefficients ------------')
-            #print('(display order: assemble(sum(symbolic)), sum(assemble(symbolic)), list')
-            #print('lift is: ', lift, sum(lift_sum), lift_sum)
-            #print('drag is: ', drag, sum(drag_sum), drag_sum)
-
-            
-            ## start anew with dedicated subregion
-            #cyl_idx = 1
-            #cyl_mkr = MeshFunction('size_t', self.mesh, self.mesh.topology().dim() - 1)
-            #self.cylinder_intg.mark(cyl_mkr, cyl_idx)
-            #dsc  = Measure('ds', domain=self.mesh, subdomain_data=cyl_mkr)
-            #drag = assemble(Fo[0]*dsc(cyl_idx))
-            #lift = assemble(Fo[1]*dsc(cyl_idx))
 
             # define force coefficients by normalizing
             cd = drag/(1/2*self.uinf**2*self.d)
@@ -896,20 +700,6 @@ class FlowSolver():
         u0 = flu.projectm(curl(a0), V1)
         
         ##divu0 = flu.projectm(div(u0), self.P)
-
-        ## 1 step div(curl())
-        #divcurl1 = flu.projectm(div(curl(a0)), self.V.sub(0).collapse())
-        #
-        ## 2 steps (div(curl())
-        #Pe = FiniteElement('DG', self.mesh.ufl_cell(), 0)
-        #P0 = FunctionSpace(self.mesh, Pe)
-        #divcurl2 = flu.projectm( div(u0), P0 )
-
-        ## Check
-        ## this obviously does not work
-        #flu.show_max(divcurl1, 'div(rand_u0) (1 project)')
-        #flu.show_max(divcurl2, 'div(rand_u0) (2 project)')
-
         return u0
 
 
@@ -1237,30 +1027,12 @@ class FlowSolver():
                t0 = time.time()
                ret = solver.solve(upsol.vector(), bb) # solve Ax=b
                tsolve = time.time() - t0
-
-               #i += 1
-               #self.alltimes[i] += tsolve
-               #i += 1
-               #self.alltimes.loc['assemble'][str(i)] += tassemble
-               #self.alltimes.loc['solve'][str(i)] += tsolve
-               # here: instead of assembling b everytime (especially step 1):
-               # do: assemble(part of b) + u @ Dx @ b 
-               # so: need to define b_partial that does not take into account convection
-               # where the last part is <u, grad u> = convection term
                 
         # at this point:
         # x(t+dt) = u_
         # x(t) = u_n
         # x(t-dt) = u_nn
         # do not move these lines after the assignment
-
-        #if self.compute_norms:
-        #    xdot = Function(self.V)
-        #    xdot.vector()[:] = (3*u_.vector()[:] - 4*u_n.vector()[:] + u_nn.vector()[:])/(2*self.dt)
-        #    normxdot = norm(xdot, norm_type='L2', mesh=self.mesh)
-        #    if not hasattr(self, 'normxdot'):
-        #        self.normxdot = []
-        #    self.normxdot.append(normxdot)
 
         # Assign next
         u_nn.assign(u_n) # x(t-dt)
@@ -1289,9 +1061,6 @@ class FlowSolver():
         # cl, cd = 0, 1 
         if self.compute_norms:
             dE = self.compute_energy(full=True, diff=True, normalize=True)
-            #flu.MpiUtils.check_process_rank()
-            #print('i am calculating norm: ', dE)
-            #print('base flow energy is: ', self.Eb)
         else:
             dE = -1
 
@@ -1379,14 +1148,6 @@ class FlowSolver():
         if not hasattr(self, 'assemblers_p'):# make forms
             if self.verbose:
                 print('Perturbations forms DO NOT exist: create...')
-            #if self.perturb_initial_state:
-            #    u_n = self.get_div0_u()
-            #    u_nn = u_n.copy(deepcopy=True)
-            #else:
-            #    if initial_up is None:
-            #        u_n.vector().zero()
-            #        u_nn.vector().zero()
-            #    # else keep as defined by initial_up
 
             shift = Constant(shift)
             # 1st order integration
@@ -1619,21 +1380,6 @@ class FlowSolver():
             subdomain_str = 'x[0]<=10 && x[0]>=-2 && x[1]<=3 && x[1]>=-3'
             subdomain = CompiledSubDomain(subdomain_str)
 
-            #class IndicatorFunction(flo.UserExpression):
-            #    def __init__(self, subdomain, **kwargs):
-            #        self.subdomain = subdomain
-            #        super(IndicatorFunction, self).__init__(**kwargs)
-            #    def eval(self, values, x):
-            #        values[0] = 0
-            #        values[1] = 0
-            #        if self.subdomain.inside(x, True):
-            #            values[0] = 1
-            #            values[1] = 1
-            #    def value_shape(self):
-            #        return (2,)
-            ## interpreted 
-            #IF = IndicatorFunction(subdomain)
-
             # compiled
             IF = Expression([subdomain_str]*2, degree=0, element=self.V.ufl_element())
             # then project on V
@@ -1759,14 +1505,6 @@ class FlowSolver():
             print('Elapsed time: ', time.time() - t0)
 
         return Jac
-        
-        #if not hasattr(self, 'F0'):
-        #    self.make_form_mixed_steady()
-        
-        #R = action(self.F0, self.up0) ## what is this?
-        #DR = derivative(R, self.up0)
-        # for lumping maybe
-        #self.DR = DR
 
 
     def get_B(self, export=False, timeit=True):
@@ -1780,55 +1518,6 @@ class FlowSolver():
         # for a boundary actuator -> evaluate actuator on boundary
         actuator_ampl_old = self.actuator_expression.ampl
         self.actuator_expression.ampl = 1.0
-
-        #W = self.W
-        #ndof = W.dim()
-        #element = W.element()
-        #dofmap = W.dofmap()
-        ##list of dof coordinates
-        #dofmap_x = W.tabulate_dof_coordinates()
-        ## ownership range
-        #ownr = dofmap.ownership_range()
-        #flu.MpiUtils.check_process_rank()
-        #print('My ownership range is:', ownr) 
-        #print('I currently own coordinates of size:', len(dofmap_x))
-        
-        # probably not ordred as in dofmap.dofs() ??? looks like it is, though!!
-        #for cell in cells(mesh):
-        #    if 1 in dofmap.cell_dofs(cell.index()):
-        #        pass 
-        #        #print(element.tabulate_dof_coordinates(cell))
-        #        #print(dofmap.cell_dofs(cell.index()))
-     
-        # define dummy DirichletBC to get dofs on boundary
-        # idea: take only dofs that lie in the space of the actuation function 
-        # = W.sub(0).sub(1)
-        # this is correct for a particular actuation function on W.sub(0).sub(1)!
-
-        # for subspace = [u, v, p]
-        #  get dofs that lie in subspace
-        #  get coordinates of said dofs
-        #  get actuation at said coordinates, projected on subspace
-        #  fill corresponding coefficient of B (dof idx) with actuation projection on subsp
-
-
-
-        ## function space
-        #Ve = VectorElement('CG', mesh.ufl_cell(), 2)
-        #Pe = FiniteElement('CG', mesh.ufl_cell(), 1) 
-        #We = MixedElement([Ve, Pe])
-        #W = FunctionSpace(mesh, We) 
-        #V = FunctionSpace(mesh, Ve) 
-        #P = FunctionSpace(mesh, Pe) 
-        ## expression (actuator)
-        #actu = Expression(['0.0', '1.0'], degree=0)
-        ## bc
-        #boundary = CompiledSubDomain('on_boundary and near(x[0], 0, DOLFIN_EPS)')
-        #boundary_idx = []
-        #for fspace in [W.sub(0).sub(0), W.sub(0).sub(1), W.sub(1)]:
-        #    bc = DirichletBC(fspace, Constant(0), boundary)
-        #    boundary_idx += list(bc.get_boundary_values().keys())
-        #print('dofs on BC:', boundary_idx)
 
         # Method 1 
         # restriction of actuation of boundary
@@ -1872,135 +1561,6 @@ class FlowSolver():
             ww.assign(B_all_actuator)
             fa.assign([vv, pp], ww)
             flu.write_xdmf('B.xdmf', vv, 'B')
-            #file_v = File('B.pvd')
-            #file_v << vv
-
-        # Old method (does not go parallel because of sizes and stuff)
-        ### bc to localize dofs
-        ##zerobc = Constant(0)
-        ### shortcut to actuators
-        ##actuator_up = self.boundaries.loc['actuator_up'].subdomain
-        ##actuator_lo = self.boundaries.loc['actuator_lo'].subdomain
-        ### make function seamless wrt actuator amplitude (get old, then set old)
-        ##actuator_ampl_old = self.actuator_expression.ampl
-        ##self.actuator_expression.ampl = 1
-
-        ### fill B
-        ##B = np.zeros((ndof,))
-        ##print('I own a chunk of B of size:', len(B))
-        ### loop over function spaces: dofs corresponding to u, v, p
-        ##for ifs, fspace in enumerate([W.sub(0).sub(0), W.sub(0).sub(1), W.sub(1)]):
-        ##    # loop over actuator zones: up and lo
-        ##    for actu in [actuator_up, actuator_lo]:
-        ##        # set dummy bc on actuator part
-        ##        bc_ = DirichletBC(fspace, zerobc, actu)
-        ##        # get indices of dofs in dummy bc (correspond to dofs on actuator)
-        ##        idx_ = list(bc_.get_boundary_values().keys()) 
-        ##        # get coordinates of said dofs
-        ##       
-        ##        print('idx of dofs on actuator are (global idx?):', idx_)
-        ##        idx_list_to_global = [dofmap.local_to_global_index(i) for i in idx_]
-        ##        print('list of indices to global is: ', idx_list_to_global)
-        ##        #if idx_>=ownr[0] and idx_<=ownr[1]:
-        ##        isinun = [ii in dofmap.local_to_global_unowned() for ii in idx_]
-        ##        print('unowned dofs are:', dofmap.local_to_global_unowned())
-        ##        print('index is in unowned: ', isinun)
-        ##        coo_ = dofmap_x[idx_] 
-        ##        
-        ##        #print('unowned dofs are of size:', len(dofmap.local_to_global_unowned()))
-        ##      
-        ##        # probleme : lorsque le calcule est fait sur n proc, les dofs
-        ##        # son separes sur les n proc et dofmap_x est distribuee
-        ##        # mais les indices idx_ ne sont pas convertis
-        ##        # ddonc un indice i dans idx_ peut dépasser de dofmap_x
-        ##        # et pire encore, si i dans idx_ ne dépasse pas,
-        ##        # est-ce que dofmap_x(i) est le "bon" (ie global) élément ?
-        ##        # maintenant, ce n'est pas sûr que les indices soint globaux car on peut leur appliquer
-        ##        # local_to_global et dans ce ca ils passent de 
-        ##        # il se pourait que les indices qui posent probleme
-        ##        #soit des dofs partages entre proc ???
-# on dir##ait que non, mais c'est bizarre que ce soit si proche de la taille de la dofmap
-# c'est ##probablement un hasard car le bug n'apparait qu'avec un grand nombre de procs ?
-# observ##ation : en sequentiel avec nx=32, np.argmax(B)=13426
-# en par##allele, argmax(Bà=4931... et on dirait que local_to_global(4931) 
-# peut v##aloir 13426 ( à vue de nez)
-# donc i##l faut bien realiser un local_to_global pour remplir B
-# mais l##'actionnement est calculé sur dof(idx) local ? ou pas ???
-# on dir##ait que oui car il s'agit juste de choper les bonnes coordonnées
-# la con##version vers l'indice du dof se fait ensuite avec local_to_global
-# la que##stion maintenant et de pouvoir faire le lien entre
-# les  v##ersions locales des coordonneess et les indices
-# des do##fs tels que trouves sur la frontiere
-# faire ##un mwe avec des elements plus faciles ???
-
-        ##        #print('length of B is: ', len(B)) 
-        ##        #print('ownr is: ', ownr) 
-
-        ##        # loop over those dofs
-        ##        for i, idx in enumerate(idx_):
-        ##            # actuation is defined on [u, v]
-        ##            actuation_uv = self.actuator_expression(coo_[i])
-        ##            # extend actuation to [u, v, p]
-        ##            actuation_uvp = np.hstack([actuation_uv, 0.0])
-        ##            # take coefficient on fspace
-        ##            actuation_fspace = actuation_uvp[ifs]
-        ##            # fill B in corresponding dof 
-        ##            #if idx >= ownr[0] and idx <= ownr[-1]: # idx in ownership range
-        ##            B[idx] = actuation_fspace 
-        ##            # ^^^  this is problematic for parallel
-
-        #### ------------------------------ old old method
-        ##fspace = W.sub(0).sub(1)
-        ##fsize = fspace.element().value_dimension(0)
-        ##if fsize==1:
-        ##    zerobc = Constant(0)
-        ##else:
-        ##    zerobc = Constant((0,)*fsize)
-        ##bcu_up_alldof = DirichletBC(fspace, zerobc, self.boundaries.loc['actuator_up'].subdomain)
-        ##bcu_lo_alldof = DirichletBC(fspace, zerobc, self.boundaries.loc['actuator_lo'].subdomain)
-    
-        ### list of dof that lie on the boundary, in fspace
-        ##idx_up = list(bcu_up_alldof.get_boundary_values().keys())
-        ##idx_lo = list(bcu_lo_alldof.get_boundary_values().keys())
-    
-        ### corresponding dof or not necessary ?
-        ##dof_idx_up = np.array(dofmap.dofs())[idx_up] # or just np.array(idx_up) ???
-        ##dof_idx_lo = np.array(dofmap.dofs())[idx_lo]
-        ##
-        ### corresponding coordinates
-        ##dof_coo_up = dofmap_x[dof_idx_up]
-        ##dof_coo_lo = dofmap_x[dof_idx_lo]
-    
-        ##actuator_ampl_old = self.actuator_expression.ampl
-        ##self.actuator_expression.ampl = 1
-        ##def actuation_fun_on_v(x):
-        ##    return self.actuator_expression(x)[1] # (u, v)[1] = v coordinate
-    
-        ##B = np.zeros((ndof,))
-        ###for idx, dof in enumerate(dof_idx_up):
-        ###    print('UP; filling dof {0} with coordinates {1}'.format(dof, dof_coo_up[idx]))
-        ###    B[dof] = actuation_fun_on_v(dof_coo_up[idx])
-        ###print('------------')
-        ###for idx, dof in enumerate(dof_idx_lo):
-        ###    print('LO; filling dof {0} with coordinates {1}'.format(dof, dof_coo_lo[idx]))
-        ###    B[dof] = actuation_fun_on_v(dof_coo_lo[idx])
-    
-        ##all_dof_idx = np.concatenate((dof_idx_up, dof_idx_lo))
-        ##all_dof_coo = np.concatenate((dof_coo_up, dof_coo_lo))
-        ##for idx, dof in enumerate(all_dof_idx):
-        ##    #print('** filling dof {0} with coordinates {1}'.format(dof, all_dof_coo[idx]))
-        ##    B[dof] = actuation_fun_on_v(all_dof_coo[idx])
-        #### ------------------------------ old
-
-        ## Check
-        ## Make zero velocity field
-        #uvp = Function(W)
-        ## Zero evolution, only actuation
-        #u_test = 1
-        #uvp_next = Function(W)
-        #uvp_next.vector().set_local(uvp.vector().get_local() + B*u_test)
-        ## flu.write_xdmf('/stck/wjussiau/fenics-python/ns/check_B.xdmf', uvp_next.sub(0), 'uv_next')
-        ## this is an absolute win!
     
         self.actuator_expression.ampl = actuator_ampl_old
    
@@ -2206,41 +1766,8 @@ if __name__=='__main__':
                    'perturbations': True, #######
                    'NL': True, ################# NL=False only works with perturbations=True
                    'init_pert': 0} # initial perturbation amplitude, np.inf=impulse (sequential only?)
-    ## nx32
-    #params_mesh = {'genmesh': True,
-    #               'remesh': False,
-    #               'nx': 32,
-    #               'meshpath': '/stck/wjussiau/fenics-python/mesh/', 
-    #               'meshname': 'S53.xdmf',
-    #               'xinf': 20, # 50, # 20
-    #               'xinfa': -5, # -30, # -5
-    #               'yinf': 8, # 30, # 8
-    #               'segments': 360,
-    #               }
-    # m1
-    #params_mesh = {'genmesh': False,
-    #               'remesh': False,
-    #               'nx': 1,
-    #               'meshpath': '/stck/wjussiau/fenics-python/mesh/', 
-    #               'meshname': 'M1.xdmf',
-    #               'xinf': 40, # 50, # 20
-    #               'xinfa': -25, # -30, # -5
-    #               'yinf': 25, # 30, # 8
-    #               'segments': 360,
-    #               }
-    # n1
-    #params_mesh = {'genmesh': False,
-    #               'remesh': False,
-    #               'nx': 1,
-    #               'meshpath': '/stck/wjussiau/fenics-python/mesh/', 
-    #               'meshname': 'N1.xdmf',
-    #               'xinf': 20, # 50, # 20
-    #               'xinfa': -10, # -30, # -5
-    #               'yinf': 10, # 30, # 8
-    #               'segments': 540,
-    #               }
+   
     # o1
-
     params_mesh = {'genmesh': False,
                    'remesh': False,
                    'nx': 1,
@@ -2277,19 +1804,9 @@ if __name__=='__main__':
 
    
     print('Step several times')
-    #sspath = '/scratchm/wjussiau/fenics-python/cylinder/data/nx32/regulator/'
-    #G = flu.read_ss(sspath + 'sysid_o16_d=3_ssest.mat')
-    #Kss = flu.read_ss(sspath + 'K0_o8_y1=[3,0]_y2=[1,05]_S_KS_clpoles.mat')
-    #sspath = '/scratchm/wjussiau/fenics-python/cylinder/data/m1/regulator/'
-    #G = flu.read_ss(sspath + 'sysid_o16_ny=2_y1=[3,0]_y2=[1,05].mat')
-    #Kss = flu.read_ss(sspath + 'K0_o8_y1=[3,0]_y2=[1,05]_S_KS_clpoles.mat')
     sspath = Path(__file__).parent / 'data_input'
     G = flu.read_ss(sspath / 'sysid_o16_d=3_ssest.mat')
     Kss = flu.read_ss(sspath / 'Kopt_reduced13.mat')
-    #G = flu.read_ss(sspath + 'sysid_o16_ny=5_y1=[2,0]_y2=[2,025]_y3=[2,05]_y4=[2,1]_y5=[3,0].mat')
-    #Kss = flu.read_ss(sspath + 'K0_o8_y1=[2,0]_y2=[2,025]_y3=[2,05]_y4=[2,1]_y5=[3,0]_S_KS_clpoles.mat')
-    #G = flu.read_ss(sspath + 'sysid_o16_ny=2_y1=[3,0]_y2=[1,05].mat')
-    #Kss = flu.read_ss(sspath + 'K0_o8_y1=[3,0]_y2=[1,05]_S_KS_clpoles.mat')
     
     x_ctrl = np.zeros((Kss.A.shape[0],))
    
@@ -2332,7 +1849,4 @@ if __name__=='__main__':
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
-
-
-
 

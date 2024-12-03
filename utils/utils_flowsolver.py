@@ -1074,14 +1074,6 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
         Ablk = Ablk.tocsr()
         #Ablk_csr = (Ablk.indptr, Ablk.indices, Ablk.data)
 
-        #import pdb
-        #pdb.set_trace()
-
-        #print('indptr: ', Ablk.indptr.shape)
-        #print('indices: ', Ablk.indices.shape)
-        #print('data: ', Ablk.data.shape)
-        #print('shape: ', Ablk.shape)
-
         Ablk_csr = (  Ablk.indptr[rstart:rend+1] - Ablk.indptr[rstart],
                       Ablk.indices[Ablk.indptr[rstart]:Ablk.indptr[rend]],
                       Ablk.data[Ablk.indptr[rstart]:Ablk.indptr[rend]]     )
