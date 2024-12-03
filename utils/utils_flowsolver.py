@@ -5,7 +5,6 @@ Utilitary functions for FlowSolver
 import time
 
 import numpy as np
-import scipy as scp
 import scipy.signal as ss
 import scipy.io as sio
 import scipy.linalg as la
@@ -15,6 +14,8 @@ import control
 import petsc4py
 from petsc4py import PETSc
 from slepc4py import SLEPc
+
+import os
 
 from dolfin import *
 

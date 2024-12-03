@@ -6,4 +6,5 @@ __pycache__
 timeseries1D*.csv
 ._*
 *.msh
-*/data_output/*
+data_output/*
+test_3rdparty/
