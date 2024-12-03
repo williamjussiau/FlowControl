@@ -3,6 +3,7 @@ __pycache__
 *.xdmf
 *.h5
 *.npy
-timeseries*.csv
+timeseries1D*.csv
 ._*
 *.msh
+*/data_output/*
