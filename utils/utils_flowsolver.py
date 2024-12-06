@@ -736,7 +736,7 @@ def export_stress_tensor(sigma, mesh, filename='stress_tensor.xdmf',
 
 
 # Signal processing and array utility # GOTO ##################################
-def compute_signal_frequency(sig, nzp=10):
+def compute_signal_frequency(sig, Tf, nzp=10):
     '''Compute frequency of periodic signal
     with FFT+zero-padding (nzp*len(sig)).
     Can be used to compute Strouhal number
