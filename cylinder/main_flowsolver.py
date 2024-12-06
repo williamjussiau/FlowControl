@@ -8,8 +8,7 @@ Scheme (IPCS).
 
 
 ----------------------------------------------------------------------
-Equations were made non-dimensional with Reynolds numbers
-Equations from DENIS SIPP in FreeFem++
+Equations were made non-dimensional
 ----------------------------------------------------------------------
 """
 
