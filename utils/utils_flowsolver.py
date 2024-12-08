@@ -809,7 +809,7 @@ def step_controller(K, x, e, dt):
 
     Tsim = [0, dt]
     _, yout, xout = control.forced_response(
-        sys=K, U=e_rep, T=Tsim, X0=x,
+        K, U=e_rep, T=Tsim, X0=x,
         interpolate=False, return_x=True) # y=y(t)
     u = np.ravel(yout)[0]
     x = xout[:, 1] # this is x(t+dt)
