@@ -14,7 +14,7 @@ Equations were made non-dimensional
 
 from __future__ import print_function
 import dolfin
-from fenics import dot, inner, grad, nabla_grad, sym, div, curl, dx
+from dolfin import dot, inner, grad, nabla_grad, sym, div, curl, dx
 from mshr import Rectangle, Circle, generate_mesh
 import numpy as np
 import os
@@ -45,11 +45,11 @@ class FlowSolver:
 
     def __init__(
         self,
-        params_flow={},
-        params_time={},
-        params_save={},
-        params_solver={},
-        params_mesh={},
+        params_flow,
+        params_time,
+        params_save,
+        params_solver,
+        params_mesh,
         verbose=True,
     ):
         # Probably bad practice
@@ -1193,145 +1193,6 @@ class FlowSolver:
         ts1d.loc[0, "dE"] = dEb
         self.timeseries = ts1d
 
-    def step(self, u_ctrl):
-        """Update state x(t)->x(t+dt) with control u_ctrl(t) and output y(t)=h(x(t), u_ctrl(t))
-        This function usually goes in an external time loop
-        It also logs some data for post-processing"""
-        # measure runtime
-        t0i = time.time()
-
-        # assign control u(t)
-        self.actuator_expression.ampl = u_ctrl
-
-        # solve once
-        u_ = self.u_
-        p_ = self.p_
-        u_n = self.u_n
-        u_nn = self.u_nn
-        p_n = self.p_n
-
-        assemblers = self.assemblers[self.order]
-        solvers = self.solvers[self.order]
-
-        ret = 0
-        # ugly try/catch for now
-        if not self.throw_error:  # used for optimization -> return error code
-            try:
-                # Solve 3 steps
-                for assmbl, solver, bb, upsol in zip(
-                    assemblers, solvers, self.bs, (u_, p_, u_)
-                ):
-                    assmbl.assemble(bb)  # assemble dolfin.rhs
-                    ret = solver.solve(upsol.vector(), bb)  # solve Ax=b
-            except RuntimeError:
-                # Usually Krylov solver exploding return a RuntimeError
-                # See: error_on_nonconvergence (but need to catch error somehow)
-                print("Error solving system --- Exiting step()...")
-                return -1  # -1 is error code
-        else:  # used for debugging -> show error message
-            # Solve 3 steps
-            # i = 0
-            for assmbl, solver, bb, upsol in zip(
-                assemblers, solvers, self.bs, (u_, p_, u_)
-            ):
-                #t0 = time.time()
-                assmbl.assemble(bb)  # assemble dolfin.rhs
-                #tassemble = time.time() - t0
-                #t0 = time.time()
-                ret = solver.solve(upsol.vector(), bb)  # solve Ax=b
-                #tsolve = time.time() - t0
-
-        # at this point:
-        # x(t+dt) = u_
-        # x(t) = u_n
-        # x(t-dt) = u_nn
-        # do not move these lines after the assignment
-
-        # Assign next
-        u_nn.assign(u_n)  # x(t-dt)
-        u_n.assign(u_)  # x(t)
-        p_n.assign(p_)
-
-        # Update time
-        self.iter += 1
-        self.t = self.Tstart + (self.iter) * self.dt  # better accuracy than t+=dt
-
-        # Assign to self
-        self.u_ = u_
-        self.p_ = p_
-        self.u_n = u_n
-        self.u_nn = u_nn
-        self.p_n = p_n
-
-        # Goto order 2 next time
-        self.order = 2
-
-        # Measurement of y(t+dt)
-        self.y_meas = self.make_measurement()
-
-        # Log timeseries
-        cl, cd = self.compute_force_coefficients(u_, p_)
-        # cl, cd = 0, 1
-        if self.compute_norms:
-            dE = self.compute_energy(full=True, diff=True, normalize=True)
-        else:
-            dE = -1
-
-        ##################################### here if dE is inf or nan, exit
-        if not self.throw_error and (np.isinf(dE) or np.isnan(dE)):
-            print("Error solving system --- Exiting step()...")
-            return -1
-        ####################################################################
-
-        # Runtime measurement & display
-        # runtime does not take into account anything that is below tfi
-        # so do not cheat by computing things after (like norms or cl, cd)
-        tfi = time.time()
-        if self.verbose:
-            self.print_progress(runtime=tfi - t0i)
-        self.log_timeseries(
-            u_ctrl=u_ctrl,
-            y_meas=self.y_meas,
-            norm_u=0,  # norm(u_, norm_type='L2', mesh=self.mesh),
-            norm_p=0,  # norm(p_, norm_type='L2', mesh=self.mesh),
-            dE=dE,
-            cl=cl,
-            cd=cd,
-            t=self.t,
-            runtime=tfi - t0i,
-        )
-
-        # Save
-        if self.save_every and not self.iter % self.save_every:
-            if self.verbose:
-                print("saving to files %s" % (self.savedir0))
-            flu.write_xdmf(
-                self.paths["u_restart"],
-                u_n,
-                "u",
-                time_step=self.t,
-                append=True,
-                write_mesh=False,
-            )
-            flu.write_xdmf(
-                self.paths["uprev_restart"],
-                u_nn,
-                "u_n",
-                time_step=self.t,
-                append=True,
-                write_mesh=False,
-            )
-            flu.write_xdmf(
-                self.paths["p_restart"],
-                p_n,
-                "p",
-                time_step=self.t,
-                append=True,
-                write_mesh=False,
-            )
-            self.write_timeseries()
-
-        return ret
 
     def log_timeseries(self, u_ctrl, y_meas, norm_u, norm_p, dE, cl, cd, t, runtime):
         """Fill timeseries table with data"""
@@ -2127,10 +1988,7 @@ if __name__ == "__main__":
         # closed loop
         u_ctrl += u_ctrl0 * np.exp(-1 / 2 * (fs.t - tpeak) ** 2 / tlen**2)
 
-        if fs.perturbations:
-            fs.step_perturbation(u_ctrl=u_ctrl, NL=fs.NL, shift=0.0)
-        else:
-            fs.step(u_ctrl)  # step and take measurement
+        fs.step_perturbation(u_ctrl=u_ctrl, NL=fs.NL, shift=0.0)
 
     if fs.num_steps > 3:
         print("Total time is: ", time.time() - t000)
@@ -2149,6 +2007,13 @@ if __name__ == "__main__":
     print("Last two lines of the printed timetable should look like this:")
     print("9   0.045  1.634545  0.132531     0.0     0.0  0.000347 -3.385638  1.143313  0.159566")
     print("10  0.050  0.000000  0.132341     0.0     0.0  0.000353 -3.107742  1.142722  0.143971")
+
+
+# TODO
+# remove all references to full ns formulation
+# -> remove bc relative to full ns
+# what else?
+
 
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
