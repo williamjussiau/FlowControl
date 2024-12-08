@@ -24,7 +24,7 @@ import sympy as sp
 import scipy.sparse as spr
 #from petsc4py import PETSc
 
-#import pdb
+import pdb
 
 from pathlib import Path
 
@@ -107,18 +107,18 @@ class FlowSolver:
         ext_xdmf = ".xdmf"
         ext_csv = ".csv"
 
-        filename_u0 = savedir0 + "steady/u0.xdmf"
-        filename_p0 = savedir0 + "steady/p0.xdmf"
+        filename_u0 = savedir0 / "steady" / ("u0" + ext_xdmf)
+        filename_p0 = savedir0 / "steady" / ("p0" + ext_xdmf)
 
-        filename_u = savedir0 + "u" + file_restart + ext_xdmf
-        filename_uprev = savedir0 + "uprev" + file_restart + ext_xdmf
-        filename_p = savedir0 + "p" + file_restart + ext_xdmf
+        filename_u = savedir0 / ("u" + file_restart + ext_xdmf)
+        filename_uprev = savedir0 / ("uprev" + file_restart + ext_xdmf)
+        filename_p = savedir0 / ("p" + file_restart + ext_xdmf)
 
-        filename_u_restart = savedir0 + "u" + file_start + ext_xdmf
-        filename_uprev_restart = savedir0 + "uprev" + file_start + ext_xdmf
-        filename_p_restart = savedir0 + "p" + file_start + ext_xdmf
+        filename_u_restart = savedir0 / ("u" + file_start + ext_xdmf)
+        filename_uprev_restart = savedir0 / ("uprev" + file_start + ext_xdmf)
+        filename_p_restart = savedir0 / ("p" + file_start + ext_xdmf)
 
-        filename_timeseries = savedir0 + "timeseries1D" + file_start + ext_csv
+        filename_timeseries = savedir0 / ("timeseries1D" + file_start + ext_csv)
 
         self.paths = {
             "u0": filename_u0,
@@ -155,7 +155,7 @@ class FlowSolver:
         if genmesh:
             nx = self.nx  # 32
             meshname = "cylinder_" + str(nx) + ".xdmf"
-            meshpath = os.path.join(meshdir, meshname)
+            meshpath = meshdir / meshname # os.path.join(meshdir, meshname)
             if not os.path.exists(meshpath) or self.remesh:
                 if self.verbose:
                     print("Mesh does not exist @:", meshpath)
@@ -164,7 +164,7 @@ class FlowSolver:
                 cyl = Circle(dolfin.Point(0.0, 0.0), self.d / 2, segments=self.segments)
                 domain = channel - cyl
                 mesh = generate_mesh(domain, nx)
-                with dolfin.XDMFFile(dolfin.MPI.comm_world, meshpath) as fm:
+                with dolfin.XDMFFile(dolfin.MPI.comm_world, str(meshpath)) as fm:
                     fm.write(mesh)
                 readmesh = False
         else:
@@ -176,11 +176,11 @@ class FlowSolver:
         # if mesh was not generated on the fly, read file
         if readmesh:
             mesh = dolfin.Mesh(dolfin.MPI.comm_world)
-            meshpath = os.path.join(meshdir, meshname)
+            meshpath = meshdir/meshname # os.path.join(meshdir, meshname)
             if self.verbose:
                 print("Mesh exists @: ", meshpath)
                 print("--- Reading mesh...")
-            with dolfin.XDMFFile(dolfin.MPI.comm_world, meshpath) as fm:
+            with dolfin.XDMFFile(dolfin.MPI.comm_world, str(meshpath)) as fm:
                 fm.read(mesh)
             # mesh = Mesh(dolfin.MPI.comm_world, meshpath) # if xml
 
@@ -2049,7 +2049,7 @@ if __name__ == "__main__":
     params_save = {
         "save_every": 5,
         "save_every_old": 100,
-        "savedir0": str(Path(__file__).parent) + "/data_output/",
+        "savedir0": Path(__file__).parent / "data_output",
         "compute_norms": True,
     }
     params_solver = {

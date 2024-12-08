@@ -41,7 +41,7 @@ def show_max(u, name=''):
 
 def write_xdmf(filename, func, name, time_step=0., append=False, write_mesh=True):
     '''Shortcut to write XDMF file with options & context manager'''
-    with dolfin.XDMFFile(dolfin.MPI.comm_world, filename) as ff:
+    with dolfin.XDMFFile(dolfin.MPI.comm_world, str(filename)) as ff:
         ff.parameters['rewrite_function_mesh'] = write_mesh
         ff.parameters['functions_share_mesh'] = not write_mesh # does not work in FEniCS yet
         ff.write_checkpoint(func, name, time_step=time_step,
@@ -51,7 +51,7 @@ def write_xdmf(filename, func, name, time_step=0., append=False, write_mesh=True
 
 def read_xdmf(filename, func, name, counter=-1):
     '''Shortcut to read XDMF file with context manager'''
-    with dolfin.XDMFFile(dolfin.MPI.comm_world, filename) as ff:
+    with dolfin.XDMFFile(dolfin.MPI.comm_world, str(filename)) as ff:
         ff.read_checkpoint(func, name=name, counter=counter)
 
 
