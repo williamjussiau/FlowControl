@@ -7,10 +7,10 @@ Mesh generation and conversion
 from __future__ import print_function
 
 import meshio
-import gmsh
-import numpy as np
+#import gmsh
+#import numpy as np
 
-import pdb
+#import pdb
 
 
 ####################################################################################
