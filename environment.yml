@@ -12,4 +12,5 @@ dependencies:
   - scipy
   - pandas
   - control
+  - gmsh
 prefix: /usr/local/anaconda3/envs/fenics

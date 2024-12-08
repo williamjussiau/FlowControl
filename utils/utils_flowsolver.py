@@ -17,40 +17,41 @@ from slepc4py import SLEPc
 
 import os
 
-from dolfin import *
+import dolfin
+from dolfin import dot, inner
 
 import functools
 from mpi4py import MPI as mpi
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-import pdb
+#import pdb
 import warnings
 
 # Dolfin utility # GOTO ###################################################
 def apply_fun(u, fun):
-    '''Shortcut for applying numeric method to dolfin.Function'''
+    '''Shortcut for applying numeric method to dolfin.dolfin.Function'''
     return fun(u.vector().get_local())
 
 
 def show_max(u, name=''):
-    '''Display max of dolfin.Function'''
+    '''Display max of dolfin.dolfin.Function'''
     print('Max of vector "%s" is : %f' %(name, apply_fun(u, np.max)))
 
 
 def write_xdmf(filename, func, name, time_step=0., append=False, write_mesh=True):
     '''Shortcut to write XDMF file with options & context manager'''
-    with XDMFFile(MPI.comm_world, filename) as ff:
+    with dolfin.XDMFFile(dolfin.MPI.comm_world, filename) as ff:
         ff.parameters['rewrite_function_mesh'] = write_mesh
         ff.parameters['functions_share_mesh'] = not write_mesh # does not work in FEniCS yet
         ff.write_checkpoint(func, name, time_step=time_step,
-                            encoding=XDMFFile.Encoding.HDF5,
+                            encoding=dolfin.XDMFFile.Encoding.HDF5,
                             append=append)
 
 
 def read_xdmf(filename, func, name, counter=-1):
     '''Shortcut to read XDMF file with context manager'''
-    with XDMFFile(MPI.comm_world, filename) as ff:
+    with dolfin.XDMFFile(dolfin.MPI.comm_world, filename) as ff:
         ff.read_checkpoint(func, name=name, counter=counter)
 
 
@@ -62,7 +63,7 @@ def print0(*args, **kwargs):
 
 
 # Shortcut to define projection with MUMPS
-projectm = functools.partial(project, solver_type='mumps')
+projectm = functools.partial(dolfin.project, solver_type='mumps')
 ###############################################################################
 
 
@@ -103,18 +104,19 @@ class MpiUtils():
     @staticmethod
     def peval2(f, x):
         '''Parallel synced eval, v2'''
-        comm = f.function_space().mesh().mpi_comm()
+        mesh = f.function_space().mesh()
+        comm = mesh.mpi_comm()
         if comm.size == 1:
             return f(*x)
         # Find whether the point lies on the partition of the mesh local
         # to this process, and evaluate u(x)
-        cell, distance = mesh.bounding_box_tree().compute_closest_entity(Point(*x))
-        f_eval = f(*x) if distance < DOLFIN_EPS else None
+        cell, distance = mesh.bounding_box_tree().compute_closest_entity(dolfin.Point(*x))
+        f_eval = f(*x) if distance < dolfin.DOLFIN_EPS else None
         # Gather the results on process 0
         comm = mesh.mpi_comm()
         computed_f = comm.gather(f_eval, root=0)
         # Verify the results on process 0 to ensure we see the same value
-        # on a process boundary
+        # on a_lhs process boundary
         if comm.rank == 0:
             global_f_evals = np.array([y for y in computed_f if y is not None], dtype=np.double)
             assert np.all(np.abs(global_f_evals[0] - global_f_evals) < 1e-9)
@@ -130,14 +132,15 @@ class MpiUtils():
         '''Memo for getting/setting OMP_NUM_THREADS, most likely does not work as is'''
         try:
             print('nb threads was: ', os.environ['OMP_NUM_THREADS'])
-        except:
+        except Exception as e:
             os.environ['OMP_NUM_THREADS'] = '1'
+            raise(e)
         print('nb threads is: ', os.environ['OMP_NUM_THREADS'])
 
     @staticmethod
     def mpi_broadcast(x):
         '''Broadcast y to MPI (shortcut but longer)'''
-        y = MPI.comm_world.bcast(x, root=0)
+        y = dolfin.MPI.comm_world.bcast(x, root=0)
         return y
 
 ###############################################################################
@@ -172,7 +175,7 @@ def dense_to_sparse(A, eliminate_zeros=True, eliminate_under=None):
         return A
 
     if not isinstance(A, PETSc.Mat):
-        A = as_backend_type(A).mat()
+        A = dolfin.as_backend_type(A).mat()
 
     Ac, As, Ar = A.getValuesCSR()
     Acsr = spr.csr_matrix((Ar, As, Ac))
@@ -184,9 +187,9 @@ def dense_to_sparse(A, eliminate_zeros=True, eliminate_under=None):
 def sparse_to_petscmat(A):
     '''Cast scipy.sparse matrix A to PETSc.Matrix()
     A should be scipy.sparse.xQxx and square'''
-    t00 = time.time()
+    #t00 = time.time()
     A = A.tocsr()
-    Acsr = (A.indptr, A.indices, A.data)
+    #Acsr = (A.indptr, A.indices, A.data)
 
     #### Sequential
     ####Amat = PETSc.Mat()
@@ -237,7 +240,7 @@ def get_mat_vp_slepc(A, B=None, n=10, DEBUG=False, target=0.0,
     '''Get n eigenvales of matrix A
     Possibly with generalized problem (A, B).
     Direct SLEPc backend.
-    A::dolfin.cpp.la.PETScMatrix'''
+    A::dolfin.cpp.la.dolfin.PETScMatrix'''
 
     # EPS
     # Create problem
@@ -336,7 +339,7 @@ def get_mat_vp_slepc(A, B=None, n=10, DEBUG=False, target=0.0,
     eigensolver.solve()
 
     nconv =  eigensolver.getConverged()
-    niters = eigensolver.getIterationNumber()
+    #niters = eigensolver.getIterationNumber()
 
     if verbose:
         print('------ Computation terminated ------')
@@ -391,17 +394,18 @@ def make_mat_to_test_slepc(view=False, singular=False, neigpairs=3, density_B=1.
             #re = np.linspace(-10, -1, neigpairs)
             #im = np.linspace(-10, -1, neigpairs)
 
-    mka = lambda a, b: [[a, -b], [b, a]] # make 2x2 matrix with given conj eigenval
+    def makemat_conjeig(a,b): # make 2x2 matrix with given conj eigenval
+        return [[a, -b], [b, a]]
 
     # slow because of reallocation
-    #a = mka(re[0], im[0])
-    #for i in range(1, neigpairs): # make block matrix with a+1jb as eigenval
-    #    a = la.block_diag(a, mka(re[i], im[i]))
+    #a_lhs = makemat_conjeig(re[0], im[0])
+    #for i in range(1, neigpairs): # make block matrix with a_lhs+1jb as eigenval
+    #    a_lhs = la.block_diag(a_lhs, makemat_conjeig(re[i], im[i]))
     # hopefully faster
     A = np.zeros((sz, sz))
     for i in range(neigpairs):
         j = 2*i
-        A[j:j+2, j:j+2] = mka(re[i], im[i]) # i+2 excluded
+        A[j:j+2, j:j+2] = makemat_conjeig(re[i], im[i]) # i+2 excluded
 
     # make b in numpy to set values easily, then convert
     B = np.eye(sz)
@@ -428,7 +432,8 @@ def make_mat_to_test_slepc(view=False, singular=False, neigpairs=3, density_B=1.
 def load_mat_from_file(mat_type='fem32'):
     prefix = '/stck/wjussiau/fenics-python/ns/data/matrices/'
     suffix = '.npz'
-    mkpath = lambda name: prefix + name + suffix
+    def mkpath(name):
+        return prefix + name + suffix
     if mat_type=='fem32':
         Afile = mkpath('A_sparse_nx32')
         Qfile = mkpath('Q_sparse_nx32')
@@ -444,7 +449,7 @@ def load_mat_from_file(mat_type='fem32'):
 
 def geig_singular(A, B, n=2, DEBUG=False, target=None, solve_dense=False):
     '''Get n eigenvales of generalized problem (A, B)
-    Where B is a singular matrix (hence no inv(B))
+    Where B is a_lhs singular matrix (hence no inv(B))
     Direct SLEPc backend.'''
 
     # Setup problem
@@ -487,7 +492,7 @@ def augment_matrices(A, B, s, C):
     Inputs are dense matrices [A, B, C] and scalar [s]'''
     N = la.null_space(B)
     M = la.null_space(B.T).T
-    sznp = N.shape[1]
+    #sznp = N.shape[1]
 
     s = 1.2
     MA = M @ A
@@ -517,8 +522,8 @@ def get_mat_vp(A, B=None, n=3, DEBUG=False):
     '''Get n eigenvales of matrix A
     Possibly with generalized problem (A, B).
     dolfin backend (with slepc back-backend).
-    A::dolfin.cpp.la.PETScMatrix'''
-    eigensolver = SLEPcEigenSolver(A, B)
+    A::dolfin.cpp.la.dolfin.PETScMatrix'''
+    eigensolver = dolfin.SLEPcEigenSolver(A, B)
     eigensolver.solve(n)
     nconv = eigensolver.get_number_converged()
     print('Tried: %d, converged: %d' % (n, nconv))
@@ -551,12 +556,13 @@ def export_field(cfields, W, V, P, save_dir=None, time_steps=None):
     vec_v_file = save_dir + '_v'
     vec_p_file = save_dir + '_p'
     xdmf = '.xdmf'
-    mkfilename = lambda filename, part: filename + '_' + part + xdmf
+    def mkfilename(filename, part):
+        return filename + '_' + part + xdmf
 
-    ww = Function(W)
-    vv = Function(V)
-    pp = Function(P)
-    fa = FunctionAssigner([V, P], W)
+    ww = dolfin.Function(W)
+    vv = dolfin.Function(V)
+    pp = dolfin.Function(P)
+    fa = dolfin.FunctionAssigner([V, P], W)
 
     if time_steps is None:
         time_steps = list(range(cfields.shape[1]))
@@ -595,11 +601,11 @@ def export_field(cfields, W, V, P, save_dir=None, time_steps=None):
 
 def export_sparse_matrix(A, figname=None):
     '''Export sparse matrix to spy plot
-    A==dolfin.cpp.la.PETScMatrix or scipy.sparse.csr_matrix'''
+    A==dolfin.cpp.la.dolfin.PETScMatrix or scipy.sparse.csr_matrix'''
     if spr.issparse(A):
         Acsr = A
     else:
-        # probably: A is PETScMatrix
+        # probably: A is dolfin.PETScMatrix
         Acsr = dense_to_sparse(A)
 
     # Make plot
@@ -614,7 +620,7 @@ def export_sparse_matrix(A, figname=None):
 
 def export_to_mat(infile, outfile, matname, option='sparse'):
     '''Load sparse matrix from infile.npz and export it to outfile.mat'''
-    if option is 'sparse':
+    if option=='sparse':
         Msp = spr.load_npz(infile)
         sio.savemat(outfile, mdict={matname: Msp.tocsc()})
     else: # as dict
@@ -633,7 +639,7 @@ def export_flowsolver_matrices(fs, path, suffix=''):
     for mat, matname in zip([A, B, C, Q], ['A', 'B', 'C', 'Q']):
         # Convert to sparse
         mat_spr = dense_to_sparse(mat,
-            eliminate_zeros=matname is 'B', eliminate_under=1e-14)
+            eliminate_zeros=matname=='B', eliminate_under=1e-14)
 
         # Mat sparse
         mat_file = path + matname + suffix + '.mat'
@@ -681,14 +687,14 @@ def export_dof_map(W, plotsz=None):
 def export_subdomains(mesh, subdomains_list, filename='subdomains.xdmf'):
     """Export subdomins of FlowSolver object to be displayed
     Usage: export_subdomains(fs.mesh, fs.boundaries.subdomain, ...)"""
-    subd = MeshFunction("size_t", mesh, mesh.topology().dim()-1)
+    subd = dolfin.MeshFunction("size_t", mesh, mesh.topology().dim()-1)
     subd.set_all(0)
     for i, subdomain in enumerate(subdomains_list):
         subdnr = 10*(i+1)
         subdomain.mark(subd, subdnr)
         print('Marking subdomain nr: {0} ({1})'.format(i+1, subdnr))
     print('Writing subdomains file: ', filename)
-    with XDMFFile(filename) as fsubd:
+    with dolfin.XDMFFile(filename) as fsubd:
         fsubd.write(subd)
 
 
@@ -698,20 +704,20 @@ def export_facetnormals(mesh, ds, n=None, filename='facet_normals.xdmf',
     Can be used to export forces (n << dot(sigma, n))'''
     # Define facet normals of mesh
     if n is None:
-        n = FacetNormal(mesh)
+        n = dolfin.FacetNormal(mesh)
     # Define CG1 fspace
-    V = VectorFunctionSpace(mesh, 'CG', 1)
+    V = dolfin.VectorFunctionSpace(mesh, 'CG', 1)
     # Define variational projection problem
-    u = TrialFunction(V)
-    v = TestFunction(V)
-    a = inner(u, v)*ds
-    l = inner(n, v)*ds
-    A = assemble(a, keep_diagonal=True)
-    L = assemble(l)
+    u = dolfin.TrialFunction(V)
+    v = dolfin.TestFunction(V)
+    a_lhs = inner(u, v)*ds
+    l_rhs = inner(n, v)*ds
+    A = dolfin.assemble(a_lhs, keep_diagonal=True)
+    L = dolfin.assemble(l_rhs)
     A.ident_zeros()
     # Project
-    nh = Function(V, name=name)
-    solve(A, nh.vector(), L)
+    nh = dolfin.Function(V, name=name)
+    dolfin.solve(A, nh.vector(), L)
     # Write
     write_xdmf(filename, nh, name)
 
@@ -722,15 +728,15 @@ def export_stress_tensor(sigma, mesh, filename='stress_tensor.xdmf',
                          name='stress_tensor'):
     '''Write input:{stress tensor} to file'''
     # Make tensor function space
-    TT = TensorFunctionSpace(mesh, 'DG', degree=0)
+    TT = dolfin.TensorFunctionSpace(mesh, 'DG', degree=0)
     # Project
-    sigma_ = Function(TT, name=name)
+    sigma_ = dolfin.Function(TT, name=name)
     sigma_.assign(projectm(sigma, TT))
     # Write
     write_xdmf(filename, sigma_, name)
 
     if export_forces:
-        n = FacetNormal(mesh)
+        n = dolfin.FacetNormal(mesh)
         export_facetnormals(mesh=mesh, n=-dot(sigma, n), ds=ds, filename='forces.xdmf', name='forces')
 ###############################################################################
 
@@ -755,9 +761,9 @@ def compute_signal_frequency(sig, Tf, nzp=10):
 
 
 def sample_lco(Tlco, Tstartlco, nsim): # dt, save_every_old
-    '''Define times for sampling a LCO in simulation
+    '''Define times for sampling a_lhs LCO in simulation
     Tlco: period of LCO
-    Tstartlco: beginning of simulations - has to match a saved step
+    Tstartlco: beginning of simulations - has to match a_lhs saved step
     nsim: number of simulations to be run'''
     tcl = Tstartlco + Tlco/nsim * np.arange(nsim)
     return tcl
@@ -786,7 +792,7 @@ def pad_upto(L, N, v=0):
 
 
 def saturate(x, xmin , xmax):
-    '''Saturate a signal x between [xmin, xmax]
+    '''Saturate a_lhs signal x between [xmin, xmax]
     This implementation (native Py) is faster for signals of small dimension'''
     # max(xmin, min(xmax, x))
     # sorted((x, xmin, xmax))[1]
@@ -846,7 +852,7 @@ def write_ss(sys, path):
 
 # FlowSolver direct utility # GOTO ############################################
 def get_subspace_dofs(W):
-    '''Return a map of which function space contain which dof'''
+    '''Return a_lhs map of which function space contain which dof'''
     def get_dofs(V): return np.array(V.dofmap().dofs(), dtype=int)
     subspace_dof = {'u': get_dofs(W.sub(0).sub(0)),
                     'v': get_dofs(W.sub(0).sub(1)),
@@ -863,12 +869,12 @@ def end_simulation(fs, t0=None):
             print('Iteration 2 time     ---', fs.timeseries.loc[2, 'runtime'])
             print('Mean iteration time  ---', np.mean(fs.timeseries.loc[3:, 'runtime']))
             print('Time/iter/dof        ---', np.mean(fs.timeseries.loc[3:, 'runtime'])/fs.W.dim())
-    list_timings(TimingClear.clear, [TimingType.wall])
+    dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.wall])
 
 
 def make_mesh_param(meshname):
     '''Make mesh parameters from given name
-    Essentially a shortcut to defining mesh characteristics'''
+    Essentially a_lhs shortcut to defining mesh characteristics'''
     meshname = meshname.lower()
     # nx32
     if meshname=='nx32':
@@ -933,7 +939,8 @@ def compute_cost(fs, criterion, u_penalty, fullstate=True, scaling=None,
 
     # Default scaling = Id
     if scaling is None:
-        scaling = lambda x: x
+        def scaling(x):
+            return x
     # examples are: scaling = lambda x: np.log10(x)
 
     # Normalization = time average
@@ -941,7 +948,7 @@ def compute_cost(fs, criterion, u_penalty, fullstate=True, scaling=None,
     Tnorm = fs.dt / (fs.t - fs.Tc) # Tc most likely false most of the time
 
     # State-related cost
-    if criterion is 'integral': # integral of energy
+    if criterion == 'integral': # integral of energy
         if fullstate:
             xQx = np.sum(scaling(fs.timeseries.loc[:, 'dE']))
         else: # only y
@@ -1045,15 +1052,15 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
     #print('my ownership range is: ', rstart, rend)
 
     # B, C
-    C0 = np.zeros_like(C)
+    #C0 = np.zeros_like(C)
     B0 = np.zeros_like(B)
-    Czero = np.hstack([C, C0])
-    zeroC = np.hstack([C0, C])
+    #Czero = np.hstack([C, C0])
+    #zeroC = np.hstack([C0, C])
     Bzero = np.vstack([B, B0])
     CjC = np.hstack([C, 1j*C])
 
     # solver
-    solvR = LUSolver('mumps')
+    solvR = dolfin.LUSolver('mumps')
     #solvR = PETSc.KSP().create()
     # setup ksp here
 
@@ -1103,7 +1110,7 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
         localidx = list(range(rbstart, rbend))
         vecb.setValues(localidx, Bzero[localidx])
         #print('size of vb after createarray: ', vecb.size)
-        vecx, vecb = PETScVector(vecx), PETScVector(vecb)
+        vecx, vecb = dolfin.PETScVector(vecx), dolfin.PETScVector(vecb)
         #print('size of vx after convert: ', vecx.size())
         #print('size of vb after convert: ', vecb.size())
 
@@ -1112,12 +1119,13 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
         #Rmat = Rb
         #solvR.setOperators(Rmat)
         #solvR.setFromOptions()
-        Rmat = PETScMatrix(Rb)
+        Rmat = dolfin.PETScMatrix(Rb)
         hw_timings['createmat'] += - t02 + time.time()
 
         # Solving system
         t03 = time.time()
-        exitFlag = solvR.solve(Rmat, vecx, vecb)
+        #exitFlag = solvR.solve(Rmat, vecx, vecb)
+        solvR.solve(Rmat, vecx, vecb)
         #solvR.solve(vecb, vecx)
         hw_timings['solve'] += - t03 + time.time()
         # .............. here
@@ -1145,7 +1153,7 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
 
         #Hw[:, ii] = vecy + 1j * ivecy
         #Hw[:, ii] = vecy # mpi.allgather ?
-        Hw[:, ii] = MPI.comm_world.reduce(vecy, root=0) # mpi.allgather ?
+        Hw[:, ii] = dolfin.MPI.comm_world.reduce(vecy, root=0) # mpi.allgather ?
 
         if verbose:
             for sn in range(ns):
@@ -1213,7 +1221,7 @@ def get_field_response(fs, w, A=None, B=None, Q=None, verbose=True):
     Bzero = np.vstack([B, np.zeros_like(B)])
 
     # solver
-    solvR = LUSolver('mumps')
+    solvR = dolfin.LUSolver('mumps')
     Rb = PETSc.Mat()
 
     hw_timings = {'stack': 0, 'createAIJ': 0, 'createmat': 0, 'solve': 0, 'decompose': 0}
@@ -1222,7 +1230,7 @@ def get_field_response(fs, w, A=None, B=None, Q=None, verbose=True):
     # 2: create petsc vectors + transform to dolfin
     # 3: solve system
     # 4: multiply x
-    tb = time.time()
+    #tb = time.time()
     #for ii, w in enumerate(ww):
     # Block matrix
     t00 = time.time()
@@ -1241,15 +1249,16 @@ def get_field_response(fs, w, A=None, B=None, Q=None, verbose=True):
     t02 = time.time()
     vecx, vecb = Rb.createVecs()
     vecb.createWithArray(Bzero)
-    vecx, vecb = PETScVector(vecx), PETScVector(vecb)
+    vecx, vecb = dolfin.PETScVector(vecx), dolfin.PETScVector(vecb)
 
     # Casting matrix
-    Rmat = PETScMatrix(Rb)
+    Rmat = dolfin.PETScMatrix(Rb)
     hw_timings['createmat'] += - t02 + time.time()
 
     # Solving system
     t03 = time.time()
-    exitFlag = solvR.solve(Rmat, vecx, vecb)
+    #exitFlag = solvR.solve(Rmat, vecx, vecb)
+    solvR.solve(Rmat, vecx, vecb)
     hw_timings['solve'] += - t03 + time.time()
 
     # Assign to function (2 func: Re & Im)
@@ -1353,17 +1362,17 @@ if __name__=='__main__':
     ##n = 4 # size of problem
     ##re = [0.2, -0.5] # real part of eigenval
     ##im = [0.25, 0.8] # imag part of eigenval
-    ##mka = lambda a, b: [[a, -b], [b, a]] # make 2x2 matrix with given conj eigenval
-    ##a = mka(re[0], im[0])
-    ##for i in range(1, n//2): # make block matrix with a+1jb as eigenval
-    ##    a = la.block_diag(a, mka(re[i], im[i]))
+    ##makemat_conjeig = lambda a_lhs, b: [[a_lhs, -b], [b, a_lhs]] # make 2x2 matrix with given conj eigenval
+    ##a_lhs = makemat_conjeig(re[0], im[0])
+    ##for i in range(1, n//2): # make block matrix with a_lhs+1jb as eigenval
+    ##    a_lhs = la.block_diag(a_lhs, makemat_conjeig(re[i], im[i]))
     ### make b in numpy to set values easily, then convert
     ##b = np.eye(n)
     ##singular = True
     ##if singular: # makes b non invertible
     ##    b[1, 1] = 0
     ##    b[2, 2] = 0
-    ##Ad = a
+    ##Ad = a_lhs
     ##Bd = b
 
     #As = dense_to_sparse(Ad)
@@ -1450,9 +1459,10 @@ if __name__=='__main__':
                         target=-0.1, n=4, return_eigensolver=True, precond_type=pc_name, verbose=True)
                     tpc = time.time() - t0
                     print('PC success: %s --- %f' %(pc_name, tpc))
-                except:
+                except Exception as e:
                     print('PC failed:  %s ' %(pc_name))
                     tpc = np.inf
+                    raise(e)
                 pc_time[pc_key] = tpc
 
 
@@ -1471,9 +1481,10 @@ if __name__=='__main__':
                         eps_type=solver_name)
                     tsl = time.time() - t0
                     print('Solver success: %s --- %f' %(solver_name, tsl))
-                except:
+                except Exception as e:
                     print('Solver failed: %s' %(solver_name))
                     tsl = np.inf
+                    raise(e)
                 solver_time[solver_key] = tsl
             print('...............................')
 

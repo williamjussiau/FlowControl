@@ -5,6 +5,10 @@ Created on Tue Aug  2 11:24:13 2022
 @author: wjussiau
 """
 ############ Identification utils ############
+#import pdb
+
+import time
+
 import numpy as np
 import matplotlib.pyplot as plt
 from _ctypes import PyObj_FromPtr
@@ -12,8 +16,6 @@ import json
 import re
 plt.style.use('seaborn')
 
-import time
-import pdb
 
 # TODO
 # - non-constant spectrum

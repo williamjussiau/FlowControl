@@ -10,9 +10,10 @@ from __future__ import print_function
 import meshio
 import gmsh
 import numpy as np
-from mesh_utils import *
+#from mesh_utils import *
+#import mesh_utils
 
-import pdb
+#import pdb
 
 
 class MeshGenerator():

@@ -8,10 +8,10 @@ import control
 import control.matlab as cmat
 import scipy.io as sio
 import scipy.linalg as la
-import scipy as scp
+#import scipy as scp
 import scipy.signal as sig
 import warnings
-import pdb
+#import pdb
 #try:
 #    import matlab.engine
 #    eng = matlab.engine.start_matlab()
@@ -91,7 +91,7 @@ def basis_laguerre(p, theta):
 
 def basis_laguerre_canonical_ss(p, N):
     '''Return first N elements of Laguerre basis with pole p>0'''
-    a = p;
+    a = p
     a_vec = np.hstack((-a, 2*a*(-1)**(np.arange(2, N+1))))
     #a_vec = np.hstack((-a, 2*a*(-1)**(np.arange(1, N))))
     a2 = np.triu(la.circulant(a_vec).T) # transpose to fit Matlab
@@ -119,9 +119,9 @@ def ssmult(G1, G2):
     '''Multiplication of MIMO SS: G = G1 x G2
     Such that y = (G1 x G2)u
     OBSOLETE: exists and works in control toolbox'''
-    O = np.zeros((G2.A.shape[0], G1.A.shape[1]))
+    ZERO = np.zeros((G2.A.shape[0], G1.A.shape[1]))
     A = np.block([ [G1.A, G1.B@G2.C],
-                   [O, G2.A]])
+                   [ZERO, G2.A]])
     B = np.vstack((G1.B @ G2.D, G2.B))
     C = np.hstack((G1.C, G1.D @ G2.C))
     D = G1.D @ G2.D 
@@ -148,8 +148,8 @@ def youla_laguerre(G, K0, p, theta, verbose=False):
         N = 1
         warnings.warn('theta should be iterable, not int')
     else:
-        N = len(theta);
-    a = p;
+        N = len(theta)
+    a = p
     a_vec = np.hstack((-a, 2*a*(-1)**(np.arange(2, N+1))))
     a2 = np.triu(la.circulant(a_vec))
     b2 = np.eye(N)
@@ -173,7 +173,7 @@ def youla_laguerre(G, K0, p, theta, verbose=False):
     Kq = Psif.lft(ss_theta)
     K = K0 + Kq
     if verbose:
-        print('\t Feedback(G, Ky, +1) is stable: ', isstablecl(G, Ky, +1)) 
+        print('\t Feedback(G, Ky, +1) is stable: ', isstablecl(G, K, +1)) 
     return K
 
 
@@ -192,7 +192,7 @@ def youla_laguerre_mimo(G, K0, p, theta, verbose=False):
     K = youla(G, K0, Q)
 
     if verbose:
-        print('\t Feedback(G, Ky, +1) is stable: ', isstablecl(G, Ky, +1)) 
+        print('\t Feedback(G, Ky, +1) is stable: ', isstablecl(G, K, +1)) 
     return K
 
 
@@ -276,7 +276,8 @@ def basis_laguerre_K00(G, K0, p, theta):
     #import pdb
     #pdb.set_trace()
 
-    lsq = lambda A, b: la.lstsq(A, b.reshape(-1,))[0]
+    def lsq(A, b):
+        return la.lstsq(A, b.reshape(-1))[0]
     y0 = lsq(J, a0)
     # ker J
     kerJ = la.null_space(J)
@@ -302,12 +303,12 @@ def youla_lqg(G, Qx, Ru, Qv, Rw, Q):
 def youla_lqg_lftmat(G, Qx, Ru, Qv, Rw):
     '''Utilitary function to Youla LQG parametrization
     Return StateSpace to be LFTed with Q'''
-    A = np.array(G.A) 
+    #A = np.array(G.A) --> weird
     B = np.array(G.B)
     C = np.array(G.C)
     D = np.array(G.D)
-    n = A.shape[0]
-    In = np.eye(n)
+    #n = A.shape[0]
+    #In = np.eye(n)
     p, m = D.shape
     Im = np.eye(m)
     Ip = np.eye(p)
@@ -380,21 +381,21 @@ def hinfsyn_mref(G, We, Wu, Wb, Wr, CLref, Wcl, syn='Hinf'):
         raise ValueError('Only Hinf or H2 synthesis supported')
 
     # Zero and Identity StateSpace 
-    Z = ss_zero()
-    I = ss_one()
+    Zo = ss_zero()
+    Id = ss_one()
     
     # Augmented plant
-    Wout = ss_blkdiag_list([We, Wu, Wcl, I])
-    Win = ss_blkdiag_list([Wr, Wb, I])
-    P_syn = ss_vstack(ss_hstack(I, -I,  Z,  Z), \
-                      ss_hstack(Z,  Z,  I,  Z), \
-                      ss_hstack(Z,  I,  Z, -I), \
-                      ss_hstack(I, -I,  Z,  Z)) * \
-            ss_blkdiag_list([I, G, I, CLref]) * \
-            ss_vstack(ss_hstack(I,  Z,  Z), \
-                      ss_hstack(Z,  I,  I), \
-                      ss_hstack(Z,  Z,  I), \
-                      ss_hstack(Z,  I,  Z))
+    Wout = ss_blkdiag_list([We, Wu, Wcl, Id])
+    Win = ss_blkdiag_list([Wr, Wb, Id])
+    P_syn = ss_vstack(ss_hstack(Id, -Id,  Zo,  Zo), \
+                      ss_hstack(Zo,  Zo,  Id,  Zo), \
+                      ss_hstack(Zo,  Id,  Zo, -Id), \
+                      ss_hstack(Id, -Id,  Zo,  Zo)) * \
+            ss_blkdiag_list([Id, G, Id, CLref]) * \
+            ss_vstack(ss_hstack(Id,  Zo,  Zo), \
+                      ss_hstack(Zo,  Id,  Id), \
+                      ss_hstack(Zo,  Zo,  Id), \
+                      ss_hstack(Zo,  Id,  Zo))
     P_syn = Wout * P_syn * Win
     
     # Synthesis
@@ -417,7 +418,7 @@ def youla_laguerre_fromfile(theta, path):
     To make a complete function, see above -- we just need to write the SS 
     form of the Laguerre basis
     Warning: theta size should be coherent with saved Psif'''
-    N = len(theta)
+    #N = len(theta)
     # Warning (bis): signs are switched here
     theta = theta * (-1)**(np.arange(len(theta)))
     
@@ -495,24 +496,24 @@ def ss_hstack(sys1, *sysn):
 
 def ss_vstack_list(syslist):
     '''Same as ss_vstack but with input list'''
-    A, B, C, D = ct.ssdata(syslist[0])
+    A, B, C, D = control.ssdata(syslist[0])
     for sys in syslist[1:]:
         A = la.block_diag(A, sys.A)
         B = np.vstack((B, sys.B))
         C = la.block_diag(C, sys.C)
         D = np.vstack((D, sys.D))
-    return ct.StateSpace(A, B, C, D)
+    return control.StateSpace(A, B, C, D)
 
 
 def ss_hstack_list(syslist):
     '''Same as ss_hstack but with input list'''
-    A, B, C, D = ct.ssdata(syslist[0])
+    A, B, C, D = control.ssdata(syslist[0])
     for sys in syslist[1:]:
         A = la.block_diag(A, sys.A)
         B = la.block_diag(B, sys.B)
         C = np.hstack((C, sys.C))
         D = np.hstack((D, sys.D))
-    return ct.StateSpace(A, B, C, D)
+    return control.StateSpace(A, B, C, D)
 
 
 def ss_blkdiag_list(sys_list):
@@ -776,7 +777,7 @@ def youla_Q0b(Ka, K0, G):
     '''Return controller Q0b such that Youla(G, K0, Qab) = Kb
     Difference with youla_Qab is that Ka=K0 so that Gstab is expressed as a feedback
     I am not sure of the importance of this separate function'''
-    Q0b = control.feedback(Kb - K0, control.feedback(G, K0, +1), +1)
+    Q0b = control.feedback(Ka - K0, control.feedback(G, K0, +1), +1)
     return Q0b
 
 
@@ -843,7 +844,7 @@ def sys_hsv(sys):
     try:
         from slycot import ab09md
     except ImportError:
-        raise ControlSlycot("can't find slycot subroutine ab09md")
+        raise Exception("can't find slycot subroutine ab09md")
     # system dimension
     n = np.size(sys.A, 0)
     m = np.size(sys.B, 1)
@@ -871,13 +872,13 @@ def balred_rel(sys, hsv_threshold, method='truncate'):
         try:
             from slycot import ab09md, ab09ad
         except ImportError:
-            raise ControlSlycot(
+            raise Exception(
                 "can't find slycot subroutine ab09md or ab09ad")
     elif method == 'matchdc':
         try:
             from slycot import ab09nd
         except ImportError:
-            raise ControlSlycot("can't find slycot subroutine ab09nd")
+            raise Exception("can't find slycot subroutine ab09nd")
 
     time_type = 'C'             # continuous time
     alpha = 0.                  # redefine stability bnd
