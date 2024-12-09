@@ -25,6 +25,7 @@ import scipy.sparse as spr
 #from petsc4py import PETSc
 
 import pdb
+import logging
 
 from pathlib import Path
 
@@ -33,8 +34,11 @@ import utils_flowsolver as flu
 
 importlib.reload(flu)
 
-# FEniCS log level
+# LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+logger.debug('Importing or running: %s', __name__)
 
 
 class FlowSolver:
@@ -158,8 +162,8 @@ class FlowSolver:
             meshpath = meshdir / meshname # os.path.join(meshdir, meshname)
             if not os.path.exists(meshpath) or self.remesh:
                 if self.verbose:
-                    print("Mesh does not exist @:", meshpath)
-                    print("-- Creating mesh...")
+                    logger.info("Mesh does not exist @: %s", meshpath)
+                    logger.info("-- Creating mesh...")
                 channel = Rectangle(dolfin.Point(xinfa, -yinf), dolfin.Point(xinf, yinf))
                 cyl = Circle(dolfin.Point(0.0, 0.0), self.d / 2, segments=self.segments)
                 domain = channel - cyl
@@ -178,14 +182,14 @@ class FlowSolver:
             mesh = dolfin.Mesh(dolfin.MPI.comm_world)
             meshpath = meshdir/meshname # os.path.join(meshdir, meshname)
             if self.verbose:
-                print("Mesh exists @: ", meshpath)
-                print("--- Reading mesh...")
+                logger.info("Mesh exists @: %s", meshpath)
+                logger.info("--- Reading mesh...")
             with dolfin.XDMFFile(dolfin.MPI.comm_world, str(meshpath)) as fm:
                 fm.read(mesh)
             # mesh = Mesh(dolfin.MPI.comm_world, meshpath) # if xml
 
         if self.verbose:
-            print("Mesh has: %d cells" % (mesh.num_cells()))
+            logger.info("Mesh has: %d cells" % (mesh.num_cells()))
 
         # assign mesh & facet normals
         self.mesh = mesh
@@ -201,7 +205,7 @@ class FlowSolver:
         self.P = dolfin.FunctionSpace(self.mesh, Pe)
         self.W = dolfin.FunctionSpace(self.mesh, We)
         if self.verbose:
-            print("dolfin.Function Space [V(CG2), P(CG1)] has: %d DOFs" % (self.W.dim()))
+            logger.info("Function Space [V(CG2), P(CG1)] has: %d DOFs" % (self.W.dim()))
 
     def make_boundaries(self):
         """Define boundaries (inlet, outlet, walls, cylinder, actuator)"""
@@ -539,7 +543,7 @@ class FlowSolver:
                     write_mesh=True,
                 )
             if self.verbose:
-                print("Stored base flow in: ", self.savedir0)
+                logger.info("Stored base flow in: %s", self.savedir0)
 
             self.y_meas_steady = self.make_measurement(mixed_field=up0)
 
@@ -551,8 +555,8 @@ class FlowSolver:
         cl, cd = self.compute_force_coefficients(u0, p0)
         # cl, cd = 0, 1
         if self.verbose:
-            print("Lift coefficient is: cl =", cl)
-            print("Drag coefficient is: cd =", cd)
+            logger.info("Lift coefficient is: cl = %f", cl)
+            logger.info("Drag coefficient is: cd = %f", cd)
 
         # Set old actuator amplitude
         self.actuator_expression.ampl = actuation_ampl_old
@@ -678,14 +682,14 @@ class FlowSolver:
             [bc.apply(res) for bc in bcu0]
             res_norm = dolfin.norm(res) / dolfin.sqrt(ndof)
             if self.verbose:
-                print(
+                logger.info(
                     "Picard iteration: {0}/{1}, residual: {2}".format(
                         i + 1, max_iter, res_norm
                     )
                 )
             if res_norm < tol:
                 if self.verbose:
-                    print("Residual norm lower than tolerance {0}".format(tol))
+                    logger.info("Residual norm lower than tolerance {0}".format(tol))
                 break
 
         return up1
@@ -1030,10 +1034,9 @@ class FlowSolver:
                 p_.vector()[:] = p_.vector()[:] - self.p0.vector()[:]
 
         if self.verbose and flu.MpiUtils.get_rank() == 0:
-            print(
-                "Starting or restarting from time: ",
+            logger.info(
+                "Starting or restarting from time: %f with temporal scheme order: %d",
                 self.Tstart,
-                " with temporal scheme order: ",
                 self.order,
             )
 
@@ -1216,7 +1219,7 @@ class FlowSolver:
 
     def print_progress(self, runtime):
         """Single line to print progress"""
-        print(
+        logger.info(
             "--- iter: %5d/%5d --- time: %3.3f/%3.2f --- elapsed %5.5f ---"
             % (self.iter, self.num_steps, self.t, self.Tf + self.Tstart, runtime)
         )
@@ -1249,7 +1252,7 @@ class FlowSolver:
         # This step is handled with init_time_stepping for IPCS formulation
         if not hasattr(self, "assemblers_p"):  # make forms
             if self.verbose:
-                print("Perturbations forms DO NOT exist: create...")
+                logger.info("Perturbations forms DO NOT exist: create...")
 
             shift = dolfin.Constant(shift)
             # 1st order integration
@@ -1322,7 +1325,7 @@ class FlowSolver:
             except RuntimeError:
                 # Usually Krylov solver exploding return a RuntimeError
                 # See: error_on_nonconvergence (but need to catch error somehow)
-                print("Error solving system --- Exiting step()...")
+                logger.error("Error solving system --- Exiting step()...")
                 return -1  # -1 is error code
         else:  # used for debugging -> show error message
             assembler.assemble(self.bs_p)  # assemble dolfin.rhs
@@ -1392,7 +1395,7 @@ class FlowSolver:
             self.u_n_full.vector()[:] = u_nn.vector()[:] + self.u0.vector()[:]
             self.p_full.vector()[:] = p_n.vector()[:] + self.p0.vector()[:]
             if self.verbose:
-                print("saving to files %s" % (self.savedir0))
+                logger.info("saving to files %s" % (self.savedir0))
             flu.write_xdmf(
                 self.paths["u_restart"],
                 self.u_full,
@@ -1562,7 +1565,7 @@ class FlowSolver:
 
     def get_A(self, perturbations=True, shift=0.0, timeit=True, up_0=None):
         """Get state-space dynamic matrix A linearized around some field up_0"""
-        print("Computing jacobian A...")
+        logger.info("Computing jacobian A...")
 
         if timeit:
             t0 = time.time()
@@ -1646,13 +1649,13 @@ class FlowSolver:
         [bc.apply(Jac) for bc in bcs]
 
         if timeit:
-            print("Elapsed time: ", time.time() - t0)
+            logger.info("Elapsed time: ", time.time() - t0)
 
         return Jac
 
     def get_B(self, export=False, timeit=True):
         """Get actuation matrix B"""
-        print("Computing actuation matrix B...")
+        logger.info("Computing actuation matrix B...")
 
         if timeit:
             t0 = time.time()
@@ -1714,13 +1717,13 @@ class FlowSolver:
         self.actuator_expression.ampl = actuator_ampl_old
 
         if timeit:
-            print("Elapsed time: ", time.time() - t0)
+            logger.info("Elapsed time: ", time.time() - t0)
 
         return B
 
     def get_C(self, timeit=True, check=False):
         """Get measurement matrix C"""
-        print("Computing measurement matrix C...")
+        logger.info("Computing measurement matrix C...")
 
         if timeit:
             t0 = time.time()
@@ -1750,17 +1753,17 @@ class FlowSolver:
         if check:
             for i in range(ns):
                 sensor_types = dict(u=0, v=1, p=2)
-                print(
+                logger.debug(
                     "True probe: ",
                     self.up0(self.sensor_location[i])[
                         sensor_types[self.sensor_type[0]]
                     ],
                 )
-                print("\t with fun:", self.make_measurement(mixed_field=self.up0))
-                print("\t with C@x: ", C[i] @ self.up0.vector().get_local())
+                logger.debug("\t with fun:", self.make_measurement(mixed_field=self.up0))
+                logger.debug("\t with C@x: ", C[i] @ self.up0.vector().get_local())
 
         if timeit:
-            print("Elapsed time: ", time.time() - t0)
+            logger.info("Elapsed time: ", time.time() - t0)
 
         return C
 
@@ -1768,7 +1771,7 @@ class FlowSolver:
         """Return matrices A, B, C, Q resulting form lifting transform (Barbagallo et al. 2009)
         See get_Hw_lifting for details"""
         # Steady field with rho=1: S1
-        print("Computing steady actuated field...")
+        logger.info("Computing steady actuated field...")
         self.actuator_expression.ampl = 1.0
         S1 = self.compute_steady_state_newton()
         S1v = S1.vector()
@@ -1837,7 +1840,7 @@ class FlowSolver:
         compute assemble(dot(u,v)*dx) v.s. u.local().T @ Q @ v.local()
         The result should be the same"""
         if random:
-            print("Creating random vectors")
+            logger.info("Creating random vectors")
 
             def createrandomfun():
                 up = dolfin.Function(self.W)
@@ -1891,7 +1894,7 @@ class FlowSolver:
 if __name__ == "__main__":
     t000 = time.time()
 
-    print("Trying to instantiate FlowSolver...")
+    logger.info("Trying to instantiate FlowSolver...")
     params_flow = {
         "Re": 100.0,
         "uinf": 1.0,
@@ -1944,15 +1947,15 @@ if __name__ == "__main__":
         verbose=True,
     )
     # alltimes = pd.DataFrame(columns=['1', '2', '3'], index=['assemble', 'solve'], data=np.zeros((2,3)))
-    print("__init__(): successful!")
+    logger.info("__init__(): successful!")
 
-    print("Compute steady state...")
+    logger.info("Compute steady state...")
     u_ctrl_steady = 0.0
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=u_ctrl_steady)
     fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.up0)
     fs.load_steady_state(assign=True)
 
-    print("Init time-stepping")
+    logger.info("Init time-stepping")
     np.random.seed(42)
     sigma = 0.1
     #x0 = dolfin.Function(fs.W)
@@ -1961,7 +1964,7 @@ if __name__ == "__main__":
     #fs.set_initial_state(x0=x0)
     fs.init_time_stepping()
 
-    print("Step several times")
+    logger.info("Step several times")
     sspath = Path(__file__).parent / "data_input"
     G = flu.read_ss(sspath / "sysid_o16_d=3_ssest.mat")
     Kss = flu.read_ss(sspath / "Kopt_reduced13.mat")
@@ -1991,22 +1994,22 @@ if __name__ == "__main__":
         fs.step_perturbation(u_ctrl=u_ctrl, NL=fs.NL, shift=0.0)
 
     if fs.num_steps > 3:
-        print("Total time is: ", time.time() - t000)
-        print("Iteration 1 time     ---", fs.timeseries.loc[1, "runtime"])
-        print("Iteration 2 time     ---", fs.timeseries.loc[2, "runtime"])
-        print("Mean iteration time  ---", np.mean(fs.timeseries.loc[3:, "runtime"]))
-        print(
-            "Time/iter/dof        ---",
+        logger.info("Total time is: %f", time.time() - t000)
+        logger.info("Iteration 1 time     --- %f", fs.timeseries.loc[1, "runtime"])
+        logger.info("Iteration 2 time     --- %f", fs.timeseries.loc[2, "runtime"])
+        logger.info("Mean iteration time  --- %f", np.mean(fs.timeseries.loc[3:, "runtime"]))
+        logger.info(
+            "Time/iter/dof        --- %f",
             np.mean(fs.timeseries.loc[3:, "runtime"]) / fs.W.dim(),
         )
     dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.user])
 
     fs.write_timeseries()
-    print(fs.timeseries)
+    logger.info(fs.timeseries)
 
-    print("Last two lines of the printed timetable should look like this:")
-    print("9   0.045  1.634545  0.132531     0.0     0.0  0.000347 -3.385638  1.143313  0.159566")
-    print("10  0.050  0.000000  0.132341     0.0     0.0  0.000353 -3.107742  1.142722  0.143971")
+    logger.info("Last two lines of the printed timetable should look like this:")
+    logger.info("9   0.045  1.634545  0.132531     0.0     0.0  0.000347 -3.385638  1.143313  0.159566")
+    logger.info("10  0.050  0.000000  0.132341     0.0     0.0  0.000353 -3.107742  1.142722  0.143971")
 
 
 # TODO
