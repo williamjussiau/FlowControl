@@ -26,7 +26,13 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 #import pdb
+import logging
 import warnings
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+logger.debug('Importing or running: %s', __name__)
+
 
 # Dolfin utility # GOTO ###################################################
 def apply_fun(u, fun):
@@ -36,7 +42,7 @@ def apply_fun(u, fun):
 
 def show_max(u, name=''):
     '''Display max of dolfin.dolfin.Function'''
-    print('Max of vector "%s" is : %f' %(name, apply_fun(u, np.max)))
+    logger.info('Max of vector "%s" is : %f' %(name, apply_fun(u, np.max)))
 
 
 def write_xdmf(filename, func, name, time_step=0., append=False, write_mesh=True):
@@ -59,7 +65,7 @@ def print0(*args, **kwargs):
     '''Print on process 0 only
     Could also do: print and flush stdout'''
     if MpiUtils.get_rank()==0:
-        print(*args, **kwargs)
+        logger.info(*args, **kwargs)
 
 
 # Shortcut to define projection with MUMPS
@@ -79,7 +85,7 @@ class MpiUtils():
         '''Check process MPI rank'''
         comm = mpi.COMM_WORLD
         ip = comm.Get_rank()
-        print("================= Hello I am process ", ip)
+        logger.info("================= Hello I am process %d", ip)
 
     @staticmethod
     def mpi4py_comm(comm):
@@ -131,11 +137,11 @@ class MpiUtils():
     def set_omp_num_threads():
         '''Memo for getting/setting OMP_NUM_THREADS, most likely does not work as is'''
         try:
-            print('nb threads was: ', os.environ['OMP_NUM_THREADS'])
+            logger.info('nb threads was: %s', os.environ['OMP_NUM_THREADS'])
         except Exception as e:
             os.environ['OMP_NUM_THREADS'] = '1'
             raise(e)
-        print('nb threads is: ', os.environ['OMP_NUM_THREADS'])
+        logger.info('nb threads is: %s', os.environ['OMP_NUM_THREADS'])
 
     @staticmethod
     def mpi_broadcast(x):
@@ -187,34 +193,7 @@ def dense_to_sparse(A, eliminate_zeros=True, eliminate_under=None):
 def sparse_to_petscmat(A):
     '''Cast scipy.sparse matrix A to PETSc.Matrix()
     A should be scipy.sparse.xQxx and square'''
-    #t00 = time.time()
     A = A.tocsr()
-    #Acsr = (A.indptr, A.indices, A.data)
-
-    #### Sequential
-    ####Amat = PETSc.Mat()
-    ####Amat.createAIJWithArrays(size=A.shape, csr=Acsr, comm=PETSc.COMM_WORLD)
-    ####Amat.assemblyBegin()
-    ####Amat.assemblyEnd()
-
-    #### Parallel
-    #### Create matrix of true size to get ownership range
-    ###Amat = PETSc.Mat().create()
-    ###Amat.setSizes(A.shape)
-    ###Amat.setPreallocationNNZ(A.nnz)
-    ###Amat.setUp()
-    ###istart, iend = Amat.getOwnershipRange()
-    #### Reserve local indices
-    ###local_csr = (
-    ###    A.indptr[istart:iend+1] - A.indptr[istart],
-    ###    A.indices[A.indptr[istart]:A.indptr[iend]],
-    ###    A.data[A.indptr[istart]:A.indptr[iend]])
-    #### Assign local indices and assemble
-    #### (Probably equiv but solution 2 seems faster)
-    ####Amat = PETSc.Mat().createAIJ(size=A.shape, csr=local_csr)
-    ###Amat.assemblyBegin()
-    ###Amat.setValuesCSR(local_csr[0], local_csr[1], local_csr[2])
-    ###Amat.assemblyEnd()
 
     Amat = PETSc.Mat().createAIJ(size=A.shape,
                                 csr=(A.indptr,A.indices,A.data))
@@ -310,7 +289,7 @@ def get_mat_vp_slepc(A, B=None, n=10, DEBUG=False, target=0.0,
         def kspmonitor(kspstate, it, rnorm):
             # eps = SLEPc.EPS
             if not it%100:
-                print('--- ksp monitor --- nit: ', it, '+++ res: ', rnorm)
+                logger.info('--- ksp monitor --- nit: %d +++ res %f', it, rnorm)
                 #print('it: ', it)
                 ##print('state: ', kspstate)
                 #print('rnorm: ', rnorm)
@@ -328,7 +307,7 @@ def get_mat_vp_slepc(A, B=None, n=10, DEBUG=False, target=0.0,
     if verbose:
         def epsmonitor(eps, it, nconv, eig, err):
             # eps = SLEPc.EPS
-            print('***** eps monitor ***** nit: ', it, '+++ cvg ', nconv, '/', n)
+            logger.info('***** eps monitor ***** nit: %d +++ cvg %d / %d', it, nconv, n)
             #print('eps it: ', it)
             #print('converged: ', nconv)
             ##print('eig: ', eig)
@@ -342,7 +321,7 @@ def get_mat_vp_slepc(A, B=None, n=10, DEBUG=False, target=0.0,
     #niters = eigensolver.getIterationNumber()
 
     if verbose:
-        print('------ Computation terminated ------')
+        logger.info('------ Computation terminated ------')
 
     sz = A.size[0]
     n = nconv
@@ -365,7 +344,7 @@ def get_mat_vp_slepc(A, B=None, n=10, DEBUG=False, target=0.0,
         vecp_im[istart_r:iend_i, i] = vi.array
 
         if verbose:
-            print('Eigenvalue %2d is: %f+i %f' % (i+1, np.real(valp[i]), np.imag(valp[i])))
+            logger.info('Eigenvalue %2d is: %f+i %f' % (i+1, np.real(valp[i]), np.imag(valp[i])))
 
     vecp = vecp_re + 1j*vecp_im
 
@@ -475,7 +454,7 @@ def geig_singular(A, B, n=2, DEBUG=False, target=None, solve_dense=False):
         OPinv = spr_la.LinearOperator(matvec=lambda x: LU.solve(x), shape=Asb.shape)
         OPinv = spr_la.LinearOperator(matvec=lambda x: spr_la.minres(Asb, x, tol=1e-5)[0], shape=Asb.shape)
         Dt, Vt = spr_la.eigs(A=At, k=n, M=Bt, tol=0, sigma=target, OPinv=OPinv)
-        print('Embedded sparse eig: ', Dt)
+        logger.info('Embedded sparse eig: %f', Dt)
 
     Vt_zero = Vt[-sznp:, :]
     EPS = np.finfo(float).eps
@@ -526,7 +505,7 @@ def get_mat_vp(A, B=None, n=3, DEBUG=False):
     eigensolver = dolfin.SLEPcEigenSolver(A, B)
     eigensolver.solve(n)
     nconv = eigensolver.get_number_converged()
-    print('Tried: %d, converged: %d' % (n, nconv))
+    logger.info('Tried: %d, converged: %d' % (n, nconv))
 
     sz = A.size(0)
     valp = np.zeros(nconv, dtype=complex)
@@ -536,7 +515,7 @@ def get_mat_vp(A, B=None, n=3, DEBUG=False):
 
     for i in range(nconv):
         valp[i], c[i], vecp[:, i], cx[:, i] = eigensolver.get_eigenpair(i)
-        print('Eigenvalue %d is: %f+i %f' % (i+1, np.real(valp[i]), np.imag(valp[i])))
+        logger.info('Eigenvalue %d is: %f+i %f' % (i+1, np.real(valp[i]), np.imag(valp[i])))
 
     if DEBUG:
         return (valp, vecp), eigensolver
@@ -596,7 +575,7 @@ def export_field(cfields, W, V, P, save_dir=None, time_steps=None):
 
         # next eigenvec: append to file
         is_append = True
-        print('Writing eigenvector: %d' %(i+1))
+        logger.info('Writing eigenvector: %d' %(i+1))
 
 
 def export_sparse_matrix(A, figname=None):
@@ -692,8 +671,8 @@ def export_subdomains(mesh, subdomains_list, filename='subdomains.xdmf'):
     for i, subdomain in enumerate(subdomains_list):
         subdnr = 10*(i+1)
         subdomain.mark(subd, subdnr)
-        print('Marking subdomain nr: {0} ({1})'.format(i+1, subdnr))
-    print('Writing subdomains file: ', filename)
+        logger.info('Marking subdomain nr: {0} ({1})'.format(i+1, subdnr))
+    logger.info('Writing subdomains file: %s', filename)
     with dolfin.XDMFFile(filename) as fsubd:
         fsubd.write(subd)
 
@@ -787,7 +766,7 @@ def pad_upto(L, N, v=0):
     if type(L) is np.ndarray:
         return np.pad(L, pad_width=(0,N-L.shape[0]), mode='constant', constant_values=(v))
     else:
-        print('Type for padding not supported')
+        logger.info('Type for padding not supported')
         return L
 
 
@@ -864,11 +843,11 @@ def end_simulation(fs, t0=None):
     '''Display information about simulation done by FlowSolver fs'''
     if fs.num_steps > 3:
             if t0 is not None:
-                print('Total time is: ', time.time() - t0)
-            print('Iteration 1 time     ---', fs.timeseries.loc[1, 'runtime'])
-            print('Iteration 2 time     ---', fs.timeseries.loc[2, 'runtime'])
-            print('Mean iteration time  ---', np.mean(fs.timeseries.loc[3:, 'runtime']))
-            print('Time/iter/dof        ---', np.mean(fs.timeseries.loc[3:, 'runtime'])/fs.W.dim())
+                logger.info('Total time is: %f', time.time() - t0)
+            logger.info('Iteration 1 time     --- %f', fs.timeseries.loc[1, 'runtime'])
+            logger.info('Iteration 2 time     --- %f', fs.timeseries.loc[2, 'runtime'])
+            logger.info('Mean iteration time  --- %f', np.mean(fs.timeseries.loc[3:, 'runtime']))
+            logger.info('Time/iter/dof        --- %f', np.mean(fs.timeseries.loc[3:, 'runtime'])/fs.W.dim())
     dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.wall])
 
 
@@ -976,8 +955,8 @@ def compute_cost(fs, criterion, u_penalty, fullstate=True, scaling=None,
 
     # Show
     if verbose:
-        print('grep [energy, regularization]: ', [xQx, u_penalty*uRu])
-        print('grep full cost: ', J)
+        logger.info('grep [energy, regularization]: %f', [xQx, u_penalty*uRu])
+        logger.info('grep full cost: %f', J)
 
     return J
 
@@ -1037,7 +1016,7 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
 
     # Sub blocks (before loop)
     if verbose:
-        print('Defining sub-blocks (A, E)')
+        logger.info('Defining sub-blocks (A, E)')
     Acsr = dense_to_sparse(A)
     sz = Acsr.shape[0]  # fs.W.dim()
     #print('size of acsr is:', sz)
@@ -1073,7 +1052,7 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
     tb = time.time()
     for ii, w in enumerate(ww):
         if verbose:
-            print('Computing %d/%d with puls: %5.3f...' %(ii+1, len(ww), w))
+            logger.info('Computing %d/%d with puls: %5.3f...' %(ii+1, len(ww), w))
         # Block matrix
         t00 = time.time()
 
@@ -1157,10 +1136,10 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
 
         if verbose:
             for sn in range(ns):
-                print('\t magnitude is: %5.4f' %(np.abs(Hw[sn, ii])))
+                logger.info('\t magnitude is: %5.4f' %(np.abs(Hw[sn, ii])))
 
     if verbose:
-        print('Elapsed computing {0} pulsations: {1}'.format(len(ww), time.time()-tb))
+        logger.info('Elapsed computing {0} pulsations: {1}'.format(len(ww), time.time()-tb))
 
 
     if save_dir and MpiUtils.get_rank()==0: # if dir not empty string & rank 0
@@ -1179,7 +1158,7 @@ def get_Hw(fs, A=None, B=None, C=None, D=None, Q=None, logwmin=-2, logwmax=2, nw
 
             savepath = save_dir + 'Hw_nw' + str(nw) + save_suffix + suffix + '.mat'
             sio.savemat(savepath, {'H': Hw_i, 'w': ww, 'xs': xs_i})
-            print('Saving frequency response to: ', savepath)
+            logger.info('Saving frequency response to: %s', savepath)
 
             fig, axs = plt.subplots(2, 1)
 
@@ -1410,10 +1389,10 @@ if __name__=='__main__':
     #print('----- scipy.sparse ----- end')
 
 
-    print('----- using slepc ----- begin')
+    logger.info('----- using slepc ----- begin')
 
-    print('...............................')
-    print('Small matrix')
+    logger.info('...............................')
+    logger.info('Small matrix')
     nit = 1
     dt = 0
     for i in range(nit):
@@ -1424,27 +1403,27 @@ if __name__=='__main__':
         eigz, eigensolver = get_mat_vp_slepc(A, B, target=0.1, n=4, DEBUG=False, verbose=False,
             return_eigensolver=True, gmresrestart=1000, tol=1e-5)
         dt += time.time() - t0
-    print('Elapsed (avg on %d iter): %f' %(nit, dt/nit))
-    print(eigz[0][:,None])
-    print('...............................')
+    logger.info('Elapsed (avg on %d iter): %f' %(nit, dt/nit))
+    logger.info(eigz[0][:,None])
+    logger.info('...............................')
 
 
     # Test routines with random sparse matrices
     if 1:
-        print('')
+        logger.info('')
         tc = time.time()
         AA, BB = make_mat_to_test_slepc(view=True, singular=True,
             neigpairs=2000, density_B=7/10, rand=False)
         #AA, BB = load_mat_from_file('rand')
-        print('...............................')
-        print('Random matrices of size: %i' %(BB.shape[0]))
-        print('Create - elapsed: %f' %(time.time() - tc))
+        logger.info('...............................')
+        logger.info('Random matrices of size: %i' %(BB.shape[0]))
+        logger.info('Create - elapsed: %f' %(time.time() - tc))
 
 
         # BENCHMARK
-        if 0:
-            print('...............................')
-            print('Benchmark')
+        if 1:
+            logger.info('...............................')
+            logger.info('Benchmark')
             # Get all preconditioners available
             all_pc = get_all_enum_petsc_slepc(PETSc.PC.Type)
             pc_except = ['MAT','ICC', 'NONE', 'DEFLATION']
@@ -1458,9 +1437,9 @@ if __name__=='__main__':
                     eigz, eigensolver = get_mat_vp_slepc(array_to_petscmat(AA), array_to_petscmat(BB),
                         target=-0.1, n=4, return_eigensolver=True, precond_type=pc_name, verbose=True)
                     tpc = time.time() - t0
-                    print('PC success: %s --- %f' %(pc_name, tpc))
+                    logger.info('PC success: %s --- %f' %(pc_name, tpc))
                 except Exception as e:
-                    print('PC failed:  %s ' %(pc_name))
+                    logger.info('PC failed:  %s ' %(pc_name))
                     tpc = np.inf
                     raise(e)
                 pc_time[pc_key] = tpc
@@ -1480,47 +1459,48 @@ if __name__=='__main__':
                         precond_type=PETSc.PC.Type.NONE, verbose=False,
                         eps_type=solver_name)
                     tsl = time.time() - t0
-                    print('Solver success: %s --- %f' %(solver_name, tsl))
+                    logger.info('Solver success: %s --- %f' %(solver_name, tsl))
                 except Exception as e:
-                    print('Solver failed: %s' %(solver_name))
+                    logger.info('Solver failed: %s' %(solver_name))
                     tsl = np.inf
                     raise(e)
                 solver_time[solver_key] = tsl
-            print('...............................')
+            logger.info('...............................')
 
         # BEST
         # Try best + best
-        print('...............................')
-        print('Best + best')
+        logger.info('...............................')
+        logger.info('Best + best')
         t0b = time.time()
         eigz, eigensolver = get_mat_vp_slepc(array_to_petscmat(AA), array_to_petscmat(BB),
                 target=-2.103, n=4, return_eigensolver=True, verbose=False,
                 precond_type=PETSc.PC.Type.HYPRE,
                 eps_type=SLEPc.EPS.Type.KRYLOVSCHUR)
-        print('Best + best: %f ' %(time.time() - t0b) )
+        logger.info('Best + best: %f ' %(time.time() - t0b) )
         Z = AA@eigz[1] - BB@eigz[1]@np.diag(eigz[0])
-        print('Sanity check (norm): ', np.linalg.norm(Z))
-        print('...............................')
+        logger.info('Sanity check (norm): ', np.linalg.norm(Z))
+        logger.info('...............................')
 
     # True FEM matrices
-    if 1:
-        print('...............................')
-        print('Start with FEM matrices')
+    if 0:
+        logger.info('...............................')
+        logger.info('Start with FEM matrices')
         t0 = time.time()
-        print('--- Loading matrices')
+        logger.info('--- Loading matrices')
+        #save_npz_path = '/scratchm/wjussiau/fenics-python/cylinder/data/o1/matrices/'
         save_npz_path = '/scratchm/wjussiau/fenics-python/cylinder/data/o1/matrices/'
         #save_npz_path = '/scratchm/wjussiau/fenics-python/cavity/data/matrices/'
-        print('--- from sparse...')
+        logger.info('--- from sparse...')
         AA = spr.load_npz(save_npz_path + 'A.npz')
         BB = spr.load_npz(save_npz_path + 'Q.npz')
-        print('--- ... to petscmat')
+        logger.info('--- ... to petscmat')
         AA = array_to_petscmat(AA, eliminate_zeros=False)
         BB = array_to_petscmat(BB, eliminate_zeros=False)
         # make empty entries -> 0
         #AA.setdiag(AA.diagonal())
         #BB.setdiag(BB.diagonal())
         # solve
-        print('--- Starting solve')
+        logger.info('--- Starting solve')
         eigz, eigensolver = get_mat_vp_slepc(
             A=AA,
             B=BB,
@@ -1534,10 +1514,10 @@ if __name__=='__main__':
             gmresrestart=500,
             tol=1e-8,
             kspmaxit=5000)
-        print('Big matrix - elapsed: %f' %(time.time() - t0))
-        print('...............................')
+        logger.info('Big matrix - elapsed: %f' %(time.time() - t0))
+        logger.info('...............................')
 
-    print('...............................')
+    logger.info('...............................')
     #print('Summary .......................')
     #st = eigensolver.getST()
     #ksp = st.getKSP()
