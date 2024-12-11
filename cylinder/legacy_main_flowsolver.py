@@ -1024,8 +1024,120 @@ class FlowSolver:
                 self.order,
             )
 
+        # Assemble IPCS forms (1st and 2nd orders)
+        # + Modify BCs (redirect function spaces W.sub(0)>>>V...)
+        bcu_inlet_g = dolfin.DirichletBC(
+            V, dolfin.Constant((self.uinf, 0)), self.boundaries.loc["inlet"].subdomain
+        )
+        bcu_walls_g = dolfin.DirichletBC(
+            V.sub(1), dolfin.Constant(0), self.boundaries.loc["walls"].subdomain
+        )
+        bcu_cylinder_g = dolfin.DirichletBC(
+            V, dolfin.Constant((0, 0)), self.boundaries.loc["cylinder"].subdomain
+        )
+        bcu_actuation_up_g = dolfin.DirichletBC(
+            V, self.actuator_expression, self.boundaries.loc["actuator_up"].subdomain
+        )
+        bcu_actuation_lo_g = dolfin.DirichletBC(
+            V, self.actuator_expression, self.boundaries.loc["actuator_lo"].subdomain
+        )
+        bcug = [
+            bcu_inlet_g,
+            bcu_walls_g,
+            bcu_cylinder_g,
+            bcu_actuation_up_g,
+            bcu_actuation_lo_g,
+        ]
 
-        # Assign fields
+        bcp_outlet_g = dolfin.DirichletBC(
+            self.P, dolfin.Constant(0), self.boundaries.loc["outlet"].subdomain
+        )
+        bcpg = [bcp_outlet_g]
+
+        self.bc_ipcs = {"bcu": bcug, "bcp": bcpg}
+
+        ## order 1
+        # velocity prediction
+        F1g = (
+            dot((u - u_n) / k, v) * dx
+            + dot(dot(u_n, nabla_grad(u_n)), v) * dx
+            + inner(iRe * nabla_grad(u), nabla_grad(v)) * dx
+            - inner(p_n * II, nabla_grad(v)) * dx
+        )
+        # - dot(f, v)*dx \
+        a1g = dolfin.lhs(F1g)
+        L1g = dolfin.rhs(F1g)
+        # pressure correction
+        a2g = dot(nabla_grad(p), nabla_grad(q)) * dx
+        L2g = dot(nabla_grad(p_n), nabla_grad(q)) * dx - (1 / k) * div(u_) * q * dx
+        # velocity correction
+        a3g = dot(u, v) * dx
+        L3g = dot(u_, v) * dx - k * dot(nabla_grad(p_ - p_n), v) * dx
+        # system assembler
+        # Note: useful for 2 reasons
+        #  1) do not pass matrices all the way
+        #  2) only (?) way to preallocate & assemble in preallocated RHS
+        sysAssmb1 = [
+            dolfin.SystemAssembler(a1g, L1g, self.bc_ipcs["bcu"]),
+            dolfin.SystemAssembler(a2g, L2g, self.bc_ipcs["bcp"]),
+            dolfin.SystemAssembler(a3g, L3g, self.bc_ipcs["bcu"]),
+        ]
+        AA1 = [dolfin.Matrix() for i in range(3)]  # equiv to dolfin.PETScMatrix()
+        # Make assemblers & solvers
+        solvers1 = self.make_solvers()
+        for assmblr, A, solver in zip(sysAssmb1, AA1, solvers1):
+            assmblr.assemble(A)
+            solver.set_operator(A)
+
+        ## order 2
+        # velocity prediction
+        F1g2 = (
+            dot((3 * u - 4 * u_n + u_nn) / (2 * k), v) * dx
+            + 2 * dot(dot(u_n, nabla_grad(u_n)), v) * dx
+            - dot(dot(u_nn, nabla_grad(u_nn)), v) * dx
+            + inner(iRe * nabla_grad(u), nabla_grad(v)) * dx
+            - inner(p_n * II, nabla_grad(v)) * dx
+        )
+        # - dot(f, v)*dx \
+        a1g2 = dolfin.lhs(F1g2)
+        L1g2 = dolfin.rhs(F1g2)
+        # pressure correction
+        a2g2 = dot(nabla_grad(p), nabla_grad(q)) * dx
+        L2g2 = dot(nabla_grad(p_n), nabla_grad(q)) * dx - 3 / (2 * k) * div(u_) * q * dx
+        # velocity correction
+        a3g2 = dot(u, v) * dx
+        L3g2 = dot(u_, v) * dx - (2 * k) / 3 * dot(nabla_grad(p_ - p_n), v) * dx
+        # system assembler 2
+        # "this is very pythonic"
+        # sysAssmb2 = [dolfin.SystemAssembler(a, L, self.bc_ipcs[bcn])
+        #    for a, L, bcn in zip([a1g2, a2g2, a3g2],
+        #                         [L1g2, L2g2, L3g2],
+        #                         ['bcu', 'bcp', 'bcu'])]
+        # "this is not very pythonic" but nvm
+        sysAssmb2 = [
+            dolfin.SystemAssembler(a1g2, L1g2, self.bc_ipcs["bcu"]),
+            dolfin.SystemAssembler(a2g2, L2g2, self.bc_ipcs["bcp"]),
+            dolfin.SystemAssembler(a3g2, L3g2, self.bc_ipcs["bcu"]),
+        ]
+        AA2 = [dolfin.Matrix() for i in range(3)]  # equiv to dolfin.PETScMatrix()
+        # Make assemblers & solvers
+        solvers2 = self.make_solvers()
+        for assmblr, A, solver in zip(sysAssmb2, AA2, solvers2):
+            assmblr.assemble(A)
+            solver.set_operator(A)
+
+        # pre-allocate dolfin.rhs
+        # b1 = PETScVector(dolfin.MPI.comm_world, V.dim())
+        # b2 = PETScVector(dolfin.MPI.comm_world, P.dim())
+        # b3 = PETScVector(dolfin.MPI.comm_world, V.dim())
+        # PETScVector does not go parallel well with FEniCS solvers >>> dolfin.Vector()
+        self.bs = [dolfin.Vector() for i in range(3)]
+        # following only has an impact on 1st iteration and that's all
+        # self.bs = [dolfin.Vector(dolfin.MPI.comm_world, u_.vector().local_size()),
+        #           dolfin.Vector(dolfin.MPI.comm_world, p_.vector().local_size()),
+        #           dolfin.Vector(dolfin.MPI.comm_world, u_.vector().local_size())]
+        self.assemblers = {1: sysAssmb1, 2: sysAssmb2}
+        self.solvers = {1: solvers1, 2: solvers2}
         self.u_ = u_
         self.p_ = p_
         self.u_n = u_n
@@ -1040,6 +1152,7 @@ class FlowSolver:
         self.y_meas = self.y_meas0
         # not valid in perturbations formulation
         cl1, cd1 = self.compute_force_coefficients(u_n, p_n)
+        # cl1, cd1 = 0, 1
 
         # Make time series pd.DataFrame
         y_meas_str = ["y_meas_" + str(i + 1) for i in range(self.sensor_nr)]
@@ -1052,6 +1165,8 @@ class FlowSolver:
         ts1d = pd.DataFrame(columns=colnames, data=empty_data)
         # u_ctrl = dolfin.Constant(0)
         ts1d.loc[0, "time"] = self.Tstart
+        # ts1d.loc[0, 'y_meas'] = self.y_meas0
+        # replace line above for several measurements
         self.assign_measurement_to_dataframe(df=ts1d, y_meas=self.y_meas0, index=0)
         ts1d.loc[0, "cl"], ts1d.loc[0, "cd"] = cl1, cd1
         if self.compute_norms:
@@ -1066,6 +1181,7 @@ class FlowSolver:
         self.timeseries.loc[self.iter - 1, "u_ctrl"] = (
             u_ctrl  # careful here: log the command that was applied at time t (iter-1) to get time t+dt (iter)
         )
+        # self.timeseries.loc[self.iter, 'y_meas'] = y_meas
         # replace above line for several measurements
         self.assign_measurement_to_dataframe(
             df=self.timeseries, y_meas=y_meas, index=self.iter
@@ -1296,10 +1412,26 @@ class FlowSolver:
 
     def make_solvers(self):
         """Define solvers"""
-        # other possibilities: dolfin.KrylovSolver("bicgstab", "jacobi")
-        # then solverparam = solver.paramters
-        # solverparam[""]=...
-        return dolfin.LUSolver("mumps")
+        if self.equations == "ipcs":
+            if self.solver_type == "Krylov":
+                S1 = dolfin.KrylovSolver("bicgstab", "jacobi")
+                S2 = dolfin.KrylovSolver(
+                    "bicgstab", "petsc_amg"
+                )  # pressure solver needs to be good
+                S3 = dolfin.KrylovSolver("bicgstab", "jacobi")
+                for s in [S1, S2, S3]:
+                    sparam = s.parameters
+                    sparam["nonzero_initial_guess"] = True
+                    sparam["absolute_tolerance"] = 1e-8
+                    sparam["relative_tolerance"] = 1e-8
+                    sparam["error_on_nonconvergence"] = True  # error + catch
+            else:
+                S1 = dolfin.LUSolver("mumps")
+                S2 = dolfin.LUSolver("mumps")
+                S3 = dolfin.LUSolver("mumps")
+            return [S1, S2, S3]
+        else:
+            return dolfin.LUSolver("mumps")
 
     def make_measurement(self, field=None, mixed_field=None):
         """Perform measurement and assign"""
@@ -1735,6 +1867,8 @@ if __name__ == "__main__":
         "compute_norms": True,
     }
     params_solver = {
+        "solver_type": "Krylov",
+        "equations": "ipcs",
         "throw_error": True,
         "perturbations": True,  #######
         "NL": True,  ################# NL=False only works with perturbations=True
