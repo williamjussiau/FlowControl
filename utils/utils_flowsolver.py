@@ -122,7 +122,7 @@ class MpiUtils():
         comm = mesh.mpi_comm()
         computed_f = comm.gather(f_eval, root=0)
         # Verify the results on process 0 to ensure we see the same value
-        # on a_lhs process boundary
+        # on a process boundary
         if comm.rank == 0:
             global_f_evals = np.array([y for y in computed_f if y is not None], dtype=np.double)
             assert np.all(np.abs(global_f_evals[0] - global_f_evals) < 1e-9)
@@ -377,9 +377,9 @@ def make_mat_to_test_slepc(view=False, singular=False, neigpairs=3, density_B=1.
         return [[a, -b], [b, a]]
 
     # slow because of reallocation
-    #a_lhs = makemat_conjeig(re[0], im[0])
-    #for i in range(1, neigpairs): # make block matrix with a_lhs+1jb as eigenval
-    #    a_lhs = la.block_diag(a_lhs, makemat_conjeig(re[i], im[i]))
+    #a = makemat_conjeig(re[0], im[0])
+    #for i in range(1, neigpairs): # make block matrix with a+1jb as eigenval
+    #    a = la.block_diag(a, makemat_conjeig(re[i], im[i]))
     # hopefully faster
     A = np.zeros((sz, sz))
     for i in range(neigpairs):
@@ -428,7 +428,7 @@ def load_mat_from_file(mat_type='fem32'):
 
 def geig_singular(A, B, n=2, DEBUG=False, target=None, solve_dense=False):
     '''Get n eigenvales of generalized problem (A, B)
-    Where B is a_lhs singular matrix (hence no inv(B))
+    Where B is a singular matrix (hence no inv(B))
     Direct SLEPc backend.'''
 
     # Setup problem
@@ -740,9 +740,9 @@ def compute_signal_frequency(sig, Tf, nzp=10):
 
 
 def sample_lco(Tlco, Tstartlco, nsim): # dt, save_every_old
-    '''Define times for sampling a_lhs LCO in simulation
+    '''Define times for sampling a LCO in simulation
     Tlco: period of LCO
-    Tstartlco: beginning of simulations - has to match a_lhs saved step
+    Tstartlco: beginning of simulations - has to match a saved step
     nsim: number of simulations to be run'''
     tcl = Tstartlco + Tlco/nsim * np.arange(nsim)
     return tcl
@@ -771,7 +771,7 @@ def pad_upto(L, N, v=0):
 
 
 def saturate(x, xmin , xmax):
-    '''Saturate a_lhs signal x between [xmin, xmax]
+    '''Saturate a signal x between [xmin, xmax]
     This implementation (native Py) is faster for signals of small dimension'''
     # max(xmin, min(xmax, x))
     # sorted((x, xmin, xmax))[1]
@@ -831,7 +831,7 @@ def write_ss(sys, path):
 
 # FlowSolver direct utility # GOTO ############################################
 def get_subspace_dofs(W):
-    '''Return a_lhs map of which function space contain which dof'''
+    '''Return a map of which function space contain which dof'''
     def get_dofs(V): return np.array(V.dofmap().dofs(), dtype=int)
     subspace_dof = {'u': get_dofs(W.sub(0).sub(0)),
                     'v': get_dofs(W.sub(0).sub(1)),
@@ -853,7 +853,7 @@ def end_simulation(fs, t0=None):
 
 def make_mesh_param(meshname):
     '''Make mesh parameters from given name
-    Essentially a_lhs shortcut to defining mesh characteristics'''
+    Essentially a shortcut to defining mesh characteristics'''
     meshname = meshname.lower()
     # nx32
     if meshname=='nx32':
@@ -1341,17 +1341,17 @@ if __name__=='__main__':
     ##n = 4 # size of problem
     ##re = [0.2, -0.5] # real part of eigenval
     ##im = [0.25, 0.8] # imag part of eigenval
-    ##makemat_conjeig = lambda a_lhs, b: [[a_lhs, -b], [b, a_lhs]] # make 2x2 matrix with given conj eigenval
-    ##a_lhs = makemat_conjeig(re[0], im[0])
-    ##for i in range(1, n//2): # make block matrix with a_lhs+1jb as eigenval
-    ##    a_lhs = la.block_diag(a_lhs, makemat_conjeig(re[i], im[i]))
+    ##makemat_conjeig = lambda a, b: [[a, -b], [b, a]] # make 2x2 matrix with given conj eigenval
+    ##a = makemat_conjeig(re[0], im[0])
+    ##for i in range(1, n//2): # make block matrix with a+1jb as eigenval
+    ##    a = la.block_diag(a, makemat_conjeig(re[i], im[i]))
     ### make b in numpy to set values easily, then convert
     ##b = np.eye(n)
     ##singular = True
     ##if singular: # makes b non invertible
     ##    b[1, 1] = 0
     ##    b[2, 2] = 0
-    ##Ad = a_lhs
+    ##Ad = a
     ##Bd = b
 
     #As = dense_to_sparse(Ad)

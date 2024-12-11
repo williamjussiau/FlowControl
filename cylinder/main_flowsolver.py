@@ -13,6 +13,7 @@ Equations were made non-dimensional
 """
 
 from __future__ import print_function
+from AbtractFlowSolver import AbstractFlowSolver
 import dolfin
 from dolfin import dot, inner, grad, nabla_grad, sym, div, curl, dx
 from mshr import Rectangle, Circle, generate_mesh
@@ -20,8 +21,6 @@ import numpy as np
 import os
 import time
 import pandas as pd
-import sympy as sp
-import scipy.sparse as spr
 # from petsc4py import PETSc
 
 import pdb  # noqa: F401
@@ -31,16 +30,20 @@ from pathlib import Path
 
 import importlib
 import utils_flowsolver as flu
+import utils_extract as flu2
 
 importlib.reload(flu)
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
 logger = logging.getLogger(__name__)
-FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
+FORMAT = (
+    "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
+)
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
-class FlowSolver:
+
+class FlowSolver(AbstractFlowSolver):
     """Base class for calculating flow
     Is instantiated with several structures (dicts) containing parameters
     See method .step and main for time-stepping (possibly actuated)
@@ -92,7 +95,7 @@ class FlowSolver:
         # for energy computation
         self.u_ = dolfin.Function(self.V)
 
-    def define_paths(self):
+    def define_paths(self):  # TODO move to superclass
         """Define attribute (dict) containing useful paths (save, etc.)"""
         # Files location directory is params_save['savedir0']
         # dunnu touch below
@@ -135,7 +138,7 @@ class FlowSolver:
             "mesh": self.meshpath,
         }
 
-    def make_mesh(self):
+    def make_mesh(self):  # TODO move to superclass
         """Define mesh
         params_mesh contains either name of existing mesh
         or geometry parameters: xinf, yinf, xinfa, nx..."""
@@ -191,7 +194,7 @@ class FlowSolver:
         self.mesh = mesh
         self.n = dolfin.FacetNormal(mesh)
 
-    def make_function_spaces(self):
+    def make_function_spaces(self):  # TODO move to superclass
         """Define function spaces (u, p) = (CG2, CG1)"""
         # dolfin.Function spaces on mesh
         Ve = dolfin.VectorElement("CG", self.mesh.ufl_cell(), 2)  # was 'P'
@@ -203,7 +206,7 @@ class FlowSolver:
         if self.verbose:
             logger.info("Function Space [V(CG2), P(CG1)] has: %d DOFs" % (self.W.dim()))
 
-    def make_boundaries(self):
+    def make_boundaries(self):  # TODO keep this one here
         """Define boundaries (inlet, outlet, walls, cylinder, actuator)"""
         MESH_TOL = dolfin.DOLFIN_EPS
         # Define as compiled subdomains
@@ -330,7 +333,7 @@ class FlowSolver:
 
     ##        ###############################################################################
 
-    def make_actuator(self):
+    def make_actuator(self):  # TODO keep this one here
         """Define actuator on boundary
         Could be defined as volume actuator some day"""
 
@@ -347,7 +350,7 @@ class FlowSolver:
 
         self.actuator_expression = actuator_bc
 
-    def make_bcs(self):
+    def make_bcs(self):  # TODO keep this one here
         """Define boundary conditions"""
         # Boundary markers
         boundary_markers = dolfin.MeshFunction(
@@ -420,38 +423,31 @@ class FlowSolver:
 
         self.bc_p = {"bcu": bcu_p, "bcp": []}  # log perturbation bcs
 
-    def load_steady_state(self, assign=True):
-        u0 = dolfin.Function(self.V)
-        p0 = dolfin.Function(self.P)
-        flu.read_xdmf(self.paths["u0"], u0, "u")
-        flu.read_xdmf(self.paths["p0"], p0, "p")
-
-        # Assign u0, p0 >>> up0
-        fa_VP2W = dolfin.FunctionAssigner(self.W, [self.V, self.P])
-        up0 = dolfin.Function(self.W)
-        fa_VP2W.assign(up0, [u0, p0])
-
-        if assign:
-            self.u0 = u0  # full field (u+upert)
-            self.p0 = p0
-            self.up0 = up0
-            self.y_meas_steady = self.make_measurement(mixed_field=up0)
-
-            # assign steady energy
-            self.Eb = (
-                1 / 2 * dolfin.norm(u0, norm_type="L2", mesh=self.mesh) ** 2
-            )  # same as <up, Q@up>
-
-        return u0, p0, up0
-
-    def compute_steady_state(self, method="newton", u_ctrl=0.0, **kwargs):
-        """Compute flow steady state with given steady control"""
-
-        # Save old control value, just in case
-        actuation_ampl_old = self.actuator_expression.ampl
-        # Set control value to prescribed u_ctrl
-        self.actuator_expression.ampl = u_ctrl
-
+    def make_form_mixed_steady(
+        self, initial_guess=None
+    ):  # TODO keep this one in here, but make version for superclass (especially for BCs)
+        """Make nonlinear forms for steady state computation, in mixed element space.
+        Can be used to assign self.F0 and compute state spaces matrices."""
+        v, q = dolfin.TestFunctions(self.W)
+        if initial_guess is None:
+            up_ = dolfin.Function(self.W)
+        else:
+            up_ = initial_guess
+        u_, p_ = dolfin.split(up_)  # not deep copy, we need the link
+        iRe = dolfin.Constant(1 / self.Re)
+        f = self.actuator_expression
+        # Problem
+        F0 = (
+            dot(dot(u_, nabla_grad(u_)), v) * dx
+            + iRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
+            - p_ * div(v) * dx
+            - q * div(u_) * dx
+            - dot(f, v) * dx
+        )
+        self.F0 = F0
+        self.up_ = up_
+        self.u_ = u_
+        self.p_ = p_
 
         # Make BCs (full ns formulation)
         # inlet : u = uinf, v = 0
@@ -492,204 +488,12 @@ class FlowSolver:
 
         self.bc = {"bcu": bcu, "bcp": bcp}
 
-
-        # If start is zero (i.e. not restart): compute
-        # Note : could add a flag 'compute_steady_state' to compute or read...
-        if self.Tstart == 0:  # and compute_steady_state
-            # Solve
-            if method == "newton":
-                up0 = self.compute_steady_state_newton(**kwargs)
-            else:
-                up0 = self.compute_steady_state_picard(**kwargs)
-
-            # assign up0, u0, p0 and write
-            fa_W2VP = dolfin.FunctionAssigner([self.V, self.P], self.W)
-            u0 = dolfin.Function(self.V)
-            p0 = dolfin.Function(self.P)
-            fa_W2VP.assign([u0, p0], up0)
-
-            # Save steady state
-            if self.save_every:
-                flu.write_xdmf(
-                    self.paths["u0"],
-                    u0,
-                    "u",
-                    time_step=0.0,
-                    append=False,
-                    write_mesh=True,
-                )
-                flu.write_xdmf(
-                    self.paths["p0"],
-                    p0,
-                    "p",
-                    time_step=0.0,
-                    append=False,
-                    write_mesh=True,
-                )
-            if self.verbose:
-                logger.info("Stored base flow in: %s", self.savedir0)
-
-            self.y_meas_steady = self.make_measurement(mixed_field=up0)
-
-        # If start is not zero: read steady state (should exist - should check though...)
-        else:
-            u0, p0, up0 = self.load_steady_state(assign=True)
-
-        # Compute lift & drag
-        cl, cd = self.compute_force_coefficients(u0, p0)
-        # cl, cd = 0, 1
-        if self.verbose:
-            logger.info("Lift coefficient is: cl = %f", cl)
-            logger.info("Drag coefficient is: cd = %f", cd)
-
-        # Set old actuator amplitude
-        self.actuator_expression.ampl = actuation_ampl_old
-
-        # assign steady state
-        self.up0 = up0
-        self.u0 = u0
-        self.p0 = p0
-        # assign steady cl, cd
-        self.cl0 = cl
-        self.cd0 = cd
-        # assign steady energy
-        self.Eb = (
-            1 / 2 * dolfin.norm(u0, norm_type="L2", mesh=self.mesh) ** 2
-        )  # same as <up, Q@up>
-
-    def make_form_mixed_steady(self, initial_guess=None):
-        """Make nonlinear forms for steady state computation, in mixed element space.
-        Can be used to assign self.F0 and compute state spaces matrices."""
-        v, q = dolfin.TestFunctions(self.W)
-        if initial_guess is None:
-            up_ = dolfin.Function(self.W)
-        else:
-            up_ = initial_guess
-        u_, p_ = dolfin.split(up_)  # not deep copy, we need the link
-        iRe = dolfin.Constant(1 / self.Re)
-        f = self.actuator_expression
-        # Problem
-        F0 = (
-            dot(dot(u_, nabla_grad(u_)), v) * dx
-            + iRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
-            - p_ * div(v) * dx
-            - q * div(u_) * dx
-            - dot(f, v) * dx
-        )
-        self.F0 = F0
-        self.up_ = up_
-        self.u_ = u_
-        self.p_ = p_
-
-    def compute_steady_state_newton(self, max_iter=25, initial_guess=None):
-        """Compute steady state with built-in nonlinear solver (Newton method)
-        initial_guess is a (u,p)_0"""
-        self.make_form_mixed_steady(initial_guess=initial_guess)
-        # if initial_guess is None:
-        #    print('- Newton solver without initial guess')
-        up_ = self.up_
-        # u_, p_ = self.u_, self.p_
-        # Solver param
-        nl_solver_param = {
-            "newton_solver": {
-                "linear_solver": "mumps",
-                "preconditioner": "default",
-                "maximum_iterations": max_iter,
-                "report": bool(self.verbose),
-            }
-        }
-        dolfin.solve(
-            self.F0 == 0, up_, self.bc["bcu"], solver_parameters=nl_solver_param
-        )
-        # Return
-        return up_
-
-    def compute_steady_state_picard(self, max_iter=10, tol=1e-14):
-        """Compute steady state with fixed-point iteration
-        Should have a larger convergence radius than Newton method
-        if initialization is bad in Newton method (and it is)
-        TODO: residual not 0 if u_ctrl not 0 (see bc probably)"""
-        iRe = dolfin.Constant(1 / self.Re)
-
-        # for residual computation
-        bcu_inlet0 = dolfin.DirichletBC(
-            self.W.sub(0),
-            dolfin.Constant((0, 0)),
-            self.boundaries.loc["inlet"].subdomain,
-        )
-        bcu0 = self.bc["bcu"] + [bcu_inlet0]
-
-        # define forms
-        up0 = dolfin.Function(self.W)
-        up1 = dolfin.Function(self.W)
-
-        u, p = dolfin.TrialFunctions(self.W)
-        v, q = dolfin.TestFunctions(self.W)
-
-        class initial_condition(dolfin.UserExpression):
-            def eval(self, value, x):
-                value[0] = 1.0
-                value[1] = 0.0
-                value[2] = 0.0
-
-            def value_shape(self):
-                return (3,)
-
-        up0.interpolate(initial_condition())
-        u0 = dolfin.as_vector((up0[0], up0[1]))
-
-        ap = (
-            dot(dot(u0, nabla_grad(u)), v) * dx
-            + iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
-            - p * div(v) * dx
-            - q * div(u) * dx
-        )  # steady dolfin.lhs
-        Lp = (
-            dolfin.Constant(0) * inner(u0, v) * dx + dolfin.Constant(0) * q * dx
-        )  # zero dolfin.rhs
-        bp = dolfin.assemble(Lp)
-
-        solverp = dolfin.LUSolver("mumps")
-        ndof = self.W.dim()
-
-        for i in range(max_iter):
-            Ap = dolfin.assemble(ap)
-            [bc.apply(Ap, bp) for bc in self.bc["bcu"]]
-
-            solverp.solve(Ap, up1.vector(), bp)
-
-            up0.assign(up1)
-            u, p = up1.split()
-
-            # show_max(u, 'u')
-            res = dolfin.assemble(dolfin.action(ap, up1))
-            [bc.apply(res) for bc in bcu0]
-            res_norm = dolfin.norm(res) / dolfin.sqrt(ndof)
-            if self.verbose:
-                logger.info(
-                    "Picard iteration: {0}/{1}, residual: {2}".format(
-                        i + 1, max_iter, res_norm
-                    )
-                )
-            if res_norm < tol:
-                if self.verbose:
-                    logger.info("Residual norm lower than tolerance {0}".format(tol))
-                break
-
-        return up1
-
-    def stress_tensor(self, u, p):
-        """Compute stress tensor (for lift & drag)"""
-        return 2.0 * self.nu * (sym(grad(u))) - p * dolfin.Identity(
-            p.geometric_dimension()
-        )
-
-    def compute_force_coefficients(self, u, p, enable=True):
+    def compute_force_coefficients(self, u, p, enable=True):  # keep this one in here
         """Compute lift & drag coefficients
         For testing purposes, I added an argument enable
         To compute Cl, Cd, just put enable=True in this code"""
         if enable:
-            sigma = self.stress_tensor(u, p)
+            sigma = flu2.stress_tensor(self.nu, u, p)
             Fo = -dot(sigma, self.n)
 
             # integration surfaces names
@@ -716,131 +520,27 @@ class FlowSolver:
             cl, cd = 0, 1
         return cl, cd
 
-    def compute_vorticity(self, u=None):
-        """Compute vorticity field of given velocity field u"""
-        if u is None:
-            u = self.u_
-        # should probably project on space of order n-1 --> self.P
-        vorticity = flu.projectm(curl(u), V=self.V.sub(0).collapse())
-        return vorticity
-
-    def compute_divergence(self, u=None):
-        """Compute divergence field of given velocity field u"""
-        if u is None:
-            u = self.u_
-        divergence = flu.projectm(div(u), self.P)
-        return divergence
-
-    # Initial perturbations ######################################################
-    class localized_perturbation_u(dolfin.UserExpression):
-        """Perturbation localized in disk
-        Use: u = dolfin.interpolate(localized_perturbation_u(), self.V)
-        or something like that"""
-
-        def eval(self, value, x):
-            if (x[0] - -2.5) ** 2 + (x[1] - 0.1) ** 2 <= 1:
-                value[0] = 0.05
-                value[1] = 0.05
-            else:
-                value[0] = 0
-                value[1] = 0
-
-        def value_shape(self):
-            return (2,)
-
-    class random_perturbation_u(dolfin.UserExpression):
-        """Perturbation in the whole volume, random
-        Use: see localized_perturbation_u"""
-
-        def eval(self, value, x):
-            value[0] = 0.1 * np.random.randn()
-            value[1] = 0
-
-        def value_shape(self):
-            return (2,)
-
-    def get_div0_u(self):
-        """Create velocity field with zero divergence"""
-        # V = self.V
-        P = self.P
-
-        # Define courant function
-        x0 = 2
-        y0 = 0
-        # nsig = 5
-        sigm = 0.5
-        xm, ym = sp.symbols("x[0], x[1]")
-        rr = (xm - x0) ** 2 + (ym - y0) ** 2
-        fpsi = 0.25 * sp.exp(-1 / 2 * rr / sigm**2)
-        # Piecewise does not work too well
-        # fpsi = sp.Piecewise(   (sp.exp(-1/2 * rr / sigm**2),
-        # rr <= nsig**2 * sigm**2), (0, True) )
-        dfx = fpsi.diff(xm, 1)
-        dfy = fpsi.diff(ym, 1)
-
-        # Take derivatives
-        # psi = dolfin.Expression(sp.ccode(fpsi), element=V.ufl_element())
-        dfx_expr = dolfin.Expression(sp.ccode(dfx), element=P.ufl_element())
-        dfy_expr = dolfin.Expression(sp.ccode(dfy), element=P.ufl_element())
-
-        # Check
-        # psiproj = flu.projectm(psi, P)
-        # flu.write_xdmf('psi.xdmf', psiproj, 'psi')
-        # flu.write_xdmf('psi_dx.xdmf', flu.projectm(dfx_expr, P), 'psidx')
-        # flu.write_xdmf('psi_dy.xdmf', flu.projectm(dfy_expr, P), 'psidy')
-
-        # Make velocity field
-        upsi = flu.projectm(dolfin.as_vector([dfy_expr, -dfx_expr]), self.V)
-        return upsi
-
-    def get_div0_u_random(self, sigma=0.1, seed=0):
-        """Create random velocity field with zero divergence"""
-        # CG2 scalar
-        P2 = self.V.sub(0).collapse()
-
-        # Make scalar potential field in CG2 (scalar)
-        a0 = dolfin.Function(P2)
-        np.random.seed(seed)
-        a0.vector()[:] += sigma * np.random.randn(a0.vector()[:].shape[0])
-
-        # Take curl, then by definition div(u0)=div(curl(a0))=0
-        Ve = dolfin.VectorElement("CG", self.mesh.ufl_cell(), 1)
-        V1 = dolfin.FunctionSpace(self.mesh, Ve)
-
-        u0 = flu.projectm(curl(a0), V1)
-
-        ##divu0 = flu.projectm(div(u0), self.P)
-        return u0
-
-    def set_initial_state(self, x0=None):
+    def set_initial_state(self, x0=None):  # TODO could move to superclass
         """Define initial state and assign to self.initial_state
         x0: dolfin.Function(self.W)
         dolfin.Function needs to be called before self.init_time_stepping()"""
         self.initial_state = x0
 
-    def init_time_stepping(self):
+    def init_time_stepping(self):  # TODO move to superclass
         """Create varitional functions/forms & flush files & define u(0), p(0)"""
         # Trial and test functions ####################################################
         # W = self.W
 
         # Define expressions used in variational forms
-        iRe = dolfin.Constant(1 / self.Re)
-        II = dolfin.Identity(2)
-        k = dolfin.Constant(self.dt)
+        # iRe = dolfin.Constant(1 / self.Re)
+        # II = dolfin.Identity(2)
+        # k = dolfin.Constant(self.dt)
         ##############################################################################
 
         t = self.Tstart
         self.t = t
         self.iter = 0
 
-        # function spaces
-        V = self.V
-        P = self.P
-        # trial and test functions
-        u = dolfin.TrialFunction(V)
-        v = dolfin.TestFunction(V)
-        p = dolfin.TrialFunction(P)
-        q = dolfin.TestFunction(P)
         # solutions
         u_ = dolfin.Function(self.V)
         p_ = dolfin.Function(self.P)
@@ -867,7 +567,7 @@ class FlowSolver:
                 # not sure this would work in parallel
                 initial_up.vector()[:] += self.get_B().reshape((-1,))
             else:
-                udiv0 = self.get_div0_u()
+                udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
                 fa = dolfin.FunctionAssigner(self.W, [self.V, self.P])
                 pert0 = dolfin.Function(self.W)
                 fa.assign(pert0, [udiv0, self.p0])
@@ -1024,7 +724,6 @@ class FlowSolver:
                 self.order,
             )
 
-
         # Assign fields
         self.u_ = u_
         self.p_ = p_
@@ -1043,11 +742,7 @@ class FlowSolver:
 
         # Make time series pd.DataFrame
         y_meas_str = ["y_meas_" + str(i + 1) for i in range(self.sensor_nr)]
-        colnames = (
-            ["time", "u_ctrl"]
-            + y_meas_str
-            + ["dE", "cl", "cd", "runtime"]
-        )
+        colnames = ["time", "u_ctrl"] + y_meas_str + ["dE", "cl", "cd", "runtime"]
         empty_data = np.zeros((self.num_steps + 1, len(colnames)))
         ts1d = pd.DataFrame(columns=colnames, data=empty_data)
         # u_ctrl = dolfin.Constant(0)
@@ -1061,7 +756,9 @@ class FlowSolver:
         ts1d.loc[0, "dE"] = dEb
         self.timeseries = ts1d
 
-    def log_timeseries(self, u_ctrl, y_meas, norm_u, norm_p, dE, cl, cd, t, runtime):
+    def log_timeseries(
+        self, u_ctrl, y_meas, norm_u, norm_p, dE, cl, cd, t, runtime
+    ):  # TODO move to superclass
         """Fill timeseries table with data"""
         self.timeseries.loc[self.iter - 1, "u_ctrl"] = (
             u_ctrl  # careful here: log the command that was applied at time t (iter-1) to get time t+dt (iter)
@@ -1077,13 +774,6 @@ class FlowSolver:
         )
         self.timeseries.loc[self.iter, "time"] = t
         self.timeseries.loc[self.iter, "runtime"] = runtime
-
-    def print_progress(self, runtime):
-        """Single line to print progress"""
-        logger.info(
-            "--- iter: %5d/%5d --- time: %3.3f/%3.2f --- elapsed %5.5f ---"
-            % (self.iter, self.num_steps, self.t, self.Tf + self.Tstart, runtime)
-        )
 
     def step_perturbation(self, u_ctrl=0.0, shift=0.0, NL=True):
         """Simulate system with perturbation formulation,
@@ -1225,7 +915,7 @@ class FlowSolver:
         if self.verbose and (
             not self.iter % self.verbose
         ):  # print every 1 if verbose is bool
-            self.print_progress(runtime=tfi - t0i)
+            flu2.print_progress(self, runtime=tfi - t0i)
 
         # Log timeseries
         # Be careful: cl, cd, norms etc. are in perturbation formulation (miss u0, p0)
@@ -1288,20 +978,20 @@ class FlowSolver:
 
         return 0
 
-    def prepare_restart(self, Trestart):
+    def prepare_restart(self, Trestart):  # TODO could be utils
         """Prepare restart: set Tstart, redefine paths & files"""
         self.Tstart = Trestart
         self.define_paths()
         self.init_time_stepping()
 
-    def make_solvers(self):
+    def make_solvers(self):  # TODO could be utils
         """Define solvers"""
         # other possibilities: dolfin.KrylovSolver("bicgstab", "jacobi")
         # then solverparam = solver.paramters
         # solverparam[""]=...
         return dolfin.LUSolver("mumps")
 
-    def make_measurement(self, field=None, mixed_field=None):
+    def make_measurement(self, field=None, mixed_field=None):  # TODO keep here
         """Perform measurement and assign"""
         ns = self.sensor_nr
         y_meas = np.zeros((ns,))
@@ -1350,7 +1040,7 @@ class FlowSolver:
             # zipfile = '.zip' if self.compress_csv else ''
             self.timeseries.to_csv(self.paths["timeseries"], sep=",", index=False)
 
-    def compute_energy(self):
+    def compute_energy(self):  # TODO superclass
         """Compute energy of perturbation flow
         OPTIONS REMOVED FROM PREVIOUS VERSION:
         on full/restricted domain      (default:full=True)
@@ -1359,7 +1049,7 @@ class FlowSolver:
         dE = 1 / 2 * dolfin.norm(self.u_, norm_type="L2", mesh=self.mesh) ** 2
         return dE
 
-    def compute_energy_field(self, export=False, filename=None):
+    def compute_energy_field(self, export=False, filename=None):  # TODO superclass
         """Compute field dot(u, u) to see spatial location of perturbation kinetic energy
         Perturbation formulation only"""
         Efield = dot(self.u_, self.u_)
@@ -1369,16 +1059,9 @@ class FlowSolver:
             flu.write_xdmf(filename, Efield, "E")
         return Efield
 
-    def get_Dxy(self):
-        """Get derivation matrices Dx, Dy in V space
-        such that Dx*u = u.dx(0), Dy*u = u.dx(1)"""
-        u = dolfin.TrialFunction(self.V)
-        ut = dolfin.TestFunction(self.V)
-        Dx = dolfin.assemble(inner(u.dx(0), ut) * self.dx)
-        Dy = dolfin.assemble(inner(u.dx(1), ut) * self.dx)
-        return Dx, Dy
-
-    def get_A(self, perturbations=True, shift=0.0, timeit=True, up_0=None):
+    def get_A(
+        self, perturbations=True, shift=0.0, timeit=True, up_0=None
+    ):  # TODO idk, merge with make_mixed_form?
         """Get state-space dynamic matrix A linearized around some field up_0"""
         logger.info("Computing jacobian A...")
 
@@ -1470,7 +1153,7 @@ class FlowSolver:
 
         return Jac
 
-    def get_B(self, export=False, timeit=True):
+    def get_B(self, export=False, timeit=True):  # TODO keep here
         """Get actuation matrix B"""
         logger.info("Computing actuation matrix B...")
 
@@ -1538,7 +1221,7 @@ class FlowSolver:
 
         return B
 
-    def get_C(self, timeit=True, check=False):
+    def get_C(self, timeit=True, check=False):  # TODO keep here
         """Get measurement matrix C"""
         logger.info("Computing measurement matrix C...")
 
@@ -1586,117 +1269,7 @@ class FlowSolver:
 
         return C
 
-    def get_matrices_lifting(self, A, C, Q):
-        """Return matrices A, B, C, Q resulting form lifting transform (Barbagallo et al. 2009)
-        See get_Hw_lifting for details"""
-        # Steady field with rho=1: S1
-        logger.info("Computing steady actuated field...")
-        self.actuator_expression.ampl = 1.0
-        S1 = self.compute_steady_state_newton()
-        S1v = S1.vector()
 
-        # Q*S1 (as vector)
-        sz = self.W.dim()
-        QS1v = dolfin.Vector(S1v.copy())
-        QS1v.set_local(
-            np.zeros(
-                sz,
-            )
-        )
-        QS1v.apply("insert")
-        Q.mult(S1v, QS1v)  # QS1v = Q * S1v
-
-        # Bl = [Q*S1; -1]
-        Bl = np.hstack((QS1v.get_local(), -1))  # stack -1
-        Bl = np.atleast_2d(Bl).T  # as column
-
-        # Cl = [C, 0]
-        Cl = np.hstack((C, np.atleast_2d(0)))
-
-        # Ql = diag(Q, 1)
-        Qsp = flu.dense_to_sparse(Q)
-        Qlsp = flu.spr.block_diag((Qsp, 1))
-
-        # Al = diag(A, 0)
-        Asp = flu.dense_to_sparse(A)
-        Alsp = flu.spr.block_diag((Asp, 0))
-
-        return Alsp, Bl, Cl, Qlsp
-
-    def get_mass_matrix(self, sparse=False, volume=True, uvp=False):
-        """Compute the mass matrix associated to
-        spatial discretization"""
-        logger.info("Computing mass matrix Q...")
-        up = dolfin.TrialFunction(self.W)
-        vq = dolfin.TestFunction(self.W)
-
-        M = dolfin.PETScMatrix()
-        # volume integral or surface integral (unused)
-        dOmega = self.dx if volume else self.ds
-
-        mf = sum([up[i] * vq[i] for i in range(2 + uvp)]) * dOmega  # sum u, v but not p
-        dolfin.assemble(mf, tensor=M)
-
-        if sparse:
-            return flu.dense_to_sparse(M)
-        return M
-
-    def get_block_identity(self, sparse=False):
-        """Compute the block-identity associated to
-        the time-continuous, space-continuous formulation:
-        E*dot(x) = A*x >>> E = blk(I, I, 0), 0 being on p dofs"""
-        dof_idx = flu.get_subspace_dofs(self.W)
-        sz = self.W.dim()
-        diagE = np.zeros(sz)
-        diagE[np.hstack([dof_idx[kk] for kk in ["u", "v"]])] = 1.0
-        E = spr.diags(diagE, 0)
-        if sparse:
-            return E
-        # cast
-        return flu.sparse_to_petscmat(E)
-
-    def check_mass_matrix(self, up=0, vq=0, random=True):
-        """Given two vectors u, v (Functions on self.W),
-        compute assemble(dot(u,v)*dx) v.s. u.local().T @ Q @ v.local()
-        The result should be the same"""
-        if random:
-            logger.info("Creating random vectors")
-
-            def createrandomfun():
-                up = dolfin.Function(self.W)
-                up.vector().set_local((np.random.randn(self.W.dim(), 1)))
-                up.vector().apply("insert")
-                return up
-
-            up = createrandomfun()
-            vq = createrandomfun()
-
-        fa = dolfin.FunctionAssigner([self.V, self.P], self.W)
-        u = dolfin.Function(self.V)  # velocity only
-        p = dolfin.Function(self.P)
-        v = dolfin.Function(self.V)
-        q = dolfin.Function(self.P)
-        fa.assign([u, p], up)
-        fa.assign([v, q], vq)
-
-        # True integral of velocities
-        d1 = dolfin.assemble(dot(u, v) * self.dx)
-
-        # Discretized dot product (scipy)
-        Q = self.get_mass_matrix(sparse=True)
-        d2 = up.vector().get_local().T @ Q @ vq.vector().get_local()
-        ## Note: u.T @ Qv = (Qv).T @ u
-        # d2 = (Q @ v.vector().get_local()).T @ u.vector().get_local()
-
-        # Discretized dot product (petsc)
-        QQ = self.get_mass_matrix(sparse=False)
-        uu = dolfin.Vector(up.vector())
-        vv = dolfin.Vector(vq.vector())
-        ww = dolfin.Vector(up.vector())  # intermediate result
-        QQ.mult(vv, ww)  # ww = QQ*vv
-        d3 = uu.inner(ww)
-
-        return {"integral": d1, "dot_scipy": d2, "dot_petsc": d3}
 ###############################################################################
 ###############################################################################
 ############################ END CLASS DEFINITION #############################
@@ -1767,11 +1340,13 @@ if __name__ == "__main__":
 
     logger.info("Compute steady state...")
     u_ctrl_steady = 0.0
-    fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=u_ctrl_steady)
-    fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.up0
+    flu2.compute_steady_state(
+        fs, method="picard", max_iter=3, tol=1e-7, u_ctrl=u_ctrl_steady
     )
-    fs.load_steady_state(assign=True)
+    flu2.compute_steady_state(
+        fs, method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.up0
+    )
+    flu2.load_steady_state(fs, assign=True)
 
     logger.info("Init time-stepping")
     np.random.seed(42)
@@ -1835,13 +1410,13 @@ if __name__ == "__main__":
         "10  0.050  0.000000  0.132341     0.0     0.0  0.000353 -3.107742  1.142722  0.143971"
     )
 
-    logger.info('Checking utilitary functions')
+    logger.info("Checking utilitary functions")
     fs.get_A()
-    #fs.get_B()
-    #fs.get_C()
-    fs.get_mass_matrix()
-    fs.get_div0_u()
-    fs.get_block_identity()
+    # fs.get_B()
+    # fs.get_C()
+    # fs.get_mass_matrix()
+    # fs.get_div0_u()
+    # fs.get_block_identity()
 
 
 # TODO
@@ -1849,16 +1424,14 @@ if __name__ == "__main__":
 # -> remove bc relative to full ns....
 # -> for base flow, we need full ns and bcs!!
 # so we could keep 2 functions:
-    # make fullns + bcs
-    # make pertns + bcs_pert
-    # but then use only pertns fo time stepping
-
-# TODO 
+# make fullns + bcs
+# make pertns + bcs_pert
+# but then use only pertns fo time stepping
+# TODO
 # MIMO support
-    
 # TODO
 # extract usecase specifics (eg cl, cd)
-    
+# create abstract superclass (with default equations for example?)
 # TODO
 # move all utilitary functions to utils*.py, then we sort
 
