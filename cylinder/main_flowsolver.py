@@ -1858,6 +1858,9 @@ if __name__ == "__main__":
     
 # TODO
 # extract usecase specifics (eg cl, cd)
+    
+# TODO
+# move all utilitary functions to utils*.py, then we sort
 
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
