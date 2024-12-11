@@ -22,9 +22,9 @@ import time
 import pandas as pd
 import sympy as sp
 import scipy.sparse as spr
-#from petsc4py import PETSc
+# from petsc4py import PETSc
 
-import pdb
+import pdb  # noqa: F401
 import logging
 
 from pathlib import Path
@@ -37,9 +37,8 @@ importlib.reload(flu)
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
-logger.debug('Importing or running: %s', __name__)
-
+FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 class FlowSolver:
     """Base class for calculating flow
@@ -105,6 +104,7 @@ class FlowSolver:
 
         def make_extension(T):
             return "_restart" + str(np.round(T, decimals=3)).replace(".", ",")
+
         file_start = make_extension(Tstart)
         file_restart = make_extension(Trestartfrom)
 
@@ -159,12 +159,14 @@ class FlowSolver:
         if genmesh:
             nx = self.nx  # 32
             meshname = "cylinder_" + str(nx) + ".xdmf"
-            meshpath = meshdir / meshname # os.path.join(meshdir, meshname)
+            meshpath = meshdir / meshname  # os.path.join(meshdir, meshname)
             if not os.path.exists(meshpath) or self.remesh:
                 if self.verbose:
                     logger.info("Mesh does not exist @: %s", meshpath)
                     logger.info("-- Creating mesh...")
-                channel = Rectangle(dolfin.Point(xinfa, -yinf), dolfin.Point(xinf, yinf))
+                channel = Rectangle(
+                    dolfin.Point(xinfa, -yinf), dolfin.Point(xinf, yinf)
+                )
                 cyl = Circle(dolfin.Point(0.0, 0.0), self.d / 2, segments=self.segments)
                 domain = channel - cyl
                 mesh = generate_mesh(domain, nx)
@@ -180,7 +182,7 @@ class FlowSolver:
         # if mesh was not generated on the fly, read file
         if readmesh:
             mesh = dolfin.Mesh(dolfin.MPI.comm_world)
-            meshpath = meshdir/meshname # os.path.join(meshdir, meshname)
+            meshpath = meshdir / meshname  # os.path.join(meshdir, meshname)
             if self.verbose:
                 logger.info("Mesh exists @: %s", meshpath)
                 logger.info("--- Reading mesh...")
@@ -235,7 +237,7 @@ class FlowSolver:
         )
 
         ## Cylinder
-        #theta0 = -0 * pi / 180  # angular position of actuator with respect to vertical
+        # theta0 = -0 * pi / 180  # angular position of actuator with respect to vertical
         ###### warning with theta0 : velocity profile is not compatible with theta0 not 0 !!!
         ###### velocity profile needs to be rotated (& adapt B matrix as well)
         delta = (
@@ -369,7 +371,9 @@ class FlowSolver:
         boundary_markers = dolfin.MeshFunction(
             "size_t", self.mesh, self.mesh.topology().dim() - 1
         )
-        cell_markers = dolfin.MeshFunction("size_t", self.mesh, self.mesh.topology().dim() - 1)
+        cell_markers = dolfin.MeshFunction(
+            "size_t", self.mesh, self.mesh.topology().dim() - 1
+        )
         # Boundary indices
         INLET_IDX = 0
         OUTLET_IDX = 1
@@ -394,61 +398,36 @@ class FlowSolver:
             self.boundaries.iloc[i].subdomain.mark(boundary_markers, boundary_index)
             self.boundaries.iloc[i].subdomain.mark(cell_markers, boundary_index)
 
-        # inlet : u = uinf, v = 0
-        bcu_inlet = dolfin.DirichletBC(
-            self.W.sub(0),
-            dolfin.Constant((self.uinf, 0)),
-            self.boundaries.loc["inlet"].subdomain,
-        )
-        # walls : v = 0
-        bcu_walls = dolfin.DirichletBC(
-            self.W.sub(0).sub(1), dolfin.Constant(0), self.boundaries.loc["walls"].subdomain
-        )
-        # cylinder : (u,v)=(0,0)
-        bcu_cylinder = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.boundaries.loc["cylinder"].subdomain
-        )
-        # actuators : (u,v)=(0,va)
-        bcu_actuation_up = dolfin.DirichletBC(
-            self.W.sub(0),
-            self.actuator_expression,
-            self.boundaries.loc["actuator_up"].subdomain,
-        )
-        bcu_actuation_lo = dolfin.DirichletBC(
-            self.W.sub(0),
-            self.actuator_expression,
-            self.boundaries.loc["actuator_lo"].subdomain,
-        )
-        bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
-
-        bcp_outlet = dolfin.DirichletBC(
-            self.W.sub(1), dolfin.Constant(0), self.boundaries.loc["outlet"].subdomain
-        )
-        bcp = [bcp_outlet]
 
         # Measures (e.g. subscript ds(INLET_IDX))
         ds = dolfin.Measure("ds", domain=self.mesh, subdomain_data=boundary_markers)
         dx = dolfin.Measure("dx", domain=self.mesh, subdomain_data=cell_markers)
 
         # assign all
-        self.bc = {"bcu": bcu, "bcp": bcp}
+        # self.bc = {"bcu": bcu, "bcp": bcp}
         self.dx = dx
         self.ds = ds
         self.boundary_markers = boundary_markers  # dolfin.MeshFunction
         self.cell_markers = cell_markers  # dolfin.MeshFunction
         # complete boundaries pd.DataFrame
         self.boundaries["idx"] = boundaries_idx
-        self.bc = {"bcu": bcu, "bcp": bcp}
+        # self.bc = {"bcu": bcu, "bcp": bcp}
 
         # create zeroBC for perturbation formulation
         bcu_inlet = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.boundaries.loc["inlet"].subdomain
+            self.W.sub(0),
+            dolfin.Constant((0, 0)),
+            self.boundaries.loc["inlet"].subdomain,
         )
         bcu_walls = dolfin.DirichletBC(
-            self.W.sub(0).sub(1), dolfin.Constant(0), self.boundaries.loc["walls"].subdomain
+            self.W.sub(0).sub(1),
+            dolfin.Constant(0),
+            self.boundaries.loc["walls"].subdomain,
         )
         bcu_cylinder = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.boundaries.loc["cylinder"].subdomain
+            self.W.sub(0),
+            dolfin.Constant((0, 0)),
+            self.boundaries.loc["cylinder"].subdomain,
         )
         bcu_actuation_up = dolfin.DirichletBC(
             self.W.sub(0),
@@ -488,7 +467,9 @@ class FlowSolver:
             # Eb restricted
             self.u_restrict.vector()[:] = self.u0.vector()[:] * self.IF.vector()[:]
             self.Eb_r = (
-                1 / 2 * dolfin.norm(self.u_restrict, norm_type="L2", mesh=self.mesh) ** 2
+                1
+                / 2
+                * dolfin.norm(self.u_restrict, norm_type="L2", mesh=self.mesh) ** 2
             )  # Eb restricted
 
         return u0, p0, up0
@@ -500,6 +481,47 @@ class FlowSolver:
         actuation_ampl_old = self.actuator_expression.ampl
         # Set control value to prescribed u_ctrl
         self.actuator_expression.ampl = u_ctrl
+
+
+        # Make BCs (full ns formulation)
+        # inlet : u = uinf, v = 0
+        bcu_inlet = dolfin.DirichletBC(
+            self.W.sub(0),
+            dolfin.Constant((self.uinf, 0)),
+            self.boundaries.loc["inlet"].subdomain,
+        )
+        # walls : v = 0
+        bcu_walls = dolfin.DirichletBC(
+            self.W.sub(0).sub(1),
+            dolfin.Constant(0),
+            self.boundaries.loc["walls"].subdomain,
+        )
+        # cylinder : (u,v)=(0,0)
+        bcu_cylinder = dolfin.DirichletBC(
+            self.W.sub(0),
+            dolfin.Constant((0, 0)),
+            self.boundaries.loc["cylinder"].subdomain,
+        )
+        # actuators : (u,v)=(0,va)
+        bcu_actuation_up = dolfin.DirichletBC(
+            self.W.sub(0),
+            self.actuator_expression,
+            self.boundaries.loc["actuator_up"].subdomain,
+        )
+        bcu_actuation_lo = dolfin.DirichletBC(
+            self.W.sub(0),
+            self.actuator_expression,
+            self.boundaries.loc["actuator_lo"].subdomain,
+        )
+        bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
+
+        bcp_outlet = dolfin.DirichletBC(
+            self.W.sub(1), dolfin.Constant(0), self.boundaries.loc["outlet"].subdomain
+        )
+        bcp = [bcp_outlet]
+
+        self.bc = {"bcu": bcu, "bcp": bcp}
+
 
         # If start is zero (i.e. not restart): compute
         # Note : could add a flag 'compute_steady_state' to compute or read...
@@ -547,7 +569,7 @@ class FlowSolver:
 
             self.y_meas_steady = self.make_measurement(mixed_field=up0)
 
-        # If start is not zero: ready steady state (should exist - should check though...)
+        # If start is not zero: read steady state (should exist - should check though...)
         else:
             u0, p0, up0 = self.load_steady_state(assign=True)
 
@@ -609,7 +631,7 @@ class FlowSolver:
         # if initial_guess is None:
         #    print('- Newton solver without initial guess')
         up_ = self.up_
-        #u_, p_ = self.u_, self.p_
+        # u_, p_ = self.u_, self.p_
         # Solver param
         nl_solver_param = {
             "newton_solver": {
@@ -619,7 +641,9 @@ class FlowSolver:
                 "report": bool(self.verbose),
             }
         }
-        dolfin.solve(self.F0 == 0, up_, self.bc["bcu"], solver_parameters=nl_solver_param)
+        dolfin.solve(
+            self.F0 == 0, up_, self.bc["bcu"], solver_parameters=nl_solver_param
+        )
         # Return
         return up_
 
@@ -632,7 +656,9 @@ class FlowSolver:
 
         # for residual computation
         bcu_inlet0 = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.boundaries.loc["inlet"].subdomain
+            self.W.sub(0),
+            dolfin.Constant((0, 0)),
+            self.boundaries.loc["inlet"].subdomain,
         )
         bcu0 = self.bc["bcu"] + [bcu_inlet0]
 
@@ -654,7 +680,7 @@ class FlowSolver:
 
         up0.interpolate(initial_condition())
         u0 = dolfin.as_vector((up0[0], up0[1]))
-        #u1 = dolfin.as_vector((up1[0], up1[1]))
+        # u1 = dolfin.as_vector((up1[0], up1[1]))
 
         ap = (
             dot(dot(u0, nabla_grad(u)), v) * dx
@@ -662,7 +688,9 @@ class FlowSolver:
             - p * div(v) * dx
             - q * div(u) * dx
         )  # steady dolfin.lhs
-        Lp = dolfin.Constant(0) * inner(u0, v) * dx + dolfin.Constant(0) * q * dx  # zero dolfin.rhs
+        Lp = (
+            dolfin.Constant(0) * inner(u0, v) * dx + dolfin.Constant(0) * q * dx
+        )  # zero dolfin.rhs
         bp = dolfin.assemble(Lp)
 
         solverp = dolfin.LUSolver("mumps")
@@ -696,7 +724,9 @@ class FlowSolver:
 
     def stress_tensor(self, u, p):
         """Compute stress tensor (for lift & drag)"""
-        return 2.0 * self.nu * (sym(grad(u))) - p * dolfin.Identity(p.geometric_dimension())
+        return 2.0 * self.nu * (sym(grad(u))) - p * dolfin.Identity(
+            p.geometric_dimension()
+        )
 
     def compute_force_coefficients(self, u, p, enable=True):
         """Compute lift & drag coefficients
@@ -775,13 +805,13 @@ class FlowSolver:
 
     def get_div0_u(self):
         """Create velocity field with zero divergence"""
-        #V = self.V
+        # V = self.V
         P = self.P
 
         # Define courant function
         x0 = 2
         y0 = 0
-        #nsig = 5
+        # nsig = 5
         sigm = 0.5
         xm, ym = sp.symbols("x[0], x[1]")
         rr = (xm - x0) ** 2 + (ym - y0) ** 2
@@ -793,7 +823,7 @@ class FlowSolver:
         dfy = fpsi.diff(ym, 1)
 
         # Take derivatives
-        #psi = dolfin.Expression(sp.ccode(fpsi), element=V.ufl_element())
+        # psi = dolfin.Expression(sp.ccode(fpsi), element=V.ufl_element())
         dfx_expr = dolfin.Expression(sp.ccode(dfx), element=P.ufl_element())
         dfy_expr = dolfin.Expression(sp.ccode(dfy), element=P.ufl_element())
 
@@ -835,10 +865,10 @@ class FlowSolver:
     def init_time_stepping(self):
         """Create varitional functions/forms & flush files & define u(0), p(0)"""
         # Trial and test functions ####################################################
-        #W = self.W
+        # W = self.W
 
         # Define expressions used in variational forms
-        #f = dolfin.Constant((0, 0))  # shape of actuation
+        # f = dolfin.Constant((0, 0))  # shape of actuation
         iRe = dolfin.Constant(1 / self.Re)
         II = dolfin.Identity(2)
         k = dolfin.Constant(self.dt)
@@ -1179,7 +1209,7 @@ class FlowSolver:
         )
         empty_data = np.zeros((self.num_steps + 1, len(colnames)))
         ts1d = pd.DataFrame(columns=colnames, data=empty_data)
-        #u_ctrl = dolfin.Constant(0)
+        # u_ctrl = dolfin.Constant(0)
         ts1d.loc[0, "time"] = self.Tstart
         # ts1d.loc[0, 'y_meas'] = self.y_meas0
         # replace line above for several measurements
@@ -1195,7 +1225,6 @@ class FlowSolver:
             dEb = 0
         ts1d.loc[0, "dE"] = dEb
         self.timeseries = ts1d
-
 
     def log_timeseries(self, u_ctrl, y_meas, norm_u, norm_p, dE, cl, cd, t, runtime):
         """Fill timeseries table with data"""
@@ -1319,19 +1348,21 @@ class FlowSolver:
                 assembler.assemble(self.bs_p)  # assemble dolfin.rhs
                 solver.solve(up_.vector(), self.bs_p)  # solve Ax=b
                 u_, p_ = up_.split(deepcopy=True)
-                # Patch: solve does not see it failed...
+                # Patch: solve sometimes does not see it failed...
                 if not np.isfinite(u_.vector().get_local()[0]):
+                    logger.critical("Solver diverged, inf found")
                     raise RuntimeError("Inf found in solution")
             except RuntimeError:
                 # Usually Krylov solver exploding return a RuntimeError
                 # See: error_on_nonconvergence (but need to catch error somehow)
-                logger.error("Error solving system --- Exiting step()...")
+                logger.critical("Solver error --- Exiting step()...")
                 return -1  # -1 is error code
         else:  # used for debugging -> show error message
             assembler.assemble(self.bs_p)  # assemble dolfin.rhs
             solver.solve(up_.vector(), self.bs_p)  # solve Ax=b
             u_, p_ = up_.split(deepcopy=True)
             if not np.isfinite(u_.vector().get_local()[0]):
+                logger.critical("Solver diverged, inf found")
                 raise RuntimeError("Inf found in solution")
 
         # Assign new
@@ -1506,10 +1537,12 @@ class FlowSolver:
     def create_indicator_function(self):
         # define subdomain by hand
         subdomain_str = "x[0]<=10 && x[0]>=-2 && x[1]<=3 && x[1]>=-3"
-        #subdomain = dolfin.CompiledSubDomain(subdomain_str)
+        # subdomain = dolfin.CompiledSubDomain(subdomain_str)
 
         # compiled
-        IF = dolfin.Expression([subdomain_str] * 2, degree=0, element=self.V.ufl_element())
+        IF = dolfin.Expression(
+            [subdomain_str] * 2, degree=0, element=self.V.ufl_element()
+        )
         # then project on V
         IF = flu.projectm(IF, V=self.V)
         self.IF = IF
@@ -1594,7 +1627,9 @@ class FlowSolver:
             )  # sum u, v but not p
             # create zeroBC for perturbation formulation
             bcu_inlet = dolfin.DirichletBC(
-                self.W.sub(0), dolfin.Constant((0, 0)), self.boundaries.loc["inlet"].subdomain
+                self.W.sub(0),
+                dolfin.Constant((0, 0)),
+                self.boundaries.loc["inlet"].subdomain,
             )
             bcu_walls = dolfin.DirichletBC(
                 self.W.sub(0).sub(1),
@@ -1649,7 +1684,7 @@ class FlowSolver:
         [bc.apply(Jac) for bc in bcs]
 
         if timeit:
-            logger.info("Elapsed time: ", time.time() - t0)
+            logger.info("Elapsed time: %f", time.time() - t0)
 
         return Jac
 
@@ -1717,7 +1752,7 @@ class FlowSolver:
         self.actuator_expression.ampl = actuator_ampl_old
 
         if timeit:
-            logger.info("Elapsed time: ", time.time() - t0)
+            logger.info("Elapsed time: %f", time.time() - t0)
 
         return B
 
@@ -1759,11 +1794,13 @@ class FlowSolver:
                         sensor_types[self.sensor_type[0]]
                     ],
                 )
-                logger.debug("\t with fun:", self.make_measurement(mixed_field=self.up0))
+                logger.debug(
+                    "\t with fun:", self.make_measurement(mixed_field=self.up0)
+                )
                 logger.debug("\t with C@x: ", C[i] @ self.up0.vector().get_local())
 
         if timeit:
-            logger.info("Elapsed time: ", time.time() - t0)
+            logger.info("Elapsed time: %f", time.time() - t0)
 
         return C
 
@@ -1807,6 +1844,7 @@ class FlowSolver:
     def get_mass_matrix(self, sparse=False, volume=True, uvp=False):
         """Compute the mass matrix associated to
         spatial discretization"""
+        logger.info("Computing mass matrix Q...")
         up = dolfin.TrialFunction(self.W)
         vq = dolfin.TestFunction(self.W)
 
@@ -1952,16 +1990,18 @@ if __name__ == "__main__":
     logger.info("Compute steady state...")
     u_ctrl_steady = 0.0
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=u_ctrl_steady)
-    fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.up0)
+    fs.compute_steady_state(
+        method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.up0
+    )
     fs.load_steady_state(assign=True)
 
     logger.info("Init time-stepping")
     np.random.seed(42)
     sigma = 0.1
-    #x0 = dolfin.Function(fs.W)
-    #x0.vector()[:] += sigma * np.random.randn(x0.vector()[:].shape[0])
-    #x0.vector()[:] /= np.linalg.norm(x0.vector()[:])
-    #fs.set_initial_state(x0=x0)
+    # x0 = dolfin.Function(fs.W)
+    # x0.vector()[:] += sigma * np.random.randn(x0.vector()[:].shape[0])
+    # x0.vector()[:] /= np.linalg.norm(x0.vector()[:])
+    # fs.set_initial_state(x0=x0)
     fs.init_time_stepping()
 
     logger.info("Step several times")
@@ -1997,7 +2037,9 @@ if __name__ == "__main__":
         logger.info("Total time is: %f", time.time() - t000)
         logger.info("Iteration 1 time     --- %f", fs.timeseries.loc[1, "runtime"])
         logger.info("Iteration 2 time     --- %f", fs.timeseries.loc[2, "runtime"])
-        logger.info("Mean iteration time  --- %f", np.mean(fs.timeseries.loc[3:, "runtime"]))
+        logger.info(
+            "Mean iteration time  --- %f", np.mean(fs.timeseries.loc[3:, "runtime"])
+        )
         logger.info(
             "Time/iter/dof        --- %f",
             np.mean(fs.timeseries.loc[3:, "runtime"]) / fs.W.dim(),
@@ -2008,15 +2050,36 @@ if __name__ == "__main__":
     logger.info(fs.timeseries)
 
     logger.info("Last two lines of the printed timetable should look like this:")
-    logger.info("9   0.045  1.634545  0.132531     0.0     0.0  0.000347 -3.385638  1.143313  0.159566")
-    logger.info("10  0.050  0.000000  0.132341     0.0     0.0  0.000353 -3.107742  1.142722  0.143971")
+    logger.info(
+        "9   0.045  1.634545  0.132531     0.0     0.0  0.000347 -3.385638  1.143313  0.159566"
+    )
+    logger.info(
+        "10  0.050  0.000000  0.132341     0.0     0.0  0.000353 -3.107742  1.142722  0.143971"
+    )
+
+    logger.info('Checking utilitary functions')
+    fs.get_A()
+    #fs.get_B()
+    #fs.get_C()
+    fs.get_mass_matrix()
+    fs.get_div0_u()
+    fs.get_block_identity()
 
 
 # TODO
 # remove all references to full ns formulation
-# -> remove bc relative to full ns
-# what else?
+# -> remove bc relative to full ns....
+# -> for base flow, we need full ns and bcs!!
+# so we could keep 2 functions:
+    # make fullns + bcs
+    # make pertns + bcs_pert
+    # but then use only pertns fo time stepping
 
+# TODO
+# remove restriction of field for energy computation
+
+# TODO 
+# MIMO support
 
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
