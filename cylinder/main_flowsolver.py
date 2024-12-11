@@ -38,7 +38,7 @@ importlib.reload(flu)
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
 logger = logging.getLogger(__name__)
 FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
-logging.basicConfig(format=FORMAT, level=logging.INFO)
+logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
 class FlowSolver:
     """Base class for calculating flow
@@ -90,9 +90,7 @@ class FlowSolver:
         self.make_bcs()
 
         # for energy computation
-        self.create_indicator_function()
         self.u_ = dolfin.Function(self.V)
-        self.u_restrict = dolfin.Function(self.V)
 
     def define_paths(self):
         """Define attribute (dict) containing useful paths (save, etc.)"""
@@ -465,12 +463,12 @@ class FlowSolver:
                 1 / 2 * dolfin.norm(u0, norm_type="L2", mesh=self.mesh) ** 2
             )  # same as <up, Q@up>
             # Eb restricted
-            self.u_restrict.vector()[:] = self.u0.vector()[:] * self.IF.vector()[:]
-            self.Eb_r = (
-                1
-                / 2
-                * dolfin.norm(self.u_restrict, norm_type="L2", mesh=self.mesh) ** 2
-            )  # Eb restricted
+            # self.u_restrict.vector()[:] = self.u0.vector()[:] * self.IF.vector()[:]
+            # self.Eb_r = (
+            #     1
+            #     / 2
+            #     * dolfin.norm(self.u_restrict, norm_type="L2", mesh=self.mesh) ** 2
+            # )  # Eb restricted
 
         return u0, p0, up0
 
@@ -595,10 +593,10 @@ class FlowSolver:
             1 / 2 * dolfin.norm(u0, norm_type="L2", mesh=self.mesh) ** 2
         )  # same as <up, Q@up>
         # Eb restricted
-        self.u_restrict.vector()[:] = self.u0.vector()[:] * self.IF.vector()[:]
-        self.Eb_r = (
-            1 / 2 * dolfin.norm(self.u_restrict, norm_type="L2", mesh=self.mesh) ** 2
-        )  # Eb restricted by self.IF
+        # self.u_restrict.vector()[:] = self.u0.vector()[:] * self.IF.vector()[:]
+        # self.Eb_r = (
+        #     1 / 2 * dolfin.norm(self.u_restrict, norm_type="L2", mesh=self.mesh) ** 2
+        # )  # Eb restricted by self.IF
 
     def make_form_mixed_steady(self, initial_guess=None):
         """Make nonlinear forms for steady state computation, in mixed element space.
@@ -1218,7 +1216,7 @@ class FlowSolver:
         ts1d.loc[0, "u_norm"] = 0  # norm(u_n, norm_type='L2', mesh=self.mesh)
         ts1d.loc[0, "p_norm"] = 0  # norm(p_n, norm_type='L2', mesh=self.mesh)
         if self.compute_norms:
-            dEb = self.compute_energy(full=True, diff=True, normalize=True)
+            dEb = self.compute_energy()
             # self.u_restrict.vector()[:] = self.u_n.vector()[:] - self.u0.vector()[:]
             # dEb = norm(self.u_restrict, norm_type='L2', mesh=self.mesh) / self.Eb
         else:
@@ -1399,7 +1397,7 @@ class FlowSolver:
         # Be careful: cl, cd, norms etc. are in perturbation formulation (miss u0, p0)
         # perturbation energy wrt base flow, here u_ = u_pert
         if self.compute_norms:
-            dE = self.compute_energy(full=True, diff=True, normalize=True)
+            dE = self.compute_energy()
             # dE = norm(self.u_, norm_type='L2', mesh=self.mesh) / self.Eb
             self.u_full.vector()[:] = u_n.vector()[:] + self.u0.vector()[:]
             self.p_full.vector()[:] = p_n.vector()[:] + self.p0.vector()[:]
@@ -1534,47 +1532,13 @@ class FlowSolver:
             # zipfile = '.zip' if self.compress_csv else ''
             self.timeseries.to_csv(self.paths["timeseries"], sep=",", index=False)
 
-    def create_indicator_function(self):
-        # define subdomain by hand
-        subdomain_str = "x[0]<=10 && x[0]>=-2 && x[1]<=3 && x[1]>=-3"
-        # subdomain = dolfin.CompiledSubDomain(subdomain_str)
-
-        # compiled
-        IF = dolfin.Expression(
-            [subdomain_str] * 2, degree=0, element=self.V.ufl_element()
-        )
-        # then project on V
-        IF = flu.projectm(IF, V=self.V)
-        self.IF = IF
-
-    def compute_energy(self, full=True, diff=False, normalize=False):
-        """Compute energy of flow
+    def compute_energy(self):
+        """Compute energy of perturbation flow
+        OPTIONS REMOVED FROM PREVIOUS VERSION:
         on full/restricted domain      (default:full=True)
         minus base flow                (default:diff=False)
         normalized by base flow energy (default:normalize=False)"""
-        # import pdb
-        # pdb.set_trace()
-        # Initialize at current state
-        self.u_restrict.vector()[:] = self.u_.vector()[:]
-        # Add/remove steady
-        if self.perturbations and not diff:
-            # perturbations + not diff >> add base flow
-            self.u_restrict.vector()[:] += +self.u0.vector()[:]
-        if not self.perturbations and diff:
-            # not perturbations + diff >> remove base flow
-            self.u_restrict.vector()[:] += -self.u0.vector()[:]
-        # Apply restriction
-        if not full:
-            self.u_restrict.vector()[:] *= self.IF.vector()[:]
-        # Compute energy
-        # E = 1/2 xT Q x = 1/2 norm_Q(x)**2
-        dE = 1 / 2 * dolfin.norm(self.u_restrict, norm_type="L2", mesh=self.mesh) ** 2
-        # Normalize
-        if normalize:
-            if full:
-                dE /= self.Eb
-            else:
-                dE /= self.Eb_r
+        dE = 1 / 2 * dolfin.norm(self.u_, norm_type="L2", mesh=self.mesh) ** 2
         return dE
 
     def compute_energy_field(self, export=False, filename=None):
