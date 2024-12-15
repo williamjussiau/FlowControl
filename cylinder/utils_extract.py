@@ -373,7 +373,7 @@ def compute_steady_state(fs, method="newton", u_ctrl=0.0, **kwargs):
 
     # If start is not zero: read steady state (should exist - should check though...)
     else:
-        u0, p0, up0 = fs.load_steady_state(assign=True)
+        u0, p0, up0 = load_steady_state(fs, assign=True)
 
     # Compute lift & drag
     cl, cd = fs.compute_force_coefficients(u0, p0)
@@ -428,3 +428,16 @@ def print_progress(fs, runtime):
         "--- iter: %5d/%5d --- time: %3.3f/%3.2f --- elapsed %5.5f ---"
         % (fs.iter, fs.num_steps, fs.t, fs.Tf + fs.Tstart, runtime)
     )
+
+
+def make_y_dataframe_column_name(sensor_nr):
+    """Return column names of different measurements y_meas_i"""
+    return ["y_meas_" + str(i + 1) for i in range(sensor_nr)]
+
+
+def assign_measurement_to_dataframe(df, y_meas, index, sensor_nr):
+    """Assign measurement (array y_meas) to DataFrame at index
+    Essentially convert array (y_meas) to separate columns (y_meas_i)"""
+    y_meas_str = make_y_dataframe_column_name(sensor_nr)
+    for i_meas, name_meas in enumerate(y_meas_str):
+        df.loc[index, name_meas] = y_meas[i_meas]
