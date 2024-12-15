@@ -7,7 +7,7 @@ Compute mean flow (+eig and model) from saved snapshots
 from __future__ import print_function
 import time
 import numpy as np
-import main_flowsolver as flo
+import cylinder.CylinderFlowSolver as flo
 import utils_flowsolver as flu
 import importlib
 import scipy.sparse as spr
