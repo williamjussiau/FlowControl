@@ -1,13 +1,9 @@
 """
-FEniCS tutorial demo program: Incompressible Navier-Stokes equations
-for let around a cylinder using the Incremental Pressure Correction
-Scheme (IPCS).
+Incompressible Navier-Stokes equations
 
   u' + u . nabla(u)) - div(sigma(u, p)) = f
                                  div(u) = 0
 
-
-----------------------------------------------------------------------
 Equations were made non-dimensional
 ----------------------------------------------------------------------
 """
@@ -330,8 +326,6 @@ class FlowSolver(AbstractFlowSolver):
         # cylinder_whole]})
         self.actuator_angular_size_rad = delta
         self.boundaries = boundaries_df
-
-    ##        ###############################################################################
 
     def make_actuator(self):  # TODO keep this one here
         """Define actuator on boundary
@@ -747,7 +741,7 @@ class FlowSolver(AbstractFlowSolver):
         ts1d = pd.DataFrame(columns=colnames, data=empty_data)
         # u_ctrl = dolfin.Constant(0)
         ts1d.loc[0, "time"] = self.Tstart
-        self.assign_measurement_to_dataframe(df=ts1d, y_meas=self.y_meas0, index=0)
+        flu2.assign_measurement_to_dataframe(df=ts1d, y_meas=self.y_meas0, index=0, sensor_nr=self.sensor_nr)
         ts1d.loc[0, "cl"], ts1d.loc[0, "cd"] = cl1, cd1
         if self.compute_norms:
             dEb = self.compute_energy()
@@ -764,8 +758,9 @@ class FlowSolver(AbstractFlowSolver):
             u_ctrl  # careful here: log the command that was applied at time t (iter-1) to get time t+dt (iter)
         )
         # replace above line for several measurements
-        self.assign_measurement_to_dataframe(
-            df=self.timeseries, y_meas=y_meas, index=self.iter
+        flu2.assign_measurement_to_dataframe(
+            df=self.timeseries, y_meas=y_meas, index=self.iter,
+            sensor_nr=self.sensor_nr
         )
         self.timeseries.loc[self.iter, "dE"] = dE
         self.timeseries.loc[self.iter, "cl"], self.timeseries.loc[self.iter, "cd"] = (
@@ -978,12 +973,6 @@ class FlowSolver(AbstractFlowSolver):
 
         return 0
 
-    def prepare_restart(self, Trestart):  # TODO could be utils
-        """Prepare restart: set Tstart, redefine paths & files"""
-        self.Tstart = Trestart
-        self.define_paths()
-        self.init_time_stepping()
-
     def make_solvers(self):  # TODO could be utils
         """Define solvers"""
         # other possibilities: dolfin.KrylovSolver("bicgstab", "jacobi")
@@ -1022,17 +1011,6 @@ class FlowSolver(AbstractFlowSolver):
 
             y_meas[isensor] = y_meas_i
         return y_meas
-
-    def assign_measurement_to_dataframe(self, df, y_meas, index):
-        """Assign measurement (array y_meas) to DataFrame at index
-        Essentially convert array (y_meas) to separate columns (y_meas_i)"""
-        y_meas_str = self.make_y_dataframe_column_name()
-        for i_meas, name_meas in enumerate(y_meas_str):
-            df.loc[index, name_meas] = y_meas[i_meas]
-
-    def make_y_dataframe_column_name(self):
-        """Return column names of different measurements y_meas_i"""
-        return ["y_meas_" + str(i + 1) for i in range(self.sensor_nr)]
 
     def write_timeseries(self):
         """Write pandas DataFrame to file"""
@@ -1268,8 +1246,6 @@ class FlowSolver(AbstractFlowSolver):
             logger.info("Elapsed time: %f", time.time() - t0)
 
         return C
-
-
 ###############################################################################
 ###############################################################################
 ############################ END CLASS DEFINITION #############################
@@ -1300,10 +1276,11 @@ if __name__ == "__main__":
         "num_steps": 10,
         "Tc": 0,
         "Trestartfrom": 0,
-    }
+        "restart_order": 2
+        }
     params_save = {
         "save_every": 5,
-        "save_every_old": 100,
+        "save_every_old": 5,
         "savedir0": Path(__file__).parent / "data_output",
         "compute_norms": True,
     }
@@ -1349,12 +1326,6 @@ if __name__ == "__main__":
     flu2.load_steady_state(fs, assign=True)
 
     logger.info("Init time-stepping")
-    np.random.seed(42)
-    sigma = 0.1
-    # x0 = dolfin.Function(fs.W)
-    # x0.vector()[:] += sigma * np.random.randn(x0.vector()[:].shape[0])
-    # x0.vector()[:] /= np.linalg.norm(x0.vector()[:])
-    # fs.set_initial_state(x0=x0)
     fs.init_time_stepping()
 
     logger.info("Step several times")
@@ -1364,26 +1335,19 @@ if __name__ == "__main__":
 
     x_ctrl = np.zeros((Kss.A.shape[0],))
 
-    y_steady = 0 if fs.perturbations else fs.y_meas_steady  # reference measurement
     u_ctrl = 0
     u_ctrl0 = 1e-2
     tlen = 0.15
     tpeak = 1
     for i in range(fs.num_steps):
         # compute control
-        if fs.t >= fs.Tc:
-            # mpi broadcast sensor
-            y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-            # compute error relative to base flow
-            y_meas_err = y_steady - y_meas
-            # wrapper around control toolbox
-            u_ctrl, x_ctrl = flu.step_controller(Kss, x_ctrl, y_meas_err, fs.dt)
-
-        # open loop
-        # u_ctrl = u_ctrl0 * np.exp(-1/2*(fs.t-tpeak)**2/tlen**2)
-        # closed loop
-        u_ctrl += u_ctrl0 * np.exp(-1 / 2 * (fs.t - tpeak) ** 2 / tlen**2)
-
+        # mpi broadcast sensor
+        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
+        # compute error relative to base flow
+        y_meas_err = - y_meas
+        # wrapper around control toolbox
+        u_ctrl, x_ctrl = flu.step_controller(Kss, x_ctrl, y_meas_err, fs.dt)
+        # step
         fs.step_perturbation(u_ctrl=u_ctrl, NL=fs.NL, shift=0.0)
 
     if fs.num_steps > 3:
@@ -1419,6 +1383,44 @@ if __name__ == "__main__":
     # fs.get_block_identity()
 
 
+    # Try restart
+    params_time_restart = {
+        "dt": 0.005,
+        "dt_old": 0.005,
+        "Tstart": 0.05,
+        "num_steps": 10,
+        "Tc": 0,
+        "Trestartfrom": 0,
+        "restart_order": 2
+    }
+    fs_restart = FlowSolver(
+        params_flow=params_flow,
+        params_time=params_time_restart,
+        params_save=params_save,
+        params_solver=params_solver,
+        params_mesh=params_mesh,
+        verbose=True,
+    )
+
+    flu2.load_steady_state(fs_restart, assign=True)
+
+    fs_restart.init_time_stepping()
+
+    for i in range(fs_restart.num_steps):
+        # compute control
+        # mpi broadcast sensor
+        y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
+        # compute error relative to base flow
+        y_meas_err = - y_meas
+        # wrapper around control toolbox
+        u_ctrl, x_ctrl = flu.step_controller(Kss, x_ctrl, y_meas_err, fs_restart.dt)
+        # step
+        fs_restart.step_perturbation(u_ctrl=u_ctrl, NL=fs_restart.NL, shift=0.0)
+
+    fs_restart.write_timeseries()
+    logger.info(fs_restart.timeseries)
+
+
 # TODO
 # remove all references to full ns formulation
 # -> remove bc relative to full ns....
@@ -1434,6 +1436,8 @@ if __name__ == "__main__":
 # create abstract superclass (with default equations for example?)
 # TODO
 # move all utilitary functions to utils*.py, then we sort
+# TODO
+# bc actuation as function
 
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
