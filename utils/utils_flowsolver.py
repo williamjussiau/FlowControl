@@ -1270,7 +1270,7 @@ def get_Hw_lifting(fs, A=None, C=None, Q=None, logwmin=-2, logwmax=2, nw=10,
     Cl = (C, 0)
     Ql = diag(Q, 1)
     And we compute H(s)=Cl*inv(s*Ql - Al)*Bl
-    Then resolvent response gives (s-domain): m/c = m/(-drho/dt) = -1/jw m/rho
+    Then resolvent response gives (s-omega): m/c = m/(-drho/dt) = -1/jw m/rho
     So we must find: H(m/rho) = -jw * H(m/c)
     WARNING: ONLY RUNS FOR A SINGLE SENSOR (but might not even give satisfactory ans)
     '''
