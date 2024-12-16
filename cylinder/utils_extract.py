@@ -171,6 +171,7 @@ class localized_perturbation_u(dolfin.UserExpression):
         return (2,)
 
 
+# see end_simulation in flu
 def print_progress(fs, runtime):
     """Single line to print progress"""
     logger.info(

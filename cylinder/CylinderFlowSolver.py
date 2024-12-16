@@ -29,7 +29,7 @@ import utils_extract as flu2
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
 logger = logging.getLogger(__name__)
 FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 class CylinderFlowSolver(AbstractFlowSolver):
@@ -38,12 +38,11 @@ class CylinderFlowSolver(AbstractFlowSolver):
     See method .step and main for time-stepping (possibly actuated)
     Contain methods for frequency-response computation"""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs):  # redundant def here
         super().__init__(**kwargs)
 
-    def make_form_mixed_steady(
-        self, initial_guess=None
-    ):  # TODO keep this one in here, but make version for superclass (especially for BCs)
+    # TODO treat this
+    def make_form_mixed_steady(self, initial_guess=None):  # TODO treat this one!!
         """Make nonlinear forms for steady state computation, in mixed element space.
         Can be used to assign self.F0 and compute state spaces matrices."""
         v, q = dolfin.TestFunctions(self.W)
@@ -107,7 +106,7 @@ class CylinderFlowSolver(AbstractFlowSolver):
         self.bc = {"bcu": bcu, "bcp": bcp}
 
     # Specifics to redefine for each case
-    def make_boundaries(self):  # TODO keep this one here
+    def make_boundaries(self):
         """Define boundaries (inlet, outlet, walls, cylinder, actuator)"""
         MESH_TOL = dolfin.DOLFIN_EPS
         # Define as compiled subdomains
@@ -232,7 +231,7 @@ class CylinderFlowSolver(AbstractFlowSolver):
         self.actuator_angular_size_rad = delta
         self.boundaries = boundaries_df
 
-    def make_measurement(self, field=None, mixed_field=None):  # TODO keep here
+    def make_measurement(self, field=None, mixed_field=None):
         """Perform measurement and assign"""
         ns = self.sensor_nr
         y_meas = np.zeros((ns,))
@@ -264,7 +263,7 @@ class CylinderFlowSolver(AbstractFlowSolver):
             y_meas[isensor] = y_meas_i
         return y_meas
 
-    def make_actuator(self):  # TODO keep this one here
+    def make_actuator(self):
         """Define actuator on boundary
         Could be defined as volume actuator some day"""
 
@@ -281,7 +280,7 @@ class CylinderFlowSolver(AbstractFlowSolver):
 
         self.actuator_expression = actuator_bc
 
-    def make_bcs(self):  # TODO keep this one here
+    def make_bcs(self):
         """Define boundary conditions"""
         # Boundary markers
         boundary_markers = dolfin.MeshFunction(
@@ -355,8 +354,10 @@ class CylinderFlowSolver(AbstractFlowSolver):
         self.bc_p = {"bcu": bcu_p, "bcp": []}  # log perturbation bcs
 
     # Steady state
-    def compute_steady_state(self, method="newton", u_ctrl=0.0, **kwargs):
-        """Compute flow steady state with given steady control"""
+    def compute_steady_state(
+        self, method="newton", u_ctrl=0.0, **kwargs
+    ):  # TODO useless overriding
+        """Overriding is useless, should do an additional method"""
         super().compute_steady_state(method, u_ctrl, **kwargs)
         # assign steady cl, cd
         cl, cd = self.compute_force_coefficients(self.u0, self.p0)
@@ -366,83 +367,6 @@ class CylinderFlowSolver(AbstractFlowSolver):
         if self.verbose:
             logger.info("Lift coefficient is: cl = %f", cl)
             logger.info("Drag coefficient is: cd = %f", cd)
-
-
-    def compute_steady_state_picard(self, max_iter=10, tol=1e-14):
-        """Compute steady state with fixed-point iteration
-        Should have a larger convergence radius than Newton method
-        if initialization is bad in Newton method (and it is)
-        TODO: residual not 0 if u_ctrl not 0 (see bc probably)
-        PROBLEM: requires bcs?"""
-        self.make_form_mixed_steady()
-        iRe = dolfin.Constant(1 / self.Re)
-
-        # for residual computation
-        bcu_inlet0 = dolfin.DirichletBC(
-            self.W.sub(0),
-            dolfin.Constant((0, 0)),
-            self.boundaries.loc["inlet"].subdomain,
-        )
-        bcu0 = self.bc["bcu"] + [bcu_inlet0]
-
-        # define forms
-        up0 = dolfin.Function(self.W)
-        up1 = dolfin.Function(self.W)
-
-        u, p = dolfin.TrialFunctions(self.W)
-        v, q = dolfin.TestFunctions(self.W)
-
-        class initial_condition(dolfin.UserExpression):
-            def eval(self, value, x):
-                value[0] = 1.0
-                value[1] = 0.0
-                value[2] = 0.0
-
-            def value_shape(self):
-                return (3,)
-
-        up0.interpolate(initial_condition())
-        u0 = dolfin.as_vector((up0[0], up0[1]))
-
-        ap = (
-            dot(dot(u0, nabla_grad(u)), v) * dx
-            + iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
-            - p * div(v) * dx
-            - q * div(u) * dx
-        )  # steady dolfin.lhs
-        Lp = (
-            dolfin.Constant(0) * inner(u0, v) * dx + dolfin.Constant(0) * q * dx
-        )  # zero dolfin.rhs
-        bp = dolfin.assemble(Lp)
-
-        solverp = dolfin.LUSolver("mumps")
-        ndof = self.W.dim()
-
-        for i in range(max_iter):
-            Ap = dolfin.assemble(ap)
-            [bc.apply(Ap, bp) for bc in self.bc["bcu"]]
-
-            solverp.solve(Ap, up1.vector(), bp)
-
-            up0.assign(up1)
-            u, p = up1.split()
-
-            # show_max(u, 'u')
-            res = dolfin.assemble(dolfin.action(ap, up1))
-            [bc.apply(res) for bc in bcu0]
-            res_norm = dolfin.norm(res) / dolfin.sqrt(ndof)
-            if self.verbose:
-                logger.info(
-                    "Picard iteration: {0}/{1}, residual: {2}".format(
-                        i + 1, max_iter, res_norm
-                    )
-                )
-            if res_norm < tol:
-                if self.verbose:
-                    logger.info("Residual norm lower than tolerance {0}".format(tol))
-                break
-
-        return up1
 
     # Utility
     def get_A(
@@ -870,16 +794,15 @@ if __name__ == "__main__":
 # make pertns + bcs_pert
 # but then use only pertns fo time stepping
 # TODO
+# harmonize make_form -> how to take into account bcs?
+# TODO
 # MIMO support
 # TODO
-# extract usecase specifics (eg cl, cd)
-# create abstract superclass (with default equations for example?)
+# move all utilitary functions to utils*.py, (DONE) then we sort
 # TODO
-# move all utilitary functions to utils*.py, then we sort
-# TODO
-# bc actuation as function
-# TODO
-# harmonize make_form -> how to take into account bcs?
+# BC actuation as function (f,v)
+# TODO remove cl, cd from timerseries
+# and maybe do a 2nd timeseries with specific data
 
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
