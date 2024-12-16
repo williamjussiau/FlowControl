@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 FORMAT = (
     "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
 )
-logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 class AbstractFlowSolver:
@@ -123,7 +123,9 @@ class AbstractFlowSolver:
         self.P = dolfin.FunctionSpace(self.mesh, Pe)
         self.W = dolfin.FunctionSpace(self.mesh, We)
         if self.verbose:
-            logger.debug("Function Space [V(CG2), P(CG1)] has: %d DOFs" % (self.W.dim()))
+            logger.debug(
+                "Function Space [V(CG2), P(CG1)] has: %d DOFs" % (self.W.dim())
+            )
 
     def make_mesh(self):  # TODO move to superclass
         """Define mesh
@@ -631,7 +633,6 @@ class AbstractFlowSolver:
 
         return 0
 
-
     # Steady state
     def load_steady_state(self, assign=True):  # TODO move to utils???
         u0 = dolfin.Function(self.V)
@@ -740,6 +741,78 @@ class AbstractFlowSolver:
         # Return
         return up_
 
+    def compute_steady_state_picard(self, max_iter=10, tol=1e-14):
+        """Compute steady state with fixed-point iteration
+        Should have a larger convergence radius than Newton method
+        if initialization is bad in Newton method (and it is)
+        TODO: residual not 0 if u_ctrl not 0 (see bc probably)
+        PROBLEM: requires bcs?"""
+        self.make_form_mixed_steady()
+        iRe = dolfin.Constant(1 / self.Re)
+
+        # for residual computation
+        bcu_inlet0 = self.bc_p["bcu"][0]
+        bcu0 = self.bc["bcu"] + [bcu_inlet0]
+
+        # define forms
+        up0 = dolfin.Function(self.W)
+        up1 = dolfin.Function(self.W)
+
+        u, p = dolfin.TrialFunctions(self.W)
+        v, q = dolfin.TestFunctions(self.W)
+
+        class initial_condition(dolfin.UserExpression):
+            def eval(self, value, x):
+                value[0] = 1.0
+                value[1] = 0.0
+                value[2] = 0.0
+
+            def value_shape(self):
+                return (3,)
+
+        up0.interpolate(initial_condition())
+        u0 = dolfin.as_vector((up0[0], up0[1]))
+
+        ap = (
+            dot(dot(u0, nabla_grad(u)), v) * dx
+            + iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            - p * div(v) * dx
+            - q * div(u) * dx
+        )  # steady dolfin.lhs
+        Lp = (
+            dolfin.Constant(0) * inner(u0, v) * dx + dolfin.Constant(0) * q * dx
+        )  # zero dolfin.rhs
+        bp = dolfin.assemble(Lp)
+
+        solverp = dolfin.LUSolver("mumps")
+        ndof = self.W.dim()
+
+        for i in range(max_iter):
+            Ap = dolfin.assemble(ap)
+            [bc.apply(Ap, bp) for bc in self.bc["bcu"]]
+
+            solverp.solve(Ap, up1.vector(), bp)
+
+            up0.assign(up1)
+            u, p = up1.split()
+
+            # show_max(u, 'u')
+            res = dolfin.assemble(dolfin.action(ap, up1))
+            [bc.apply(res) for bc in bcu0]
+            res_norm = dolfin.norm(res) / dolfin.sqrt(ndof)
+            if self.verbose:
+                logger.info(
+                    "Picard iteration: {0}/{1}, residual: {2}".format(
+                        i + 1, max_iter, res_norm
+                    )
+                )
+            if res_norm < tol:
+                if self.verbose:
+                    logger.info("Residual norm lower than tolerance {0}".format(tol))
+                break
+
+        return up1
+
     # Dataframe utility
     def make_y_dataframe_column_name(self, sensor_nr):
         """Return column names of different measurements y_meas_i"""
@@ -752,15 +825,13 @@ class AbstractFlowSolver:
         for i_meas, name_meas in enumerate(y_meas_str):
             df.loc[index, name_meas] = y_meas[i_meas]
 
-    def write_timeseries(self):
+    def write_timeseries(self): # TODO this is an export utility
         """Write pandas DataFrame to file"""
         if flu.MpiUtils.get_rank() == 0:
             # zipfile = '.zip' if self.compress_csv else ''
             self.timeseries.to_csv(self.paths["timeseries"], sep=",", index=False)
 
-    def log_timeseries(
-        self, u_ctrl, y_meas, norm_u, norm_p, dE, cl, cd, t, runtime
-    ):  # TODO move to superclass
+    def log_timeseries(self, u_ctrl, y_meas, norm_u, norm_p, dE, cl, cd, t, runtime):
         """Fill timeseries table with data"""
         self.timeseries.loc[self.iter - 1, "u_ctrl"] = (
             u_ctrl  # careful here: log the command that was applied at time t (iter-1) to get time t+dt (iter)
@@ -777,8 +848,9 @@ class AbstractFlowSolver:
         self.timeseries.loc[self.iter, "time"] = t
         self.timeseries.loc[self.iter, "runtime"] = runtime
 
-    # General utility
-    def compute_energy(self):  # TODO superclass
+    # General utility # could go outside class because
+    # one might want to compute energy of an arbitrary velocity fieldÒ
+    def compute_energy(self):
         """Compute energy of perturbation flow
         OPTIONS REMOVED FROM PREVIOUS VERSION:
         on full/restricted domain      (default:full=True)
@@ -787,7 +859,7 @@ class AbstractFlowSolver:
         dE = 1 / 2 * dolfin.norm(self.u_, norm_type="L2", mesh=self.mesh) ** 2
         return dE
 
-    def compute_energy_field(self, export=False, filename=None):  # TODO superclass
+    def compute_energy_field(self, export=False, filename=None):
         """Compute field dot(u, u) to see spatial location of perturbation kinetic energy
         Perturbation formulation only"""
         Efield = dot(self.u_, self.u_)
@@ -809,10 +881,10 @@ class AbstractFlowSolver:
 
     def make_measurement():
         raise NotImplementedError()
-    
+
     # TODO possible to do 1 implementation for all?
     # eg by linking to BC, that are implemented by user
+    # why not: inlet always first
+    # (seems to be the only bc that differs between pert/fullns)
     def make_form_mixed_steady():
         raise NotImplementedError()
-
-
