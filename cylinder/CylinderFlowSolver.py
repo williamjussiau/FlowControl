@@ -803,6 +803,8 @@ if __name__ == "__main__":
 # BC actuation as function (f,v)
 # TODO remove cl, cd from timerseries
 # and maybe do a 2nd timeseries with specific data
+# TODO 
+    # TEST with sum(u)=xx... for example
 
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
