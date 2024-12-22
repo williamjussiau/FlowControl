@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 import time
+from abc import ABC, abstractmethod
 # from petsc4py import PETSc
 
 import pdb  # noqa: F401
@@ -22,7 +23,7 @@ FORMAT = (
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
-class AbstractFlowSolver:
+class AbstractFlowSolver(ABC):
     def __init__(
         self,
         params_flow,
@@ -870,21 +871,26 @@ class AbstractFlowSolver:
         return Efield
 
     # Abstract methods (to be reimplemented for each case)
+    @abstractmethod
     def make_boundaries():
-        raise NotImplementedError()
+        pass
 
+    @abstractmethod
     def make_bcs():
-        raise NotImplementedError()
+        pass
 
+    @abstractmethod
     def make_actuator():
-        raise NotImplementedError()
+        pass
 
+    @abstractmethod
     def make_measurement():
-        raise NotImplementedError()
+        pass
 
     # TODO possible to do 1 implementation for all?
     # eg by linking to BC, that are implemented by user
     # why not: inlet always first
     # (seems to be the only bc that differs between pert/fullns)
+    @abstractmethod
     def make_form_mixed_steady():
-        raise NotImplementedError()
+        pass
