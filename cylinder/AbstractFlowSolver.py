@@ -6,11 +6,10 @@ import os
 import pandas as pd
 import time
 from abc import ABC, abstractmethod
+
 # from petsc4py import PETSc
 
-import pdb  # noqa: F401
 import logging
-
 
 import utils_flowsolver as flu
 import utils_extract as flu2
@@ -703,7 +702,7 @@ class AbstractFlowSolver(ABC):
 
             self.y_meas_steady = self.make_measurement(mixed_field=up0)
 
-        # If start is not zero: read steady state (should exist - should check though...)
+        # If IC is not zero: read steady state (should exist - should check though...)
         else:
             u0, p0, up0 = self.load_steady_state(assign=True)
 
@@ -746,8 +745,7 @@ class AbstractFlowSolver(ABC):
         """Compute steady state with fixed-point iteration
         Should have a larger convergence radius than Newton method
         if initialization is bad in Newton method (and it is)
-        TODO: residual not 0 if u_ctrl not 0 (see bc probably)
-        PROBLEM: requires bcs?"""
+        TODO: residual not 0 if u_ctrl not 0 (see bc probably)"""
         self.make_form_mixed_steady()
         iRe = dolfin.Constant(1 / self.Re)
 
@@ -826,7 +824,7 @@ class AbstractFlowSolver(ABC):
         for i_meas, name_meas in enumerate(y_meas_str):
             df.loc[index, name_meas] = y_meas[i_meas]
 
-    def write_timeseries(self): # TODO this is an export utility
+    def write_timeseries(self):  # TODO this is an export utility
         """Write pandas DataFrame to file"""
         if flu.MpiUtils.get_rank() == 0:
             # zipfile = '.zip' if self.compress_csv else ''
@@ -872,25 +870,50 @@ class AbstractFlowSolver(ABC):
 
     # Abstract methods (to be reimplemented for each case)
     @abstractmethod
-    def make_boundaries():
+    def make_boundaries(self):
         pass
 
     @abstractmethod
-    def make_bcs():
+    def make_bcs(self):
         pass
 
     @abstractmethod
-    def make_actuator():
+    def make_actuator(self):
         pass
 
     @abstractmethod
-    def make_measurement():
+    def make_measurement(self):
         pass
 
-    # TODO possible to do 1 implementation for all?
-    # eg by linking to BC, that are implemented by user
-    # why not: inlet always first
-    # (seems to be the only bc that differs between pert/fullns)
-    @abstractmethod
-    def make_form_mixed_steady():
-        pass
+    # NOTE: inlet BC should be 1st always, and have (u,v)=(1,0)
+    # Otherwise, reimplement this
+    def make_form_mixed_steady(self, initial_guess=None):
+        """Make nonlinear forms for steady state computation, in mixed element space.
+        Can be used to assign self.F0 and compute state spaces matrices."""
+        v, q = dolfin.TestFunctions(self.W)
+        up_ = initial_guess or dolfin.Function(self.W)  # if
+        u_, p_ = dolfin.split(up_)  # not deep copy, we need the link
+        iRe = dolfin.Constant(1 / self.Re)
+        # f = self.actuator_expression
+        # Problem
+        F0 = (
+            dot(dot(u_, nabla_grad(u_)), v) * dx
+            + iRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
+            - p_ * div(v) * dx
+            - q * div(u_) * dx
+            #    - dot(f, v) * dx
+        )
+        self.F0 = F0
+        self.up_ = up_
+        self.u_ = u_
+        self.p_ = p_
+
+        # NOTE
+        # Impossible to modify existing BC without causing problems in the time-stepping
+        # Solution: duplicate BC
+        bcu_inlet = dolfin.DirichletBC(
+            self.W.sub(0),
+            dolfin.Constant((self.uinf, 0)),
+            self.boundaries.loc["inlet"].subdomain,
+        )
+        self.bc = {"bcu": [bcu_inlet] + self.bc_p["bcu"][1:], "bcp": []}
