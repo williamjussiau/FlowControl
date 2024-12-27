@@ -1,22 +1,17 @@
 from enum import Enum
-from abc import ABC, abstractmethod
 
 class SOLVER(Enum):
     DEFAULT = 0
     LU = 1
     KRYLOV = 2
 
-class Parent(ABC):
+class Parent():
     def __init__(self, solver_type=None):
         self.solver = self.make_solver(type=solver_type)
 
     def make_solver(self, type=None):
         """returns a solver, do not assign"""
         return dict(type=SOLVER.DEFAULT) # default solver
-    
-    @abstractmethod
-    def an_abstract_method():
-        pass
     
 class Child(Parent):
     def __init__(self, solver_type=None):
@@ -32,9 +27,6 @@ class Child(Parent):
         else:
             raise ValueError("Unknown solver code")
         return solver
-    
-    def an_abstract_method():
-        return 1
 
 if __name__ == "__main__":
     C1 = Child(solver_type=SOLVER.LU)

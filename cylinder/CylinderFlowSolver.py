@@ -3,27 +3,26 @@ Incompressible Navier-Stokes equations
 
   u' + u . nabla(u)) - div(sigma(u, p)) = f
                                  div(u) = 0
-
 Equations were made non-dimensional
 ----------------------------------------------------------------------
 """
 
-from __future__ import print_function
-from AbtractFlowSolver import AbstractFlowSolver
+# from __future__ import print_function
+
+import AbstractFlowSolver
 import dolfin
 from dolfin import dot, inner, nabla_grad, div, dx
 import numpy as np
 import time
 import pandas as pd
-# from petsc4py import PETSc
 
-import pdb  # noqa: F401
 import logging
 
 from pathlib import Path
 
 import utils_flowsolver as flu
 import utils_extract as flu2
+
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
@@ -32,7 +31,7 @@ FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
-class CylinderFlowSolver(AbstractFlowSolver):
+class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
     """Base class for calculating flow
     Is instantiated with several structures (dicts) containing parameters
     See method .step and main for time-stepping (possibly actuated)
@@ -40,70 +39,6 @@ class CylinderFlowSolver(AbstractFlowSolver):
 
     def __init__(self, **kwargs):  # redundant def here
         super().__init__(**kwargs)
-
-    # TODO treat this
-    def make_form_mixed_steady(self, initial_guess=None):  # TODO treat this one!!
-        """Make nonlinear forms for steady state computation, in mixed element space.
-        Can be used to assign self.F0 and compute state spaces matrices."""
-        v, q = dolfin.TestFunctions(self.W)
-        if initial_guess is None:
-            up_ = dolfin.Function(self.W)
-        else:
-            up_ = initial_guess
-        u_, p_ = dolfin.split(up_)  # not deep copy, we need the link
-        iRe = dolfin.Constant(1 / self.Re)
-        f = self.actuator_expression
-        # Problem
-        F0 = (
-            dot(dot(u_, nabla_grad(u_)), v) * dx
-            + iRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
-            - p_ * div(v) * dx
-            - q * div(u_) * dx
-            - dot(f, v) * dx
-        )
-        self.F0 = F0
-        self.up_ = up_
-        self.u_ = u_
-        self.p_ = p_
-
-        # Make BCs (full ns formulation)
-        # inlet : u = uinf, v = 0
-        bcu_inlet = dolfin.DirichletBC(
-            self.W.sub(0),
-            dolfin.Constant((self.uinf, 0)),
-            self.boundaries.loc["inlet"].subdomain,
-        )
-        # walls : v = 0
-        bcu_walls = dolfin.DirichletBC(
-            self.W.sub(0).sub(1),
-            dolfin.Constant(0),
-            self.boundaries.loc["walls"].subdomain,
-        )
-        # cylinder : (u,v)=(0,0)
-        bcu_cylinder = dolfin.DirichletBC(
-            self.W.sub(0),
-            dolfin.Constant((0, 0)),
-            self.boundaries.loc["cylinder"].subdomain,
-        )
-        # actuators : (u,v)=(0,va)
-        bcu_actuation_up = dolfin.DirichletBC(
-            self.W.sub(0),
-            self.actuator_expression,
-            self.boundaries.loc["actuator_up"].subdomain,
-        )
-        bcu_actuation_lo = dolfin.DirichletBC(
-            self.W.sub(0),
-            self.actuator_expression,
-            self.boundaries.loc["actuator_lo"].subdomain,
-        )
-        bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
-
-        bcp_outlet = dolfin.DirichletBC(
-            self.W.sub(1), dolfin.Constant(0), self.boundaries.loc["outlet"].subdomain
-        )
-        bcp = [bcp_outlet]
-
-        self.bc = {"bcu": bcu, "bcp": bcp}
 
     # Specifics to redefine for each case
     def make_boundaries(self):
@@ -726,18 +661,10 @@ if __name__ == "__main__":
             "Time/iter/dof        --- %f",
             np.mean(fs.timeseries.loc[3:, "runtime"]) / fs.W.dim(),
         )
-    dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.user])
+    # dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.user])
 
     fs.write_timeseries()
-    logger.info(fs.timeseries)
-
-    logger.info("Last two lines of the printed timetable should look like this:")
-    logger.info(
-        "9   0.045  1.634545  0.132531    0.000347 -3.385638  1.143313  0.159566"
-    )
-    logger.info(
-        "10  0.050  0.000000  0.132341    0.000353 -3.107742  1.142722  0.143971"
-    )
+    # logger.info(fs.timeseries)
 
     # Try restart
     params_time_restart = {
@@ -759,7 +686,6 @@ if __name__ == "__main__":
     )
 
     fs_restart.load_steady_state(assign=True)
-
     fs_restart.init_time_stepping()
 
     for i in range(fs_restart.num_steps):
@@ -774,7 +700,6 @@ if __name__ == "__main__":
         fs_restart.step_perturbation(u_ctrl=u_ctrl, NL=fs_restart.NL, shift=0.0)
 
     fs_restart.write_timeseries()
-    logger.info(fs_restart.timeseries)
 
     logger.info("Checking utilitary functions")
     fs.get_A()
@@ -784,28 +709,30 @@ if __name__ == "__main__":
     # fs.get_div0_u()
     # fs.get_block_identity()
 
+    logger.info("Testing max(u) and mean(u)...")
+    u_max_ref = 1.6345453902677856
+    u_mean_ref = -0.0009997385060749036
+    u_max = flu.apply_fun(fs.u_, np.max)
+    u_mean = flu.apply_fun(fs.u_, np.mean)
+
+    logger.info(f"umax: {u_max} // {u_max_ref}")
+    logger.info(f"umean: {u_mean} // {u_mean_ref}")
+
+    assert np.isclose(u_max, u_max_ref)
+    assert np.isclose(u_mean, u_mean_ref)
+
+    logger.info("End with success")
 
 # TODO
-# remove all references to full ns formulation
-# -> remove bc relative to full ns....
-# -> for base flow, we need full ns and bcs!!
-# so we could keep 2 functions:
-# make fullns + bcs
-# make pertns + bcs_pert
-# but then use only pertns fo time stepping
-# TODO
-# harmonize make_form -> how to take into account bcs?
+# harmonize fullns / pertns
 # TODO
 # MIMO support
 # TODO
-# move all utilitary functions to utils*.py, (DONE) then we sort
+# sort utility functions from utils_flowsolver & utils_extract
 # TODO
-# BC actuation as function (f,v)
-# TODO remove cl, cd from timerseries
-# and maybe do a 2nd timeseries with specific data
-# TODO 
-    # TEST with sum(u)=xx... for example
-
+# take both kinds of actuation -> probably need IF
+# TODO spit timeseries
+# remove cl, cd ; + 2nd timeseries with case-specific data
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
