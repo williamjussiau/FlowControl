@@ -1,16 +1,14 @@
-name: fenics
+name: fenicstest
 channels:
   - conda-forge
   - https://repo.anaconda.com/pkgs/main
   - https://repo.anaconda.com/pkgs/r
 dependencies:
+  - python
   - fenics
-  - ipython
-  - matplotlib
   - meshio
   - mshr
   - scipy
   - pandas
   - control
-  - gmsh
-prefix: /usr/local/anaconda3/envs/fenics
+prefix: /usr/local/anaconda3/envs/fenicstest
