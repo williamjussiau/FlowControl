@@ -1,4 +1,4 @@
-name: fenicstest
+name: fenics
 channels:
   - conda-forge
   - https://repo.anaconda.com/pkgs/main
@@ -11,4 +11,4 @@ dependencies:
   - scipy
   - pandas
   - control
-prefix: /usr/local/anaconda3/envs/fenicstest
+prefix: /usr/local/anaconda3/envs/fenics
