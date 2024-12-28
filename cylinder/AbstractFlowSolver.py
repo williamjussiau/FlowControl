@@ -891,7 +891,10 @@ class AbstractFlowSolver(ABC):
         """Make nonlinear forms for steady state computation, in mixed element space.
         Can be used to assign self.F0 and compute state spaces matrices."""
         v, q = dolfin.TestFunctions(self.W)
-        up_ = initial_guess or dolfin.Function(self.W)  # if
+        if initial_guess is None:
+            up_ = dolfin.Function(self.W)
+        else:
+            up_ = initial_guess
         u_, p_ = dolfin.split(up_)  # not deep copy, we need the link
         iRe = dolfin.Constant(1 / self.Re)
         # f = self.actuator_expression

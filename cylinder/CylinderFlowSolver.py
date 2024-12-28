@@ -703,11 +703,6 @@ if __name__ == "__main__":
 
     logger.info("Checking utilitary functions")
     fs.get_A()
-    # fs.get_B()
-    # fs.get_C()
-    # fs.get_mass_matrix()
-    # fs.get_div0_u()
-    # fs.get_block_identity()
 
     logger.info("Testing max(u) and mean(u)...")
     u_max_ref = 1.6345453902677856
@@ -725,13 +720,16 @@ if __name__ == "__main__":
 
 # TODO
 # harmonize fullns / pertns
+# eg u_full shoud only exist when saving
+# still a lot of cleaning to do
+# compute_norms -> rm
 # TODO
 # MIMO support
 # TODO
-# sort utility functions from utils_flowsolver & utils_extract
+# sort utility functions from utils..._flowsolver, _extract, _debug
 # TODO
-# take both kinds of actuation -> probably need IF
-# TODO spit timeseries
+# take both kinds of actuation -> probably need if statements
+# TODO split timeseries
 # remove cl, cd ; + 2nd timeseries with case-specific data
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
