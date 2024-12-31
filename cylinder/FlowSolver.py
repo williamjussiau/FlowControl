@@ -1,8 +1,8 @@
 from __future__ import print_function
+import FlowSolverParameters
 import dolfin
 from dolfin import dot, nabla_grad, dx, inner, div
 import numpy as np
-import os
 import pandas as pd
 import time
 from abc import ABC, abstractmethod
@@ -22,36 +22,27 @@ FORMAT = (
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
-class AbstractFlowSolver(ABC):
+class FlowSolver(ABC):
     def __init__(
         self,
-        params_flow,
-        params_time,
-        params_save,
-        params_solver,
-        params_mesh,
-        verbose=True,
+        params_flow: FlowSolverParameters.Param_control,
+        params_time: FlowSolverParameters.Param_time,
+        params_save: FlowSolverParameters.Param_save,
+        params_solver: FlowSolverParameters.Param_solver,
+        params_mesh: FlowSolverParameters.Param_mesh,
+        verbose: bool = True,
     ):
-        # Probably bad practice
-        # Unwrap all dictionaries into self.attribute
-        alldict = {
-            **params_flow,
-            **params_time,
-            **params_save,
-            **params_solver,
-            **params_mesh,
-        }
-        for key, item in alldict.items():  # all input dicts
-            setattr(self, key, item)  # set corresponding attribute
+        self.params_flow = params_flow
+        self.params_time = params_time
+        self.params_save = params_save
+        self.params_solver = params_solver
+        self.params_mesh = params_mesh
 
         self.verbose = verbose
-        # Parameters
-        self.r = self.d / 2
-        self.nu = self.uinf * self.d / self.Re  # dunnu touch
-        # Time
-        self.Tf = self.num_steps * self.dt  # final time
+        self.params_time.Tf = self.params_time.num_steps * self.params_time.dt
+
         # Sensors
-        self.sensor_nr = self.sensor_location.shape[0]
+        self.params_flow.sensor_nr = self.params_flow.sensor_location.shape[0]
         # Initial state default
         self.initial_state = None
 
@@ -74,9 +65,11 @@ class AbstractFlowSolver(ABC):
         logger.debug("Currently defining paths...")
         # Files location directory is params_save['savedir0']
         # dunnu touch below
-        savedir0 = self.savedir0
-        Tstart = self.Tstart  # start simulation from time...
-        Trestartfrom = self.Trestartfrom  # use older files starting from time...
+        savedir0 = self.params_save.savedir0
+        Tstart = self.params_time.Tstart  # start simulation from time...
+        Trestartfrom = (
+            self.params_time.Trestartfrom
+        )  # use older files starting from time...
 
         def make_extension(T):
             return "_restart" + str(np.round(T, decimals=3)).replace(".", ",")
@@ -86,6 +79,8 @@ class AbstractFlowSolver(ABC):
 
         ext_xdmf = ".xdmf"
         ext_csv = ".csv"
+
+        savedir0 = self.params_save.savedir0
 
         filename_u0 = savedir0 / "steady" / ("u0" + ext_xdmf)
         filename_p0 = savedir0 / "steady" / ("p0" + ext_xdmf)
@@ -110,8 +105,71 @@ class AbstractFlowSolver(ABC):
             "uprev_restart": filename_uprev_restart,
             "p_restart": filename_p_restart,
             "timeseries": filename_timeseries,
-            "mesh": self.meshpath,
+            "mesh": self.params_mesh.meshpath,
         }
+
+    def make_mesh(self):  # TODO move to superclass
+        """Define mesh
+        params_mesh contains either name of existing mesh
+        or geometry parameters: xinf, yinf, xinfa, nx..."""
+        # Set params
+        # genmesh = self.genmesh
+        # meshdir = self.paths["mesh"]  #'/stck/wjussiau/fenics-python/mesh/'
+        # xinf = self.xinf  # 20 # 20 # 20
+        # yinf = self.yinf  # 8 # 5 # 8
+        # xinfa = self.xinfa  # -5 # -5 # -10
+        # Working as follows:
+        # if genmesh:
+        #   if does not exist (with given params): generate with meshr
+        #   and prepare to not read file (because mesh is already in memory)
+        # else:
+        #   set file name and prepare to read file
+        # read file
+        # readmesh = True
+        # if genmesh:
+        #     nx = self.nx  # 32
+        #     meshname = "cylinder_" + str(nx) + ".xdmf"
+        #     meshpath = meshdir / meshname  # os.path.join(meshdir, meshname)
+        #     if not os.path.exists(meshpath) or self.remesh:
+        #         if self.verbose:
+        #             logger.debug("Mesh does not exist @: %s", meshpath)
+        #             logger.debug("-- Creating mesh...")
+        #         channel = dolfin.Rectangle(
+        #             dolfin.Point(xinfa, -yinf), dolfin.Point(xinf, yinf)
+        #         )
+        #         cyl = dolfin.Circle(
+        #             dolfin.Point(0.0, 0.0), self.d / 2, segments=self.segments
+        #         )
+        #         domain = channel - cyl
+        #         mesh = dolfin.generate_mesh(domain, nx)
+        #         with dolfin.XDMFFile(dolfin.MPI.comm_world, str(meshpath)) as fm:
+        #             fm.write(mesh)
+        #         readmesh = False
+        # else:
+
+        # readmesh = True
+
+        # meshname = self.meshname
+
+        # if mesh was not generated on the fly, read file
+        # if readmesh:
+        mesh = dolfin.Mesh(dolfin.MPI.comm_world)
+        meshpath = (
+            self.params_mesh.meshpath / self.params_mesh.meshname
+        )  # os.path.join(meshdir, meshname)
+        if self.verbose:
+            logger.debug("Mesh exists @: %s", meshpath)
+            logger.debug("--- Reading mesh...")
+        with dolfin.XDMFFile(dolfin.MPI.comm_world, str(meshpath)) as fm:
+            fm.read(mesh)
+        # mesh = Mesh(dolfin.MPI.comm_world, meshpath) # if xml
+
+        if self.verbose:
+            logger.debug("Mesh has: %d cells" % (mesh.num_cells()))
+
+        # assign mesh & facet normals
+        self.mesh = mesh
+        self.n = dolfin.FacetNormal(mesh)
 
     def make_function_spaces(self):  # TODO move to superclass
         """Define function spaces (u, p) = (CG2, CG1)"""
@@ -127,76 +185,9 @@ class AbstractFlowSolver(ABC):
                 "Function Space [V(CG2), P(CG1)] has: %d DOFs" % (self.W.dim())
             )
 
-    def make_mesh(self):  # TODO move to superclass
-        """Define mesh
-        params_mesh contains either name of existing mesh
-        or geometry parameters: xinf, yinf, xinfa, nx..."""
-        # Set params
-        genmesh = self.genmesh
-        meshdir = self.paths["mesh"]  #'/stck/wjussiau/fenics-python/mesh/'
-        xinf = self.xinf  # 20 # 20 # 20
-        yinf = self.yinf  # 8 # 5 # 8
-        xinfa = self.xinfa  # -5 # -5 # -10
-        # Working as follows:
-        # if genmesh:
-        #   if does not exist (with given params): generate with meshr
-        #   and prepare to not read file (because mesh is already in memory)
-        # else:
-        #   set file name and prepare to read file
-        # read file
-        readmesh = True
-        if genmesh:
-            nx = self.nx  # 32
-            meshname = "cylinder_" + str(nx) + ".xdmf"
-            meshpath = meshdir / meshname  # os.path.join(meshdir, meshname)
-            if not os.path.exists(meshpath) or self.remesh:
-                if self.verbose:
-                    logger.debug("Mesh does not exist @: %s", meshpath)
-                    logger.debug("-- Creating mesh...")
-                channel = dolfin.Rectangle(
-                    dolfin.Point(xinfa, -yinf), dolfin.Point(xinf, yinf)
-                )
-                cyl = dolfin.Circle(
-                    dolfin.Point(0.0, 0.0), self.d / 2, segments=self.segments
-                )
-                domain = channel - cyl
-                mesh = dolfin.generate_mesh(domain, nx)
-                with dolfin.XDMFFile(dolfin.MPI.comm_world, str(meshpath)) as fm:
-                    fm.write(mesh)
-                readmesh = False
-        else:
-            meshname = self.meshname
-
-        # if mesh was not generated on the fly, read file
-        if readmesh:
-            mesh = dolfin.Mesh(dolfin.MPI.comm_world)
-            meshpath = meshdir / meshname  # os.path.join(meshdir, meshname)
-            if self.verbose:
-                logger.debug("Mesh exists @: %s", meshpath)
-                logger.debug("--- Reading mesh...")
-            with dolfin.XDMFFile(dolfin.MPI.comm_world, str(meshpath)) as fm:
-                fm.read(mesh)
-            # mesh = Mesh(dolfin.MPI.comm_world, meshpath) # if xml
-
-        if self.verbose:
-            logger.debug("Mesh has: %d cells" % (mesh.num_cells()))
-
-        # assign mesh & facet normals
-        self.mesh = mesh
-        self.n = dolfin.FacetNormal(mesh)
-
     def init_time_stepping(self):  # TODO move to superclass
         """Create varitional functions/forms & flush files & define u(0), p(0)"""
-        # Trial and test functions ####################################################
-        # W = self.W
-
-        # Define expressions used in variational forms
-        # iRe = dolfin.Constant(1 / self.Re)
-        # II = dolfin.Identity(2)
-        # k = dolfin.Constant(self.dt)
-        ##############################################################################
-
-        t = self.Tstart
+        t = self.params_time.Tstart
         self.t = t
         self.iter = 0
 
@@ -205,7 +196,7 @@ class AbstractFlowSolver(ABC):
         p_ = dolfin.Function(self.P)
 
         # if not restart
-        if self.Tstart == 0:
+        if self.params_time.Tstart == 0:
             # first order temporal integration
             self.order = 1
 
@@ -215,14 +206,14 @@ class AbstractFlowSolver(ABC):
             # No initial state given -> base flow
             if self.initial_state is None:
                 initial_up = dolfin.Function(self.W)
-                if not self.perturbations:
-                    initial_up.vector()[:] += self.up0.vector()[:]
+                # if not self.perturbations:
+                #     initial_up.vector()[:] += self.up0.vector()[:]
             else:
                 initial_up = self.initial_state
 
             # Impulse or state perturbation @ div0
             # Impulse if self.init_pert is inf
-            if np.isinf(self.init_pert):
+            if np.isinf(self.params_solver.init_pert):
                 # not sure this would work in parallel
                 initial_up.vector()[:] += self.get_B().reshape((-1,))
             else:
@@ -230,7 +221,9 @@ class AbstractFlowSolver(ABC):
                 fa = dolfin.FunctionAssigner(self.W, [self.V, self.P])
                 pert0 = dolfin.Function(self.W)
                 fa.assign(pert0, [udiv0, self.p0])
-                initial_up.vector()[:] += self.init_pert * pert0.vector()[:]
+                initial_up.vector()[:] += (
+                    self.params_solver.init_pert * pert0.vector()[:]
+                )
 
             initial_up.vector().apply("insert")
             up1 = initial_up
@@ -242,10 +235,10 @@ class AbstractFlowSolver(ABC):
             fa.assign([u1, p1], up1)
 
             # this is the initial state
-            if self.perturbations:
-                bcs = self.bc_p["bcu"]  # bcs for perturbation formulation
-            else:
-                bcs = self.bc["bcu"]  # bcs for classic formulation
+            # if self.perturbations:
+            bcs = self.bc_p["bcu"]  # bcs for perturbation formulation
+            # else:
+            # bcs = self.bc["bcu"]  # bcs for classic formulation
             u_n = flu.projectm(v=u1, V=self.V, bcs=bcs)
             u_nn = u_n.copy(deepcopy=True)
             p_n = flu.projectm(self.p0, self.P)
@@ -254,77 +247,77 @@ class AbstractFlowSolver(ABC):
             p_ = p_n.copy(deepcopy=True)
 
             # Flush files and save steady state as time_step 0
-            if self.save_every:
-                if not self.perturbations:
-                    flu.write_xdmf(
-                        self.paths["u_restart"],
-                        u_n,
-                        "u",
-                        time_step=0.0,
-                        append=False,
-                        write_mesh=True,
-                    )
-                    flu.write_xdmf(
-                        self.paths["uprev_restart"],
-                        u_nn,
-                        "u_n",
-                        time_step=0.0,
-                        append=False,
-                        write_mesh=True,
-                    )
-                    flu.write_xdmf(
-                        self.paths["p_restart"],
-                        p_n,
-                        "p",
-                        time_step=0.0,
-                        append=False,
-                        write_mesh=True,
-                    )
-                else:
-                    u_n_save = dolfin.Function(self.V)
-                    p_n_save = dolfin.Function(self.P)
-                    u_n_save.vector()[:] = u_n.vector()[:] + self.u0.vector()[:]
-                    p_n_save.vector()[:] = p_n.vector()[:] + self.p0.vector()[:]
-                    flu.write_xdmf(
-                        self.paths["u_restart"],
-                        u_n_save,
-                        "u",
-                        time_step=0.0,
-                        append=False,
-                        write_mesh=True,
-                    )
-                    flu.write_xdmf(
-                        self.paths["uprev_restart"],
-                        u_n_save,
-                        "u_n",
-                        time_step=0.0,
-                        append=False,
-                        write_mesh=True,
-                    )
-                    flu.write_xdmf(
-                        self.paths["p_restart"],
-                        p_n_save,
-                        "p",
-                        time_step=0.0,
-                        append=False,
-                        write_mesh=True,
-                    )
+            if self.params_save.save_every:
+                # if not self.perturbations:
+                #     flu.write_xdmf(
+                #         self.paths["u_restart"],
+                #         u_n,
+                #         "u",
+                #         time_step=0.0,
+                #         append=False,
+                #         write_mesh=True,
+                #     )
+                #     flu.write_xdmf(
+                #         self.paths["uprev_restart"],
+                #         u_nn,
+                #         "u_n",
+                #         time_step=0.0,
+                #         append=False,
+                #         write_mesh=True,
+                #     )
+                #     flu.write_xdmf(
+                #         self.paths["p_restart"],
+                #         p_n,
+                #         "p",
+                #         time_step=0.0,
+                #         append=False,
+                #         write_mesh=True,
+                #     )
+                # else:
+                u_n_save = dolfin.Function(self.V)
+                p_n_save = dolfin.Function(self.P)
+                u_n_save.vector()[:] = u_n.vector()[:] + self.u0.vector()[:]
+                p_n_save.vector()[:] = p_n.vector()[:] + self.p0.vector()[:]
+                flu.write_xdmf(
+                    self.paths["u_restart"],
+                    u_n_save,
+                    "u",
+                    time_step=0.0,
+                    append=False,
+                    write_mesh=True,
+                )
+                flu.write_xdmf(
+                    self.paths["uprev_restart"],
+                    u_n_save,
+                    "u_n",
+                    time_step=0.0,
+                    append=False,
+                    write_mesh=True,
+                )
+                flu.write_xdmf(
+                    self.paths["p_restart"],
+                    p_n_save,
+                    "p",
+                    time_step=0.0,
+                    append=False,
+                    write_mesh=True,
+                )
 
         else:
             # find index to load saved data
             idxstart = (
                 -1
-                if (self.Tstart == -1)
+                if (self.params_time.Tstart == -1)
                 else int(
                     np.floor(
-                        (self.Tstart - self.Trestartfrom)
-                        / self.dt_old
-                        / self.save_every_old
+                        (self.params_time.Tstart - self.params_time.Trestartfrom)
+                        / self.params_time.dt_old
+                        / self.params_save.save_every_old
                     )
                 )
             )
             # second order temporal integration
-            self.order = self.restart_order  # 2
+            self.order = self.params_time.restart_order  # 2
             # assign previous solution
             # here: subtract base flow if perturbation
             # if perturbations : read u_n, subtract u0, save
@@ -342,12 +335,12 @@ class AbstractFlowSolver(ABC):
 
             # write in new file as first time step
             # important to do this before subtracting base flow (if perturbations)
-            if self.save_every:
+            if self.params_save.save_every:
                 flu.write_xdmf(
                     self.paths["u_restart"],
                     u_n,
                     "u",
-                    time_step=self.Tstart,
+                    time_step=self.params_time.Tstart,
                     append=False,
                     write_mesh=True,
                 )
@@ -355,7 +348,7 @@ class AbstractFlowSolver(ABC):
                     self.paths["uprev_restart"],
                     u_nn,
                     "u_n",
-                    time_step=self.Tstart,
+                    time_step=self.params_time.Tstart,
                     append=False,
                     write_mesh=True,
                 )
@@ -363,23 +356,23 @@ class AbstractFlowSolver(ABC):
                     self.paths["p_restart"],
                     p_n,
                     "p",
-                    time_step=self.Tstart,
+                    time_step=self.params_time.Tstart,
                     append=False,
                     write_mesh=True,
                 )
             # if perturbations, remove base flow from loaded file
             # because one prefers to write complete flow (not just perturbations)
-            if self.perturbations:
-                u_n.vector()[:] = u_n.vector()[:] - self.u0.vector()[:]
-                u_nn.vector()[:] = u_nn.vector()[:] - self.u0.vector()[:]
-                p_n.vector()[:] = p_n.vector()[:] - self.p0.vector()[:]
-                u_.vector()[:] = u_.vector()[:] - self.u0.vector()[:]
-                p_.vector()[:] = p_.vector()[:] - self.p0.vector()[:]
+            # if self.perturbations:
+            u_n.vector()[:] = u_n.vector()[:] - self.u0.vector()[:]
+            u_nn.vector()[:] = u_nn.vector()[:] - self.u0.vector()[:]
+            p_n.vector()[:] = p_n.vector()[:] - self.p0.vector()[:]
+            u_.vector()[:] = u_.vector()[:] - self.u0.vector()[:]
+            p_.vector()[:] = p_.vector()[:] - self.p0.vector()[:]
 
         if self.verbose and flu.MpiUtils.get_rank() == 0:
             logger.info(
                 "Starting or restarting from time: %f with temporal scheme order: %d",
-                self.Tstart,
+                self.params_time.Tstart,
                 self.order,
             )
 
@@ -400,22 +393,22 @@ class AbstractFlowSolver(ABC):
         cl1, cd1 = self.compute_force_coefficients(u_n, p_n)
 
         # Make time series pd.DataFrame
-        y_meas_str = ["y_meas_" + str(i + 1) for i in range(self.sensor_nr)]
-        colnames = ["time", "u_ctrl"] + y_meas_str + ["dE", "cl", "cd", "runtime"]
-        empty_data = np.zeros((self.num_steps + 1, len(colnames)))
-        ts1d = pd.DataFrame(columns=colnames, data=empty_data)
+        y_meas_str = ["y_meas_" + str(i + 1) for i in range(self.params_flow.sensor_nr)]
+        colnames = ["time", "u_ctrl"] + y_meas_str + ["dE", "runtime"]  # "cl", "cd"
+        empty_data = np.zeros((self.params_time.num_steps + 1, len(colnames)))
+        timeseries = pd.DataFrame(columns=colnames, data=empty_data)
         # u_ctrl = dolfin.Constant(0)
-        ts1d.loc[0, "time"] = self.Tstart
+        timeseries.loc[0, "time"] = self.params_time.Tstart
         self.assign_measurement_to_dataframe(
-            df=ts1d, y_meas=self.y_meas0, index=0, sensor_nr=self.sensor_nr
+            df=timeseries,
+            y_meas=self.y_meas0,
+            index=0,
+            sensor_nr=self.params_flow.sensor_nr,
         )
-        ts1d.loc[0, "cl"], ts1d.loc[0, "cd"] = cl1, cd1
-        if self.compute_norms:
-            dEb = self.compute_energy()
-        else:
-            dEb = 0
-        ts1d.loc[0, "dE"] = dEb
-        self.timeseries = ts1d
+
+        dEb = self.compute_energy()
+        timeseries.loc[0, "dE"] = dEb
+        self.timeseries = timeseries
 
     def make_solvers(self):  # TODO could be utils
         """Define solvers"""
@@ -424,18 +417,20 @@ class AbstractFlowSolver(ABC):
         # solverparam[""]=...
         return dolfin.LUSolver("mumps")
 
-    def set_initial_state(self, x0=None):  # TODO could move to superclass
+    def set_initial_state(
+        self, x0: dolfin.Function = None
+    ):  # TODO could move to superclass
         """Define initial state and assign to self.initial_state
         x0: dolfin.Function(self.W)
         dolfin.Function needs to be called before self.init_time_stepping()"""
         self.initial_state = x0
 
-    def step_perturbation(self, u_ctrl=0.0, shift=0.0, NL=True):
+    def step(self, u_ctrl: float) -> None:
         """Simulate system with perturbation formulation,
         possibly an actuation value, and a shift
         initial_up may be set as self.get_B() to compute impulse response"""
-        iRe = dolfin.Constant(1 / self.Re)
-        k = dolfin.Constant(self.dt)
+        iRe = dolfin.Constant(1 / self.params_flow.Re)
+        k = dolfin.Constant(self.params_time.dt)
 
         v, q = dolfin.TestFunctions(self.W)
         up = dolfin.TrialFunction(self.W)
@@ -444,7 +439,7 @@ class AbstractFlowSolver(ABC):
         u_, p_ = dolfin.split(up_)
         u0 = self.u0
 
-        if NL:  # nonlinear
+        if self.params_flow.is_eq_nonlinear:  # nonlinear
             b0_1 = 1  # order 1
             b0_2, b1_2 = 2, -1  # order 2
         else:  # linear, remove (u'.nabla)(u')
@@ -460,7 +455,7 @@ class AbstractFlowSolver(ABC):
             if self.verbose:
                 logger.debug("Perturbations forms DO NOT exist: create...")
 
-            shift = dolfin.Constant(shift)
+            shift = dolfin.Constant(self.params_flow.shift)
             # 1st order integration
             F1 = (
                 dot((u - u_n) / k, v) * dx
@@ -520,7 +515,9 @@ class AbstractFlowSolver(ABC):
         assembler = self.assemblers_p[self.order]
         solver = self.solvers_p[self.order]
 
-        if not self.throw_error:  # used for optimization -> return error code
+        if (
+            not self.params_solver.throw_error
+        ):  # used for optimization -> return error code
             try:
                 assembler.assemble(self.bs_p)  # assemble dolfin.rhs
                 solver.solve(up_.vector(), self.bs_p)  # solve Ax=b
@@ -549,7 +546,9 @@ class AbstractFlowSolver(ABC):
 
         # Update time
         self.iter += 1
-        self.t = self.Tstart + (self.iter) * self.dt  # better accuracy than t+=dt
+        self.t = (
+            self.params_time.Tstart + (self.iter) * self.params_time.dt
+        )  # better accuracy than t+=dt
 
         # Assign to self
         self.u_ = u_
@@ -564,7 +563,6 @@ class AbstractFlowSolver(ABC):
 
         # Measurement
         self.y_meas = self.make_measurement()
-        # self.e_meas = self.y_meas
 
         tfi = time.time()
         if self.verbose and (
@@ -573,37 +571,21 @@ class AbstractFlowSolver(ABC):
             flu2.print_progress(self, runtime=tfi - t0i)
 
         # Log timeseries
-        # Be careful: cl, cd, norms etc. are in perturbation formulation (miss u0, p0)
-        # perturbation energy wrt base flow, here u_ = u_pert
-        if self.compute_norms:
-            dE = self.compute_energy()
-            # dE = norm(self.u_, norm_type='L2', mesh=self.mesh) / self.Eb
-            self.u_full.vector()[:] = u_n.vector()[:] + self.u0.vector()[:]
-            self.p_full.vector()[:] = p_n.vector()[:] + self.p0.vector()[:]
-            cl, cd = self.compute_force_coefficients(self.u_full, self.p_full)
-            # cl, cd = 0, 1
-        else:
-            dE = -1
-            cl = 0
-            cd = 1
+        dE = self.compute_energy()  # on perturbation field
         self.log_timeseries(
             u_ctrl=u_ctrl,
             y_meas=self.y_meas,
-            norm_u=0,  # norm(u_, norm_type='L2', mesh=self.mesh),
-            norm_p=0,  # norm(p_, norm_type='L2', mesh=self.mesh),
             dE=dE,
-            cl=cl,
-            cd=cd,
             t=self.t,
             runtime=tfi - t0i,
         )
         # Save
-        if self.save_every and not self.iter % self.save_every:
+        if self.params_save.save_every and not self.iter % self.params_save.save_every:
             self.u_full.vector()[:] = u_n.vector()[:] + self.u0.vector()[:]
             self.u_n_full.vector()[:] = u_nn.vector()[:] + self.u0.vector()[:]
             self.p_full.vector()[:] = p_n.vector()[:] + self.p0.vector()[:]
             if self.verbose:
-                logger.debug("saving to files %s" % (self.savedir0))
+                logger.debug("saving to files %s" % (self.params_save.savedir0))
             flu.write_xdmf(
                 self.paths["u_restart"],
                 self.u_full,
@@ -634,7 +616,7 @@ class AbstractFlowSolver(ABC):
         return 0
 
     # Steady state
-    def load_steady_state(self, assign=True):  # TODO move to utils???
+    def load_steady_state(self, assign: bool = True):  # TODO move to utils???
         u0 = dolfin.Function(self.V)
         p0 = dolfin.Function(self.P)
         flu.read_xdmf(self.paths["u0"], u0, "u")
@@ -666,7 +648,7 @@ class AbstractFlowSolver(ABC):
 
         # If start is zero (i.e. not restart): compute
         # Note : could add a flag 'compute_steady_state' to compute or read...
-        if self.Tstart == 0:  # and compute_steady_state
+        if self.params_time.Tstart == 0:  # and compute_steady_state
             # Solve
             if method == "newton":
                 up0 = self.compute_steady_state_newton(**kwargs)
@@ -680,7 +662,7 @@ class AbstractFlowSolver(ABC):
             fa_W2VP.assign([u0, p0], up0)
 
             # Save steady state
-            if self.save_every:
+            if self.params_save.save_every:
                 flu.write_xdmf(
                     self.paths["u0"],
                     u0,
@@ -698,7 +680,7 @@ class AbstractFlowSolver(ABC):
                     write_mesh=True,
                 )
             if self.verbose:
-                logger.debug("Stored base flow in: %s", self.savedir0)
+                logger.debug("Stored base flow in: %s", self.params_save.savedir0)
 
             self.y_meas_steady = self.make_measurement(mixed_field=up0)
 
@@ -718,7 +700,9 @@ class AbstractFlowSolver(ABC):
             1 / 2 * dolfin.norm(u0, norm_type="L2", mesh=self.mesh) ** 2
         )  # same as <up, Q@up>
 
-    def compute_steady_state_newton(self, max_iter=25, initial_guess=None):
+    def compute_steady_state_newton(
+        self, max_iter: int = 25, initial_guess: dolfin.Function = None
+    ):
         """Compute steady state with built-in nonlinear solver (Newton method)
         initial_guess is a (u,p)_0"""
         self.make_form_mixed_steady(initial_guess=initial_guess)
@@ -741,13 +725,13 @@ class AbstractFlowSolver(ABC):
         # Return
         return up_
 
-    def compute_steady_state_picard(self, max_iter=10, tol=1e-14):
+    def compute_steady_state_picard(self, max_iter: int = 10, tol: float = 1e-14):
         """Compute steady state with fixed-point iteration
         Should have a larger convergence radius than Newton method
         if initialization is bad in Newton method (and it is)
         TODO: residual not 0 if u_ctrl not 0 (see bc probably)"""
         self.make_form_mixed_steady()
-        iRe = dolfin.Constant(1 / self.Re)
+        iRe = dolfin.Constant(1 / self.params_flow.Re)
 
         # for residual computation
         bcu_inlet0 = self.bc_p["bcu"][0]
@@ -813,11 +797,13 @@ class AbstractFlowSolver(ABC):
         return up1
 
     # Dataframe utility
-    def make_y_dataframe_column_name(self, sensor_nr):
+    def make_y_dataframe_column_name(self, sensor_nr: int):
         """Return column names of different measurements y_meas_i"""
         return ["y_meas_" + str(i + 1) for i in range(sensor_nr)]
 
-    def assign_measurement_to_dataframe(self, df, y_meas, index, sensor_nr):
+    def assign_measurement_to_dataframe(
+        self, df: pd.DataFrame, y_meas: float, index: int, sensor_nr: int
+    ):
         """Assign measurement (array y_meas) to DataFrame at index
         Essentially convert array (y_meas) to separate columns (y_meas_i)"""
         y_meas_str = self.make_y_dataframe_column_name(sensor_nr)
@@ -830,20 +816,25 @@ class AbstractFlowSolver(ABC):
             # zipfile = '.zip' if self.compress_csv else ''
             self.timeseries.to_csv(self.paths["timeseries"], sep=",", index=False)
 
-    def log_timeseries(self, u_ctrl, y_meas, norm_u, norm_p, dE, cl, cd, t, runtime):
+    def log_timeseries(
+        self, u_ctrl: float, y_meas: float, dE: float, t: float, runtime: float
+    ):
         """Fill timeseries table with data"""
         self.timeseries.loc[self.iter - 1, "u_ctrl"] = (
             u_ctrl  # careful here: log the command that was applied at time t (iter-1) to get time t+dt (iter)
         )
         # replace above line for several measurements
         self.assign_measurement_to_dataframe(
-            df=self.timeseries, y_meas=y_meas, index=self.iter, sensor_nr=self.sensor_nr
+            df=self.timeseries,
+            y_meas=y_meas,
+            index=self.iter,
+            sensor_nr=self.params_flow.sensor_nr,
         )
         self.timeseries.loc[self.iter, "dE"] = dE
-        self.timeseries.loc[self.iter, "cl"], self.timeseries.loc[self.iter, "cd"] = (
-            cl,
-            cd,
-        )
+        # self.timeseries.loc[self.iter, "cl"], self.timeseries.loc[self.iter, "cd"] = (
+        #     cl,
+        #     cd,
+        # )
         self.timeseries.loc[self.iter, "time"] = t
         self.timeseries.loc[self.iter, "runtime"] = runtime
 
@@ -858,7 +849,7 @@ class AbstractFlowSolver(ABC):
         dE = 1 / 2 * dolfin.norm(self.u_, norm_type="L2", mesh=self.mesh) ** 2
         return dE
 
-    def compute_energy_field(self, export=False, filename=None):
+    def compute_energy_field(self, export: bool = False, filename: str = None):
         """Compute field dot(u, u) to see spatial location of perturbation kinetic energy
         Perturbation formulation only"""
         Efield = dot(self.u_, self.u_)
@@ -896,7 +887,7 @@ class AbstractFlowSolver(ABC):
         else:
             up_ = initial_guess
         u_, p_ = dolfin.split(up_)  # not deep copy, we need the link
-        iRe = dolfin.Constant(1 / self.Re)
+        iRe = dolfin.Constant(1 / self.params_flow.Re)
         # f = self.actuator_expression
         # Problem
         F0 = (
@@ -916,7 +907,7 @@ class AbstractFlowSolver(ABC):
         # Solution: duplicate BC
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
-            dolfin.Constant((self.uinf, 0)),
+            dolfin.Constant((self.params_flow.uinf, 0)),
             self.boundaries.loc["inlet"].subdomain,
         )
         self.bc = {"bcu": [bcu_inlet] + self.bc_p["bcu"][1:], "bcp": []}

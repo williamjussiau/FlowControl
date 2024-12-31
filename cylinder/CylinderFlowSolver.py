@@ -9,12 +9,13 @@ Equations were made non-dimensional
 
 # from __future__ import print_function
 
-import AbstractFlowSolver
+import FlowSolver
 import dolfin
 from dolfin import dot, inner, nabla_grad, div, dx
 import numpy as np
 import time
 import pandas as pd
+import FlowSolverParameters
 
 import logging
 
@@ -31,7 +32,7 @@ FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
-class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
+class CylinderFlowSolver(FlowSolver.FlowSolver):
     """Base class for calculating flow
     Is instantiated with several structures (dicts) containing parameters
     See method .step and main for time-stepping (possibly actuated)
@@ -49,14 +50,14 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
         inlet = dolfin.CompiledSubDomain(
             "on_boundary && \
                 near(x[0], xinfa, MESH_TOL)",
-            xinfa=self.xinfa,
+            xinfa=self.params_mesh.xinfa,
             MESH_TOL=MESH_TOL,
         )
         ## Outlet
         outlet = dolfin.CompiledSubDomain(
             "on_boundary && \
                 near(x[0], xinf, MESH_TOL)",
-            xinf=self.xinf,
+            xinf=self.params_mesh.xinf,
             MESH_TOL=MESH_TOL,
         )
         ## Walls
@@ -64,13 +65,13 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
             "on_boundary && \
                 (near(x[1], -yinf, MESH_TOL) ||   \
                  near(x[1], yinf, MESH_TOL))",
-            yinf=self.yinf,
+            yinf=self.params_mesh.yinf,
             MESH_TOL=MESH_TOL,
         )
 
         ## Cylinder
         delta = (
-            self.actuator_angular_size * dolfin.pi / 180
+            self.params_flow.actuator_angular_size * dolfin.pi / 180
         )  # angular size of acutator, in rad
         theta_tol = 1 * dolfin.pi / 180
 
@@ -118,19 +119,19 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
             + " ||  "
             + cone_ri_cpp
             + ")",
-            d=self.d,
+            d=self.params_flow.d,
             delta=delta,
             theta_tol=theta_tol,
         )
         actuator_up = dolfin.CompiledSubDomain(
             "on_boundary" + " && " + close_to_cylinder_cpp + " && " + cone_up_cpp,
-            d=self.d,
+            d=self.params_flow.d,
             delta=delta,
             theta_tol=theta_tol,
         )
         actuator_lo = dolfin.CompiledSubDomain(
             "on_boundary" + " && " + close_to_cylinder_cpp + " && " + cone_lo_cpp,
-            d=self.d,
+            d=self.params_flow.d,
             delta=delta,
             theta_tol=theta_tol,
         )
@@ -138,12 +139,12 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
         # end
 
         # Whole cylinder for integration
-        cylinder_whole = dolfin.CompiledSubDomain(
-            "on_boundary && (x[0]*x[0] + x[1]*x[1] <= d+0.1)",
-            d=self.d,
-            MESH_TOL=MESH_TOL,
-        )
-        self.cylinder_intg = cylinder_whole
+        # cylinder_whole = dolfin.CompiledSubDomain(
+        #     "on_boundary && (x[0]*x[0] + x[1]*x[1] <= d+0.1)",
+        #     d=self.params_flow.d,
+        #     MESH_TOL=MESH_TOL,
+        # )
+        # self.cylinder_intg = cylinder_whole
         ################################## todo
 
         # assign boundaries as pd.DataFrame
@@ -168,12 +169,12 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
 
     def make_measurement(self, field=None, mixed_field=None):
         """Perform measurement and assign"""
-        ns = self.sensor_nr
+        ns = self.params_flow.sensor_nr
         y_meas = np.zeros((ns,))
 
         for isensor in range(ns):
-            xs_i = self.sensor_location[isensor]
-            ts_i = self.sensor_type[isensor]
+            xs_i = self.params_flow.sensor_location[isensor]
+            ts_i = self.params_flow.sensor_type[isensor]
 
             # no mixed field (u,v,p) is given
             if field is not None:
@@ -202,7 +203,7 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
         """Define actuator on boundary
         Could be defined as volume actuator some day"""
 
-        L = self.r * np.tan(self.actuator_angular_size_rad / 2)
+        L = self.params_flow.d / 2 * np.tan(self.actuator_angular_size_rad / 2)
         nsig = 2  # self.nsig_actuator
         actuator_bc = dolfin.Expression(
             ["0", "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)"],
@@ -315,7 +316,7 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
 
         Jac = dolfin.PETScMatrix()
         v, q = dolfin.TestFunctions(self.W)
-        iRe = dolfin.Constant(1 / self.Re)
+        iRe = dolfin.Constant(1 / self.params_flow.Re)
         shift = dolfin.Constant(shift)
 
         if up_0 is None:
@@ -479,7 +480,7 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
         dofmap = fspace.dofmap()
 
         ndof = fspace.dim()
-        ns = self.sensor_nr
+        ns = self.params_flow.sensor_nr
         C = np.zeros((ns, ndof))
 
         idof_old = 0
@@ -520,7 +521,9 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
         For testing purposes, I added an argument enable
         To compute Cl, Cd, just put enable=True in this code"""
         if enable:
-            sigma = flu2.stress_tensor(self.nu, u, p)
+            nu = self.params_flow.uinf * self.params_flow.d / self.params_flow.Re
+
+            sigma = flu2.stress_tensor(nu, u, p)
             Fo = -dot(sigma, self.n)
 
             # integration surfaces names
@@ -541,8 +544,8 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
             drag = dolfin.assemble(drag_sym)
 
             # define force coefficients by normalizing
-            cd = drag / (1 / 2 * self.uinf**2 * self.d)
-            cl = lift / (1 / 2 * self.uinf**2 * self.d)
+            cd = drag / (1 / 2 * self.params_flow.uinf**2 * self.params_flow.d)
+            cl = lift / (1 / 2 * self.params_flow.uinf**2 * self.params_flow.d)
         else:
             cl, cd = 0, 1
         return cl, cd
@@ -562,49 +565,36 @@ class CylinderFlowSolver(AbstractFlowSolver.AbstractFlowSolver):
 ###############################################################################
 if __name__ == "__main__":
     t000 = time.time()
+    cwd = Path(__file__).parent
 
     logger.info("Trying to instantiate FlowSolver...")
-    params_flow = {
-        "Re": 100.0,
-        "uinf": 1.0,
-        "d": 1.0,
-        "sensor_location": np.array([[3, 0]]),  # sensor
-        "sensor_type": ["v"],  # u, v, p only >> reimplement make_measurement
-        "actuator_angular_size": 10,  # actuator angular size
-    }
-    params_time = {
-        "dt": 0.005,
-        "Tstart": 0,
-        "num_steps": 10,
-        "Tc": 0,
-        "Trestartfrom": 0,
-        "restart_order": 2,
-    }
-    params_save = {
-        "save_every": 5,
-        "save_every_old": 5,
-        "savedir0": Path(__file__).parent / "data_output",
-        "compute_norms": True,
-    }
-    params_solver = {
-        "throw_error": True,
-        "perturbations": True,  #######
-        "NL": True,  ################# NL=False only works with perturbations=True
-        "init_pert": 1,
-    }  # initial perturbation amplitude, np.inf=impulse (sequential only?)
 
-    # o1
-    params_mesh = {
-        "genmesh": False,
-        "remesh": False,
-        "nx": 1,
-        "meshpath": Path(__file__).parent / "data_input",
-        "meshname": "O1.xdmf",
-        "xinf": 20,  # 50, # 20
-        "xinfa": -10,  # -30, # -5
-        "yinf": 10,  # 30, # 8
-        "segments": 540,
-    }
+    params_flow = FlowSolverParameters.ParamFlow(Re=100)
+    params_flow.uinf = 1.0
+    params_flow.d = 1.0
+    params_flow.sensor_location = np.array([[3, 0]])
+    params_flow.sensor_type = ["v"]
+    params_flow.actuator_angular_size = 10
+
+    params_time = FlowSolverParameters.ParamTime(
+        num_steps=10, dt=0.005, Tstart=0.0, Trestartfrom=0.0, restart_order=2
+    )
+
+    params_save = FlowSolverParameters.ParamSave(
+        save_every=5, save_every_old=5, savedir0=cwd / "data_output"
+    )
+    params_save.compute_norms = True
+
+    params_solver = FlowSolverParameters.ParamSolver(
+        throw_error=True, is_eq_nonlinear=True, init_pert=1
+    )
+
+    params_mesh = FlowSolverParameters.ParamMesh(
+        meshpath=cwd / "data_input", meshname="o1.xdmf"
+    )
+    params_mesh.xinf = 20
+    params_mesh.xinfa = -10
+    params_mesh.yinf = 10
 
     fs = CylinderFlowSolver(
         params_flow=params_flow,
@@ -614,7 +604,7 @@ if __name__ == "__main__":
         params_mesh=params_mesh,
         verbose=True,
     )
-    # alltimes = pd.DataFrame(columns=['1', '2', '3'], index=['assemble', 'solve'], data=np.zeros((2,3)))
+
     logger.info("__init__(): successful!")
 
     logger.info("Compute steady state...")
@@ -629,7 +619,7 @@ if __name__ == "__main__":
     fs.init_time_stepping()
 
     logger.info("Step several times")
-    sspath = Path(__file__).parent / "data_input"
+    sspath = cwd / "data_input"
     G = flu.read_ss(sspath / "sysid_o16_d=3_ssest.mat")
     Kss = flu.read_ss(sspath / "Kopt_reduced13.mat")
 
@@ -639,18 +629,13 @@ if __name__ == "__main__":
     u_ctrl0 = 1e-2
     tlen = 0.15
     tpeak = 1
-    for i in range(fs.num_steps):
-        # compute control
-        # mpi broadcast sensor
+    for i in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        # compute error relative to base flow
         y_meas_err = -y_meas
-        # wrapper around control toolbox
-        u_ctrl, x_ctrl = flu.step_controller(Kss, x_ctrl, y_meas_err, fs.dt)
-        # step
-        fs.step_perturbation(u_ctrl=u_ctrl, NL=fs.NL, shift=0.0)
+        u_ctrl, x_ctrl = flu.step_controller(Kss, x_ctrl, y_meas_err, fs.params_time.dt)
+        fs.step(u_ctrl=u_ctrl)
 
-    if fs.num_steps > 3:
+    if fs.params_time.num_steps > 3:
         logger.info("Total time is: %f", time.time() - t000)
         logger.info("Iteration 1 time     --- %f", fs.timeseries.loc[1, "runtime"])
         logger.info("Iteration 2 time     --- %f", fs.timeseries.loc[2, "runtime"])
@@ -664,18 +649,11 @@ if __name__ == "__main__":
     # dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.user])
 
     fs.write_timeseries()
-    # logger.info(fs.timeseries)
 
-    # Try restart
-    params_time_restart = {
-        "dt": 0.005,
-        "dt_old": 0.005,
-        "Tstart": 0.05,
-        "num_steps": 10,
-        "Tc": 0,
-        "Trestartfrom": 0,
-        "restart_order": 2,
-    }
+    params_time_restart = params_time
+    params_time_restart.Tstart = 0.05
+    params_time_restart.dt_old = 0.005
+
     fs_restart = CylinderFlowSolver(
         params_flow=params_flow,
         params_time=params_time_restart,
@@ -688,16 +666,13 @@ if __name__ == "__main__":
     fs_restart.load_steady_state(assign=True)
     fs_restart.init_time_stepping()
 
-    for i in range(fs_restart.num_steps):
-        # compute control
-        # mpi broadcast sensor
+    for i in range(fs_restart.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
-        # compute error relative to base flow
         y_meas_err = -y_meas
-        # wrapper around control toolbox
-        u_ctrl, x_ctrl = flu.step_controller(Kss, x_ctrl, y_meas_err, fs_restart.dt)
-        # step
-        fs_restart.step_perturbation(u_ctrl=u_ctrl, NL=fs_restart.NL, shift=0.0)
+        u_ctrl, x_ctrl = flu.step_controller(
+            Kss, x_ctrl, y_meas_err, fs_restart.params_time.dt
+        )
+        fs_restart.step(u_ctrl=u_ctrl)
 
     fs_restart.write_timeseries()
 
@@ -716,21 +691,40 @@ if __name__ == "__main__":
     assert np.isclose(u_max, u_max_ref)
     assert np.isclose(u_mean, u_mean_ref)
 
+    logger.info(fs_restart.timeseries)
+
     logger.info("End with success")
 
-# TODO
-# harmonize fullns / pertns
-# eg u_full shoud only exist when saving
-# still a lot of cleaning to do
-# compute_norms -> rm
-# TODO
-# MIMO support
+
 # TODO
 # sort utility functions from utils..._flowsolver, _extract, _debug
 # TODO
-# take both kinds of actuation -> probably need if statements
+# MIMO support
+# both kinds of actuation -> probably need if statements
 # TODO split timeseries
 # remove cl, cd ; + 2nd timeseries with case-specific data
+# TODO
+# make_solver, make_eqs...
+# TODO
+# clarify restart (both in compute_steady_state & init_time_stepping)
+# TODO
+# remove dict unwrapping in __init__
+# now sort params & make dataclasses
+# think about creating subfields .time, .fem, .control...
+# and store related variables there
+# make self.primitives?
+# TODO
+# type annotations
+# TODO
+# data_in: mesh, restart files
+# data_out: time series, saved xdmf
+# TODO
+# ok to make user redefine make_bc, but who makes the table of BCs and/or
+# the counting of bc with indices IDX_...=1
+# --> register bc after make?
+# TODO
+# get A, B, C
+
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
