@@ -26,7 +26,6 @@ class ParamMesh:
     """
 
     meshpath: Path
-    meshname: str
     # additional case-specific limits
 
 
