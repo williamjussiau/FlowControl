@@ -3,7 +3,8 @@ from dolfin import inner, div, curl, sym, grad
 import utils_flowsolver as flu
 
 import numpy as np
-#import scipy.sparse as spr
+
+# import scipy.sparse as spr
 import sympy as sp
 
 import logging
@@ -100,9 +101,6 @@ def stress_tensor(nu, u, p):
     return 2.0 * nu * (sym(grad(u))) - p * dolfin.Identity(p.geometric_dimension())
 
 
-
-
-
 def get_div0_u(fs, xloc, yloc, size):
     """Create velocity field with zero divergence"""
     # V = self.V
@@ -176,7 +174,11 @@ def print_progress(fs, runtime):
     """Single line to print progress"""
     logger.info(
         "--- iter: %5d/%5d --- time: %3.3f/%3.2f --- elapsed %5.5f ---"
-        % (fs.iter, fs.num_steps, fs.t, fs.Tf + fs.Tstart, runtime)
+        % (
+            fs.iter,
+            fs.params_time.num_steps,
+            fs.t,
+            fs.params_time.Tf + fs.params_time.Tstart,
+            runtime,
+        )
     )
-
-
