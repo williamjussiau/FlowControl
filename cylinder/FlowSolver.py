@@ -314,7 +314,7 @@ class FlowSolver(ABC):
         # solverparam[""]=...
         return dolfin.LUSolver("mumps")
 
-    def mark_varf(self, order, **kwargs):
+    def make_varf(self, order, **kwargs):
         """Define equations"""
         if order == 1:
             F = self.make_varf_order1(**kwargs)
@@ -368,7 +368,7 @@ class FlowSolver(ABC):
     def prepare_systems(self, up, vq, u_n, u_nn):
         shift = dolfin.Constant(self.params_flow.shift)
         # 1st order integration
-        F1 = self.mark_varf(
+        F1 = self.make_varf(
             order=1,
             up=up,
             vq=vq,
@@ -377,7 +377,7 @@ class FlowSolver(ABC):
             shift=shift,
         )
         # 2nd order integration
-        F2 = self.mark_varf(
+        F2 = self.make_varf(
             order=2,
             up=up,
             vq=vq,
