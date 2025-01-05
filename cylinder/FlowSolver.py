@@ -308,8 +308,11 @@ class FlowSolver(ABC):
         """Define equations"""
         if order == 1:
             F = self.make_eq_order1(**kwargs)
-        if order == 2:
+        elif order == 2:
             F = self.make_eq_order2(**kwargs)
+        else:
+            raise ValueError("Equation order not recognized")
+            # There will be more important problems than this exception
         return F
 
     def make_eq_order1(self, up, vq, u0, u_n, shift):
@@ -374,30 +377,20 @@ class FlowSolver(ABC):
             shift=shift,
         )
 
-        a1 = dolfin.lhs(F1)
-        L1 = dolfin.rhs(F1)
-        a2 = dolfin.lhs(F2)
-        L2 = dolfin.rhs(F2)
-
-        systemAssmbler_o1 = dolfin.SystemAssembler(a1, L1, self.bc_p["bcu"])
-        solver_o1 = self.make_solver(order=1)
-        Alhs_o1 = dolfin.Matrix()
-
-        systemAssmbler_o2 = dolfin.SystemAssembler(a2, L2, self.bc_p["bcu"])
-        solver_o2 = self.make_solver(order=2)
-        Alhs_o2 = dolfin.Matrix()
-
-        for assembler, solver, form in zip(
-            [systemAssmbler_o1, systemAssmbler_o2],
-            [solver_o1, solver_o2],
-            [Alhs_o1, Alhs_o2],
-        ):
-            assembler.assemble(form)
-            solver.set_operator(form)
-
-        self.assemblers = {1: systemAssmbler_o1, 2: systemAssmbler_o2}
-        self.solvers = {1: solver_o1, 2: solver_o2}
+        self.assemblers = dict()
+        self.solvers = dict()
         self.rhs = dolfin.Vector()
+        for idx, F in enumerate([F1, F2]):
+            order = idx + 1
+            a = dolfin.lhs(F)
+            L = dolfin.rhs(F)
+            systemAssembler = dolfin.SystemAssembler(a, L, self.bc_p["bcu"])
+            solver = self.make_solver(order=order)
+            operatorA = dolfin.Matrix()
+            systemAssembler.assemble(operatorA)
+            solver.set_operator(operatorA)
+            self.assemblers[order] = systemAssembler
+            self.solvers[order] = solver
 
     def step(self, u_ctrl: float) -> None:
         """Simulate system with perturbation formulation,
