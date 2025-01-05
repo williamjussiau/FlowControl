@@ -1,0 +1,27 @@
+import pandas as pd
+import numpy as np
+
+DF_col = ["y1", "y2", "y3"]
+DF_data = np.zeros((5, 3))
+DF = pd.DataFrame(columns=DF_col, data=DF_data)
+
+print(DF)
+
+
+# Compare two assign methods
+def assign_y_loop(y, index):
+    # Assign each
+    for i_meas, name_meas in enumerate(DF_col):
+        DF.loc[index, name_meas] = y[i_meas]
+
+
+def assign_y_batch(y, index):
+    # Assign all at once
+    DF.loc[index, DF_col] = y
+
+
+# Test
+assign_y_loop([1, 2, 3], 1)
+assign_y_batch([3, 4, 5], 2)
+
+print(DF)

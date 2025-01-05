@@ -237,7 +237,7 @@ class CylinderFlowSolver(FlowSolver.FlowSolver):
         """Overriding is useless, should do an additional method"""
         super().compute_steady_state(method, u_ctrl, **kwargs)
         # assign steady cl, cd
-        cl, cd = self.compute_force_coefficients(self.u0, self.p0)
+        cl, cd = self.compute_force_coefficients(self.U0, self.P0)
 
         self.cl0 = cl
         self.cd0 = cd
@@ -247,9 +247,9 @@ class CylinderFlowSolver(FlowSolver.FlowSolver):
 
     # Matrix computations
     def get_A(
-        self, perturbations=True, shift=0.0, timeit=True, up_0=None
+        self, perturbations=True, shift=0.0, timeit=True, UP0=None
     ):  # TODO idk, merge with make_mixed_form?
-        """Get state-space dynamic matrix A linearized around some field up_0"""
+        """Get state-space dynamic matrix A linearized around some field UP0"""
         logger.info("Computing jacobian A...")
 
         if timeit:
@@ -260,18 +260,18 @@ class CylinderFlowSolver(FlowSolver.FlowSolver):
         iRe = dolfin.Constant(1 / self.params_flow.Re)
         shift = dolfin.Constant(shift)
 
-        if up_0 is None:
-            up_ = self.up0  # base flow
+        if UP0 is None:
+            UP_ = self.UP0  # base flow
         else:
-            up_ = up_0
-        u_, p_ = up_.split()
+            UP_ = UP0
+        U_, p_ = UP_.split()
 
         if perturbations:  # perturbation equations linearized
             up = dolfin.TrialFunction(self.W)
             u, p = dolfin.split(up)
             dF0 = (
-                -dot(dot(u_, nabla_grad(u)), v) * dx
-                - dot(dot(u, nabla_grad(u_)), v) * dx
+                -dot(dot(U_, nabla_grad(u)), v) * dx
+                - dot(dot(u, nabla_grad(U_)), v) * dx
                 - iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
                 + p * div(v) * dx
                 + div(u) * q * dx
@@ -314,19 +314,19 @@ class CylinderFlowSolver(FlowSolver.FlowSolver):
             bcs = bcu
         else:
             F0 = (
-                -dot(dot(u_, nabla_grad(u_)), v) * dx
-                - iRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
+                -dot(dot(U_, nabla_grad(U_)), v) * dx
+                - iRe * inner(nabla_grad(U_), nabla_grad(v)) * dx
                 + p_ * div(v) * dx
-                + q * div(u_) * dx
-                - shift * dot(u_, v) * dx
+                + q * div(U_) * dx
+                - shift * dot(U_, v) * dx
             )
             # prepare derivation
             du = dolfin.TrialFunction(self.W)
-            dF0 = dolfin.derivative(F0, up_, du=du)
+            dF0 = dolfin.derivative(F0, UP_, du=du)
             # import pdb
             # pdb.set_trace()
             ## shift
-            # dF0 = dF0 - shift*dot(u_,v)*dx
+            # dF0 = dF0 - shift*dot(U_,v)*dx
             # bcs
             self.actuator_expression.ampl = 0.0
             bcs = self.bc["bcu"]
@@ -545,7 +545,7 @@ if __name__ == "__main__":
     u_ctrl_steady = 0.0
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=u_ctrl_steady)
     fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.up0
+        method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.UP0
     )
     fs.load_steady_state()
 
