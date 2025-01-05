@@ -550,8 +550,8 @@ if __name__ == "__main__":
     fs.load_steady_state()
 
     logger.info("Init time-stepping")
-    # fs.initialize_time_stepping(IC=dolfin.Function(fs.W))
-    fs.initialize_time_stepping(IC=None)
+    # fs.initialize_time_stepping(ic=dolfin.Function(fs.W))
+    fs.initialize_time_stepping(ic=None)
 
     logger.info("Step several times")
     G = flu.read_ss(cwd / "data_input" / "sysid_o16_d=3_ssest.mat")
