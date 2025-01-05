@@ -54,22 +54,22 @@ class FlowSolver(ABC):
 
         # self.u_ = dolfin.Function(self.V)
         self.first_step = True
-        self.IC = self.make_IC(up=dolfin.Function(self.W))
+        self.ic = self.make_ic(up=dolfin.Function(self.W))
         self.steady = {"u": 0, "p": 0, "up": 0, "y": 0}
 
     def register_field(field, in_dict):
         pass
 
-    def make_IC(self, up: dolfin.Function) -> None:
+    def make_ic(self, up: dolfin.Function) -> None:
         """Define initial state
         Not intended to be used by user directly (see self.initialize_time_stepping())
         """
-        IC = dict()
-        IC["up"] = up
-        IC["u"], IC["p"] = up.split()
-        IC["perturbation"] = None
-        IC["y"] = self.make_measurement(IC["up"])
-        return IC
+        ic = dict()
+        ic["up"] = up
+        ic["u"], ic["p"] = up.split()
+        ic["perturbation"] = None
+        ic["y"] = self.make_measurement(ic["up"])
+        return ic
 
     def make_steady(self, up: dolfin.Function) -> None:
         pass
@@ -81,7 +81,6 @@ class FlowSolver(ABC):
         def make_file_extension(T):
             return "_restart" + str(np.round(T, decimals=3)).replace(".", ",")
 
-        path_out = self.params_save.path_out
         # start simulation from time...
         Tstart = self.params_time.Tstart
         ext_Tstart = make_file_extension(Tstart)
@@ -91,7 +90,6 @@ class FlowSolver(ABC):
 
         ext_xdmf = ".xdmf"
         ext_csv = ".csv"
-
         path_out = self.params_save.path_out
 
         filename_U0 = path_out / "steady" / ("U0" + ext_xdmf)
@@ -175,10 +173,10 @@ class FlowSolver(ABC):
         self.cell_markers = cell_markers
         self.boundaries["idx"] = list(boundaries_idx)
 
-    def initialize_time_stepping(self, Tstart=0.0, IC=None):  # TODO move to superclass
+    def initialize_time_stepping(self, Tstart=0.0, ic=None):  # TODO move to superclass
         """Create varitional functions/forms & flush files & define u(0), p(0)
-        If Tstart is 0: IC is set in IC (or, if IC is None: = 0)
-        If Tstart is not 0: IC is computed from files
+        If Tstart is 0: ic is set in ic (or, if ic is None: = 0)
+        If Tstart is not 0: ic is computed from files
         """
         if self.verbose:
             logger.info(
@@ -188,7 +186,7 @@ class FlowSolver(ABC):
 
         if Tstart == 0.0:
             logger.debug("START FROM ZERO")
-            u_, p_, u_n, u_nn, p_n = self.initialize_with_IC(IC)
+            u_, p_, u_n, u_nn, p_n = self.initialize_with_ic(ic)
         else:
             logger.debug("START FROM NON ZERO")
             u_, p_, u_n, u_nn, p_n = self.initialize_at_time(Tstart)
@@ -201,37 +199,37 @@ class FlowSolver(ABC):
 
         self.timeseries = self.initialize_timeseries()
 
-    def initialize_with_IC(self, IC):
+    def initialize_with_ic(self, ic):
         self.order = 1
 
-        if IC is None:  # then zero
-            logger.debug("IC is set internally to 0")
-            self.IC = self.make_IC(dolfin.Function(self.W))
+        if ic is None:  # then zero
+            logger.debug("ic is set internally to 0")
+            self.ic = self.make_ic(dolfin.Function(self.W))
         else:
-            logger.debug("IC is already set by user")
-            self.IC = self.make_IC(IC)
+            logger.debug("ic is already set by user")
+            self.ic = self.make_ic(ic)
 
         # Impulse or state perturbation @ div0
         # Impulse if self.ic_add_perturbation is inf
-        self.IC["perturbation"] = self.params_solver.ic_add_perturbation
-        if np.isinf(self.IC["perturbation"]):
+        self.ic["perturbation"] = self.params_solver.ic_add_perturbation
+        if np.isinf(self.ic["perturbation"]):
             # work in parallel?
-            self.IC["up"].vector()[:] = self.get_B().reshape((-1,))
-        elif self.IC["perturbation"] != 0.0:
-            logger.debug(f"Found IC perturbation: {self.IC["perturbation"]}")
+            self.ic["up"].vector()[:] = self.get_B().reshape((-1,))
+        elif self.ic["perturbation"] != 0.0:
+            logger.debug(f"Found ic perturbation: {self.ic["perturbation"]}")
             udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
             pert0 = self.merge(u=udiv0, p=self.P0)
-            self.IC["up"].vector()[:] += self.IC["perturbation"] * pert0.vector()[:]
-        self.IC["up"].vector().apply("insert")
-        self.IC = self.make_IC(self.IC["up"])
+            self.ic["up"].vector()[:] += self.ic["perturbation"] * pert0.vector()[:]
+        self.ic["up"].vector().apply("insert")
+        self.ic = self.make_ic(self.ic["up"])
 
-        u_n = flu.projectm(v=self.IC["u"], V=self.V, bcs=self.bc_p["bcu"])
+        u_n = flu.projectm(v=self.ic["u"], V=self.V, bcs=self.bc_p["bcu"])
         u_nn = u_n.copy(deepcopy=True)
-        p_n = flu.projectm(self.IC["p"], self.P)
+        p_n = flu.projectm(self.ic["p"], self.P)
         u_ = u_n.copy(deepcopy=True)
         p_ = p_n.copy(deepcopy=True)
 
-        # Flush files and save IC as time_step 0
+        # Flush files and save ic as time_step 0
         if self.params_save.save_every:
             self.export_field_xdmf(
                 u_n, u_nn, p_n, time=0, append=False, write_mesh=True
@@ -281,22 +279,22 @@ class FlowSolver(ABC):
         for p, P in zip([p_n, p_], [P_n, P_]):
             p.vector()[:] = P.vector()[:] - self.P0.vector()[:]
 
-        # used for measurement y on IC in initialize_timeseries
-        self.IC = self.make_IC(up=self.merge(u=u_, p=p_))
+        # used for measurement y on ic in initialize_timeseries
+        self.ic = self.make_ic(up=self.merge(u=u_, p=p_))
 
         return u_, p_, u_n, u_nn, p_n
 
     def initialize_timeseries(self):
         self.t = self.params_time.Tstart
         self.iter = 0
-        self.IC["y"] = self.make_measurement(self.IC["u"])
-        self.y_meas = self.IC["y"]
+        self.ic["y"] = self.make_measurement(self.ic["u"])
+        self.y_meas = self.ic["y"]
         y_meas_str = ["y_meas_" + str(i + 1) for i in range(self.params_flow.sensor_nr)]
         colnames = ["time", "u_ctrl"] + y_meas_str + ["dE", "runtime"]
         empty_data = np.zeros((self.params_time.num_steps + 1, len(colnames)))
         timeseries = pd.DataFrame(columns=colnames, data=empty_data)
         timeseries.loc[0, "time"] = self.params_time.Tstart
-        self.assign_y_to_df(df=timeseries, y_meas=self.IC["y"], index=0)
+        self.assign_y_to_df(df=timeseries, y_meas=self.ic["y"], index=0)
 
         dEb = self.compute_energy()
         timeseries.loc[0, "dE"] = dEb
@@ -601,7 +599,7 @@ class FlowSolver(ABC):
 
             self.steady["y"] = self.make_measurement(mixed_field=UP0)
 
-        # If IC is not zero: read steady state (should exist - should check though...)
+        # If ic is not zero: read steady state (should exist - should check though...)
         else:
             U0, P0, UP0 = self.load_steady_state()
 
