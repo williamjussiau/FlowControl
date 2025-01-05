@@ -304,18 +304,18 @@ class FlowSolver(ABC):
         # solverparam[""]=...
         return dolfin.LUSolver("mumps")
 
-    def make_eqs(self, order, **kwargs):
+    def make_varfs(self, order, **kwargs):
         """Define equations"""
         if order == 1:
-            F = self.make_eq_order1(**kwargs)
+            F = self.make_varf_order1(**kwargs)
         elif order == 2:
-            F = self.make_eq_order2(**kwargs)
+            F = self.make_varf_order2(**kwargs)
         else:
             raise ValueError("Equation order not recognized")
             # There will be more important problems than this exception
         return F
 
-    def make_eq_order1(self, up, vq, u0, u_n, shift):
+    def make_varf_order1(self, up, vq, u0, u_n, shift):
         (u, p) = up
         (v, q) = vq
         b0_1 = 1 if self.params_flow.is_eq_nonlinear else 0
@@ -333,7 +333,7 @@ class FlowSolver(ABC):
         )
         return F1
 
-    def make_eq_order2(self, up, vq, u0, u_n, u_nn, shift):
+    def make_varf_order2(self, up, vq, u0, u_n, u_nn, shift):
         (u, p) = up
         (v, q) = vq
         if self.params_flow.is_eq_nonlinear:
@@ -358,7 +358,7 @@ class FlowSolver(ABC):
     def prepare_systems(self, up, vq, u_n, u_nn):
         shift = dolfin.Constant(self.params_flow.shift)
         # 1st order integration
-        F1 = self.make_eqs(
+        F1 = self.make_varfs(
             order=1,
             up=up,
             vq=vq,
@@ -367,7 +367,7 @@ class FlowSolver(ABC):
             shift=shift,
         )
         # 2nd order integration
-        F2 = self.make_eqs(
+        F2 = self.make_varfs(
             order=2,
             up=up,
             vq=vq,
@@ -380,10 +380,10 @@ class FlowSolver(ABC):
         self.assemblers = dict()
         self.solvers = dict()
         self.rhs = dolfin.Vector()
-        for idx, F in enumerate([F1, F2]):
-            order = idx + 1
-            a = dolfin.lhs(F)
-            L = dolfin.rhs(F)
+        for index, varf in enumerate([F1, F2]):
+            order = index + 1
+            a = dolfin.lhs(varf)
+            L = dolfin.rhs(varf)
             systemAssembler = dolfin.SystemAssembler(a, L, self.bc_p["bcu"])
             solver = self.make_solver(order=order)
             operatorA = dolfin.Matrix()
