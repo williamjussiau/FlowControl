@@ -52,12 +52,15 @@ class FlowSolver(ABC):
         self.bc_p = self.make_bcs()  # @abstract
         ##
 
-        self.u_ = dolfin.Function(self.V)
+        # self.u_ = dolfin.Function(self.V)
         self.first_step = True
-        self.IC = self.make_IC(up=dolfin.Function(self.W), isdefined=False)
+        self.IC = self.make_IC(up=dolfin.Function(self.W))
         self.steady = {"u": 0, "p": 0, "up": 0, "y": 0}
 
-    def make_IC(self, up: dolfin.Function, isdefined=True) -> None:
+    def register_field(field, in_dict):
+        pass
+
+    def make_IC(self, up: dolfin.Function) -> None:
         """Define initial state
         Not intended to be used by user directly (see self.initialize_time_stepping())
         """
@@ -65,52 +68,54 @@ class FlowSolver(ABC):
         IC["up"] = up
         IC["u"], IC["p"] = up.split()
         IC["perturbation"] = None
-        IC["isdefined"] = isdefined
+        IC["y"] = self.make_measurement(IC["up"])
         return IC
+
+    def make_steady(self, up: dolfin.Function) -> None:
+        pass
 
     def define_paths(self):  # TODO move to superclass
         """Define attribute (dict) containing useful paths (save, etc.)"""
         logger.debug("Currently defining paths...")
 
-        path_out = self.params_save.path_out
-        # start simulation from time...
-        Tstart = self.params_time.Tstart
-        # use older files starting from time...
-        Trestartfrom = self.params_time.Trestartfrom
-
         def make_file_extension(T):
             return "_restart" + str(np.round(T, decimals=3)).replace(".", ",")
 
-        file_start = make_file_extension(Tstart)
-        file_restart = make_file_extension(Trestartfrom)
+        path_out = self.params_save.path_out
+        # start simulation from time...
+        Tstart = self.params_time.Tstart
+        ext_Tstart = make_file_extension(Tstart)
+        # use older files starting from time...
+        Trestartfrom = self.params_time.Trestartfrom
+        path_Trestart = make_file_extension(Trestartfrom)
 
         ext_xdmf = ".xdmf"
         ext_csv = ".csv"
 
         path_out = self.params_save.path_out
 
-        filename_u0 = path_out / "steady" / ("u0" + ext_xdmf)
-        filename_p0 = path_out / "steady" / ("p0" + ext_xdmf)
+        filename_U0 = path_out / "steady" / ("U0" + ext_xdmf)
+        filename_P0 = path_out / "steady" / ("P0" + ext_xdmf)
 
-        filename_u = path_out / ("u" + file_restart + ext_xdmf)
-        filename_uprev = path_out / ("uprev" + file_restart + ext_xdmf)
-        filename_p = path_out / ("p" + file_restart + ext_xdmf)
+        filename_U = path_out / ("U" + path_Trestart + ext_xdmf)
+        filename_Uprev = path_out / ("Uprev" + path_Trestart + ext_xdmf)
+        filename_P = path_out / ("P" + path_Trestart + ext_xdmf)
 
-        filename_u_restart = path_out / ("u" + file_start + ext_xdmf)
-        filename_uprev_restart = path_out / ("uprev" + file_start + ext_xdmf)
-        filename_p_restart = path_out / ("p" + file_start + ext_xdmf)
+        filename_U_restart = path_out / ("U" + ext_Tstart + ext_xdmf)
+        filename_Uprev_restart = path_out / ("Uprev" + ext_Tstart + ext_xdmf)
+        filename_P_restart = path_out / ("P" + ext_Tstart + ext_xdmf)
 
-        filename_timeseries = path_out / ("timeseries1D" + file_start + ext_csv)
+        filename_timeseries = path_out / ("timeseries1D" + ext_Tstart + ext_csv)
 
         return {
-            "u0": filename_u0,
-            "p0": filename_p0,
-            "u": filename_u,
-            "p": filename_p,
-            "uprev": filename_uprev,
-            "u_restart": filename_u_restart,
-            "uprev_restart": filename_uprev_restart,
-            "p_restart": filename_p_restart,
+            "U0": filename_U0,
+            "P0": filename_P0,
+            "U": filename_U,
+            "P": filename_P,
+            "Uprev": filename_Uprev,
+            "U_restart": filename_U_restart,
+            "Uprev_restart": filename_Uprev_restart,
+            "P_restart": filename_P_restart,
             "timeseries": filename_timeseries,
             "mesh": self.params_mesh.meshpath,
         }
@@ -175,10 +180,6 @@ class FlowSolver(ABC):
         If Tstart is 0: IC is set in IC (or, if IC is None: = 0)
         If Tstart is not 0: IC is computed from files
         """
-        self.u_full = dolfin.Function(self.V)
-        self.u_n_full = dolfin.Function(self.V)
-        self.p_full = dolfin.Function(self.P)
-
         if self.verbose:
             logger.info(
                 f"Starting or restarting from time: {Tstart} "
@@ -219,7 +220,7 @@ class FlowSolver(ABC):
         elif self.IC["perturbation"] != 0.0:
             logger.debug(f"Found IC perturbation: {self.IC["perturbation"]}")
             udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
-            pert0 = self.split_merge(u=udiv0, p=self.p0)
+            pert0 = self.merge(u=udiv0, p=self.P0)
             self.IC["up"].vector()[:] += self.IC["perturbation"] * pert0.vector()[:]
         self.IC["up"].vector().apply("insert")
         self.IC = self.make_IC(self.IC["up"])
@@ -246,38 +247,42 @@ class FlowSolver(ABC):
         )
         idxstart = int(np.floor(idxstart))
 
-        u_ = dolfin.Function(self.V)
-        p_ = dolfin.Function(self.P)
-        u_n = dolfin.Function(self.V)
-        u_nn = dolfin.Function(self.V)
-        p_n = dolfin.Function(self.P)
+        U_ = dolfin.Function(self.V)
+        P_ = dolfin.Function(self.P)
+        U_n = dolfin.Function(self.V)
+        U_nn = dolfin.Function(self.V)
+        P_n = dolfin.Function(self.P)
 
-        flu.read_xdmf(self.paths["u"], u_, "u", counter=idxstart)
-        flu.read_xdmf(self.paths["p"], p_, "p", counter=idxstart)
-        flu.read_xdmf(self.paths["u"], u_n, "u", counter=idxstart)
-        flu.read_xdmf(self.paths["uprev"], u_nn, "u_n", counter=idxstart)
-        flu.read_xdmf(self.paths["p"], p_n, "p", counter=idxstart)
+        flu.read_xdmf(self.paths["U"], U_, "U", counter=idxstart)
+        flu.read_xdmf(self.paths["P"], P_, "P", counter=idxstart)
+        flu.read_xdmf(self.paths["U"], U_n, "U", counter=idxstart)
+        flu.read_xdmf(self.paths["Uprev"], U_nn, "U_n", counter=idxstart)
+        flu.read_xdmf(self.paths["P"], P_n, "P", counter=idxstart)
 
         # write in new file as first time step
         if self.params_save.save_every:
             self.export_field_xdmf(
-                u_n,
-                u_nn,
-                p_n,
+                U_n,
+                U_nn,
+                P_n,
                 time=self.params_time.Tstart,
                 append=False,
                 write_mesh=True,
             )
 
-        # if perturbations, remove base flow from loaded file
-        # because one prefers to write complete flow (not just perturbations)
-        for ufield in [u_n, u_nn, u_]:
-            ufield.vector()[:] -= self.u0.vector()[:]
-        for pfield in [p_n, p_]:
-            pfield.vector()[:] -= self.p0.vector()[:]
+        # remove base flow from loaded file
+        u_ = dolfin.Function(self.V)
+        p_ = dolfin.Function(self.P)
+        u_n = dolfin.Function(self.V)
+        u_nn = dolfin.Function(self.V)
+        p_n = dolfin.Function(self.P)
+        for u, U in zip([u_n, u_nn, u_], [U_n, U_nn, U_]):
+            u.vector()[:] = U.vector()[:] - self.U0.vector()[:]
+        for p, P in zip([p_n, p_], [P_n, P_]):
+            p.vector()[:] = P.vector()[:] - self.P0.vector()[:]
 
         # used for measurement y on IC in initialize_timeseries
-        self.IC = self.make_IC(up=self.split_merge(u=u_, p=p_))
+        self.IC = self.make_IC(up=self.merge(u=u_, p=p_))
 
         return u_, p_, u_n, u_nn, p_n
 
@@ -315,17 +320,17 @@ class FlowSolver(ABC):
             # There will be more important problems than this exception
         return F
 
-    def make_varf_order1(self, up, vq, u0, u_n, shift):
+    def make_varf_order1(self, up, vq, U0, u_n, shift):
         (u, p) = up
         (v, q) = vq
         b0_1 = 1 if self.params_flow.is_eq_nonlinear else 0
-        iRe = dolfin.Constant(1 / self.params_flow.Re)
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
         dt = dolfin.Constant(self.params_time.dt)
         F1 = (
             dot((u - u_n) / dt, v) * dx
-            + dot(dot(u0, nabla_grad(u)), v) * dx
-            + dot(dot(u, nabla_grad(u0)), v) * dx
-            + iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            + dot(dot(U0, nabla_grad(u)), v) * dx
+            + dot(dot(u, nabla_grad(U0)), v) * dx
+            + invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
             + dolfin.Constant(b0_1) * dot(dot(u_n, nabla_grad(u_n)), v) * dx
             - p * div(v) * dx
             - div(u) * q * dx
@@ -333,20 +338,20 @@ class FlowSolver(ABC):
         )
         return F1
 
-    def make_varf_order2(self, up, vq, u0, u_n, u_nn, shift):
+    def make_varf_order2(self, up, vq, U0, u_n, u_nn, shift):
         (u, p) = up
         (v, q) = vq
         if self.params_flow.is_eq_nonlinear:
             b0_2, b1_2 = 2, -1
         else:
             b0_2, b1_2 = 0, 0
-        iRe = dolfin.Constant(1 / self.params_flow.Re)
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
         dt = dolfin.Constant(self.params_time.dt)
         F2 = (
             dot((3 * u - 4 * u_n + u_nn) / (2 * dt), v) * dx
-            + dot(dot(u0, nabla_grad(u)), v) * dx
-            + dot(dot(u, nabla_grad(u0)), v) * dx
-            + iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            + dot(dot(U0, nabla_grad(u)), v) * dx
+            + dot(dot(u, nabla_grad(U0)), v) * dx
+            + invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
             + dolfin.Constant(b0_2) * dot(dot(u_n, nabla_grad(u_n)), v) * dx
             + dolfin.Constant(b1_2) * dot(dot(u_nn, nabla_grad(u_nn)), v) * dx
             - p * div(v) * dx
@@ -362,7 +367,7 @@ class FlowSolver(ABC):
             order=1,
             up=up,
             vq=vq,
-            u0=self.u0,
+            U0=self.U0,
             u_n=u_n,
             shift=shift,
         )
@@ -371,7 +376,7 @@ class FlowSolver(ABC):
             order=2,
             up=up,
             vq=vq,
-            u0=self.u0,
+            U0=self.U0,
             u_n=u_n,
             u_nn=u_nn,
             shift=shift,
@@ -452,7 +457,7 @@ class FlowSolver(ABC):
 
         ## Output
         # Probe
-        self.y_meas = self.make_measurement()
+        self.y_meas = self.make_measurement(self.up_)
         # Runtime
         runtime = time.time() - t0i
         if self.niter_multiple_of(self.iter, self.verbose):
@@ -469,7 +474,6 @@ class FlowSolver(ABC):
         # Export xdmf & csv
         if self.niter_multiple_of(self.iter, self.params_save.save_every):
             self.export_field_xdmf(u_n, u_nn, p_n, self.t)
-            # this calls process 0 -> do async or what?
             self.write_timeseries()
 
         return self.y_meas
@@ -480,53 +484,58 @@ class FlowSolver(ABC):
     def niter_multiple_of(self, iter, divider):
         return divider and not iter % divider
 
-    def split_merge(self, up=None, u=None, p=None):
+    def merge(self, u=None, p=None):
         """Split or merge field(s)
         if instruction is split: up -> (u,p)
         if instruction is merge: (u,p) -> up
         FunctionAssigner(receiver, sender)"""
-        if u is None:  # split up
-            # probably equivalent to up.split() from dolfin
-            fa = dolfin.FunctionAssigner([self.V, self.P], self.W)
-            u = dolfin.Function(self.V)
-            p = dolfin.Function(self.P)
-            fa.assign([u, p], up)
-            return (u, p)
-        else:  # merge u, p
-            fa = dolfin.FunctionAssigner(self.W, [self.V, self.P])
-            up = dolfin.Function(self.W)
-            fa.assign(up, [u, p])
-            return up
+        # if u is None:  # split up
+        #     # probably equivalent to up.split() from dolfin
+        #     fa = dolfin.FunctionAssigner([self.V, self.P], self.W)
+        #     u = dolfin.Function(self.V)
+        #     p = dolfin.Function(self.P)
+        #     fa.assign([u, p], up)
+        #     return (u, p)
+        # else:  # merge u, p
+        fa = dolfin.FunctionAssigner(self.W, [self.V, self.P])
+        up = dolfin.Function(self.W)
+        fa.assign(up, [u, p])
+        return up
 
     def export_field_xdmf(self, u_n, u_nn, p_n, time, append=True, write_mesh=False):
+        if not (hasattr(self, "P_n")):
+            self.U = dolfin.Function(self.V)
+            self.U_n = dolfin.Function(self.V)
+            self.P_n = dolfin.Function(self.P)
+
         # Reconstruct full field
-        self.u_full.vector()[:] = u_n.vector()[:] + self.u0.vector()[:]
-        self.u_n_full.vector()[:] = u_nn.vector()[:] + self.u0.vector()[:]
-        self.p_full.vector()[:] = p_n.vector()[:] + self.p0.vector()[:]
+        self.U.vector()[:] = u_n.vector()[:] + self.U0.vector()[:]
+        self.U_n.vector()[:] = u_nn.vector()[:] + self.U0.vector()[:]
+        self.P_n.vector()[:] = p_n.vector()[:] + self.P0.vector()[:]
 
         if self.verbose:
             logger.debug(f"saving to files {self.params_save.path_out}")
 
         flu.write_xdmf(
-            filename=self.paths["u_restart"],
-            func=self.u_full,
-            name="u",
+            filename=self.paths["U_restart"],
+            func=self.U,
+            name="U",
             time_step=time,
             append=append,
             write_mesh=write_mesh,
         )
         flu.write_xdmf(
-            filename=self.paths["uprev_restart"],
-            func=self.u_n_full,
-            name="u_n",
+            filename=self.paths["Uprev_restart"],
+            func=self.U_n,
+            name="U_n",
             time_step=time,
             append=append,
             write_mesh=write_mesh,
         )
         flu.write_xdmf(
-            filename=self.paths["p_restart"],
-            func=self.p_full,
-            name="p",
+            filename=self.paths["P_restart"],
+            func=self.P_n,
+            name="P",
             time_step=time,
             append=append,
             write_mesh=write_mesh,
@@ -534,23 +543,23 @@ class FlowSolver(ABC):
 
     # Steady state
     def load_steady_state(self):
-        u0 = dolfin.Function(self.V)
-        p0 = dolfin.Function(self.P)
-        flu.read_xdmf(self.paths["u0"], u0, "u")
-        flu.read_xdmf(self.paths["p0"], p0, "p")
+        U0 = dolfin.Function(self.V)
+        P0 = dolfin.Function(self.P)
+        flu.read_xdmf(self.paths["U0"], U0, "U0")
+        flu.read_xdmf(self.paths["P0"], P0, "P0")
 
-        # Assign u0, p0 >>> up0
-        up0 = self.split_merge(u=u0, p=p0)
+        # Assign U0, P0 >>> UP0
+        UP0 = self.merge(u=U0, p=P0)
 
-        self.u0 = u0  # full field (u+upert)
-        self.p0 = p0
-        self.up0 = up0
-        self.steady["y"] = self.make_measurement(mixed_field=up0)
+        self.U0 = U0
+        self.P0 = P0
+        self.UP0 = UP0
+        self.steady["y"] = self.make_measurement(mixed_field=UP0)
 
         self.Eb = (
-            1 / 2 * dolfin.norm(u0, norm_type="L2", mesh=self.mesh) ** 2
+            1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
         )  # same as <up, Q@up>
-        return u0, p0, up0
+        return U0, P0, UP0
 
     def compute_steady_state(self, method="newton", u_ctrl=0.0, **kwargs):
         """Compute flow steady state with given steady control"""
@@ -563,26 +572,26 @@ class FlowSolver(ABC):
         if self.params_time.Tstart == 0:  # and compute_steady_state
             # Solve
             if method == "newton":
-                up0 = self.compute_steady_state_newton(**kwargs)
+                UP0 = self.compute_steady_state_newton(**kwargs)
             else:
-                up0 = self.compute_steady_state_picard(**kwargs)
+                UP0 = self.compute_steady_state_picard(**kwargs)
 
-            u0, p0 = up0.split()
+            U0, P0 = UP0.split()
 
             # Save steady state
             if self.params_save.save_every:
                 flu.write_xdmf(
-                    self.paths["u0"],
-                    u0,
-                    "u",
+                    self.paths["U0"],
+                    U0,
+                    "U0",
                     time_step=0.0,
                     append=False,
                     write_mesh=True,
                 )
                 flu.write_xdmf(
-                    self.paths["p0"],
-                    p0,
-                    "p",
+                    self.paths["P0"],
+                    P0,
+                    "P0",
                     time_step=0.0,
                     append=False,
                     write_mesh=True,
@@ -590,22 +599,22 @@ class FlowSolver(ABC):
             if self.verbose:
                 logger.debug(f"Stored base flow in: {self.params_save.path_out}")
 
-            self.steady["y"] = self.make_measurement(mixed_field=up0)
+            self.steady["y"] = self.make_measurement(mixed_field=UP0)
 
         # If IC is not zero: read steady state (should exist - should check though...)
         else:
-            u0, p0, up0 = self.load_steady_state()
+            U0, P0, UP0 = self.load_steady_state()
 
         # Set old actuator amplitude
         self.actuator_expression.ampl = actuation_ampl_old
 
         # assign steady state
-        self.up0 = up0
-        self.u0 = u0
-        self.p0 = p0
+        self.UP0 = UP0
+        self.U0 = U0
+        self.P0 = P0
         # assign steady energy
         self.Eb = (
-            1 / 2 * dolfin.norm(u0, norm_type="L2", mesh=self.mesh) ** 2
+            1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
         )  # same as <up, Q@up>
 
     def compute_steady_state_newton(
@@ -638,14 +647,14 @@ class FlowSolver(ABC):
         if initialization is bad in Newton method (and it is)
         TODO: residual not 0 if u_ctrl not 0 (see bc probably)"""
         self.make_form_mixed_steady()  # for BC only
-        iRe = dolfin.Constant(1 / self.params_flow.Re)
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
 
         # for residual computation
         bcu_inlet0 = self.bc_p["bcu"][0]
         bcu0 = self.bc["bcu"] + [bcu_inlet0]
 
-        up0 = dolfin.Function(self.W)
-        up1 = dolfin.Function(self.W)
+        UP0 = dolfin.Function(self.W)
+        UP1 = dolfin.Function(self.W)
 
         u, p = dolfin.TrialFunctions(self.W)
         v, q = dolfin.TestFunctions(self.W)
@@ -659,17 +668,17 @@ class FlowSolver(ABC):
             def value_shape(self):
                 return (3,)
 
-        up0.interpolate(initial_condition())
-        u0 = dolfin.as_vector((up0[0], up0[1]))
+        UP0.interpolate(initial_condition())
+        U0 = dolfin.as_vector((UP0[0], UP0[1]))
 
         ap = (
-            dot(dot(u0, nabla_grad(u)), v) * dx
-            + iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            dot(dot(U0, nabla_grad(u)), v) * dx
+            + invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
             - p * div(v) * dx
             - q * div(u) * dx
         )  # steady dolfin.lhs
         Lp = (
-            dolfin.Constant(0) * inner(u0, v) * dx + dolfin.Constant(0) * q * dx
+            dolfin.Constant(0) * inner(U0, v) * dx + dolfin.Constant(0) * q * dx
         )  # zero dolfin.rhs
         bp = dolfin.assemble(Lp)
 
@@ -680,12 +689,12 @@ class FlowSolver(ABC):
             Ap = dolfin.assemble(ap)
             [bc.apply(Ap, bp) for bc in self.bc["bcu"]]
 
-            solverp.solve(Ap, up1.vector(), bp)
+            solverp.solve(Ap, UP1.vector(), bp)
 
-            up0.assign(up1)
-            u, p = up1.split()
+            UP0.assign(UP1)
+            u, p = UP1.split()
 
-            res = dolfin.assemble(dolfin.action(ap, up1))
+            res = dolfin.assemble(dolfin.action(ap, UP1))
             [bc.apply(res) for bc in bcu0]
             res_norm = dolfin.norm(res) / dolfin.sqrt(ndof)
             if self.verbose:
@@ -697,7 +706,7 @@ class FlowSolver(ABC):
                     logger.info(f"Residual norm lower than tolerance {tol}")
                 break
 
-        return up1
+        return UP1
 
     # Dataframe utility
     def make_y_df_colname(self, sensor_nr: int):
@@ -775,12 +784,12 @@ class FlowSolver(ABC):
         else:
             up_ = initial_guess
         u_, p_ = dolfin.split(up_)  # not deep copy, we need the link
-        iRe = dolfin.Constant(1 / self.params_flow.Re)
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
         # f = self.actuator_expression # TODO activate if actuator_type is VOL
         # Problem
         F0 = (
             dot(dot(u_, nabla_grad(u_)), v) * dx
-            + iRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
+            + invRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
             - p_ * div(v) * dx
             - q * div(u_) * dx
             #    - dot(f, v) * dx
