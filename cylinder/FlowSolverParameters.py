@@ -1,6 +1,12 @@
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 import numpy as np
+
+
+class ACTUATOR_TYPE(Enum):
+    BC = 1
+    FORCE = 2
 
 
 @dataclass
@@ -68,7 +74,7 @@ class ParamSave:
     save_every
     save_every_old (for restarting)"""  # --> do Param_restart??
 
-    savedir0: Path
+    path_out: Path
     save_every: int
     save_every_old: int
 
@@ -78,9 +84,9 @@ class ParamSolver:
     """Parameters related to solver issues
     But not really since init_pert is initial condition"""  # --> do Param_IC?
 
-    throw_error: bool
-    is_eq_nonlinear: bool
-    init_pert: float
+    throw_error: bool = True
+    is_eq_nonlinear: bool = True
+    ic_add_perturbation: float = 0.0
 
 
 @dataclass
