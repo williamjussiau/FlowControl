@@ -550,8 +550,8 @@ if __name__ == "__main__":
     fs.load_steady_state()
 
     logger.info("Init time-stepping")
-    # fs.init_time_stepping(IC=dolfin.Function(fs.W))
-    fs.init_time_stepping(IC=None)
+    # fs.initialize_time_stepping(IC=dolfin.Function(fs.W))
+    fs.initialize_time_stepping(IC=None)
 
     logger.info("Step several times")
     G = flu.read_ss(cwd / "data_input" / "sysid_o16_d=3_ssest.mat")
@@ -584,7 +584,7 @@ if __name__ == "__main__":
     )
 
     fs_restart.load_steady_state()
-    fs_restart.init_time_stepping(Tstart=fs.params_time.Tstart)
+    fs_restart.initialize_time_stepping(Tstart=fs.params_time.Tstart)
 
     for i in range(fs_restart.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
@@ -614,27 +614,6 @@ if __name__ == "__main__":
     logger.info(fs_restart.timeseries)
 
     logger.info("End with success")
-
-
-# 1 TODO format strings f"{}"
-# 2 TODO clarify restart (esp. in compute_steady_state)
-# + clarify STEADY vs. IC
-# 3 TODO
-# data_in: mesh, restart files
-# data_out: time series, saved xdmf
-# 4 TODO y = FlowSolver.step(), u = Kss.step()
-# make class Controller
-# remove y_meas_steady -> users need to do that themselves
-# 5 TODO subfields .time, .fem, .control, .geometry...
-# + self.primitives?
-# in geometry, add dict lim["xinf"], lim["xinfa"] (user-defined)?
-# 6 TODO MIMO support
-# both kinds of actuation -> probably need "if" statements
-# 7 TODO sort utility funs (_flowsolver, _extract, _debug)
-# 8 TODO redo doc
-# 9 TODO type annotations
-# 10 TODO get A, B, C
-# 11 TODO cylinder-specific: redefine boundaries (esp. actuation)
 
 
 ## ---------------------------------------------------------------------------------
