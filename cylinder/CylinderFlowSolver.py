@@ -9,13 +9,14 @@ Equations were made non-dimensional
 
 # from __future__ import print_function
 
-import FlowSolver
+import flowsolver
 import dolfin
 from dolfin import dot, inner, nabla_grad, div, dx
 import numpy as np
 import time
 import pandas as pd
-import FlowSolverParameters
+import flowsolverparameters
+from controller import Controller
 
 import logging
 
@@ -32,17 +33,17 @@ FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
-class CylinderFlowSolver(FlowSolver.FlowSolver):
+class CylinderFlowSolver(flowsolver.FlowSolver):
     """Base class for calculating flow
     Is instantiated with several structures (dicts) containing parameters
     See method .step and main for time-stepping (possibly actuated)
     Contain methods for frequency-response computation"""
 
-    def __init__(self, **kwargs):  # redundant def here
+    def __init__(self, **kwargs):  # redundant def
         super().__init__(**kwargs)
 
     # Abstract methods
-    def make_boundaries(self):
+    def _make_boundaries(self):
         """Define boundaries (inlet, outlet, walls, cylinder, actuator)"""
         MESH_TOL = dolfin.DOLFIN_EPS
         # Define as compiled subdomains
@@ -149,7 +150,7 @@ class CylinderFlowSolver(FlowSolver.FlowSolver):
         self.actuator_angular_size_rad = delta
         return boundaries_df
 
-    def make_bcs(self):
+    def _make_bcs(self):
         """Define boundary conditions"""
         # create zeroBC for perturbation formulation
         bcu_inlet = dolfin.DirichletBC(
@@ -213,7 +214,7 @@ class CylinderFlowSolver(FlowSolver.FlowSolver):
             y_meas[isensor] = y_meas_i
         return y_meas
 
-    def make_actuator(self):
+    def _make_actuator(self):
         """Define actuator on boundary
         Could be defined as volume actuator some day"""
         # TODO
@@ -502,28 +503,28 @@ if __name__ == "__main__":
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = FlowSolverParameters.ParamFlow(Re=100)
+    params_flow = flowsolverparameters.ParamFlow(Re=100)
     params_flow.uinf = 1.0
     params_flow.d = 1.0
     params_flow.sensor_location = np.array([[3, 0], [3.1, 1], [3.1, -1]])
     params_flow.sensor_type = ["v", "v", "v"]
     params_flow.actuator_angular_size = 10
-    params_flow.actuator_type = [FlowSolverParameters.ACTUATOR_TYPE.BC]
+    params_flow.actuator_type = [flowsolverparameters.ACTUATOR_TYPE.BC]
 
-    params_time = FlowSolverParameters.ParamTime(
+    params_time = flowsolverparameters.ParamTime(
         num_steps=10, dt=0.005, Tstart=0.0, Trestartfrom=0.0, restart_order=2
     )
 
-    params_save = FlowSolverParameters.ParamSave(
+    params_save = flowsolverparameters.ParamSave(
         save_every=5, save_every_old=5, path_out=cwd / "data_output"
     )
     params_save.compute_norms = True
 
-    params_solver = FlowSolverParameters.ParamSolver(
+    params_solver = flowsolverparameters.ParamSolver(
         throw_error=True, is_eq_nonlinear=True, ic_add_perturbation=1
     )
 
-    params_mesh = FlowSolverParameters.ParamMesh(
+    params_mesh = flowsolverparameters.ParamMesh(
         meshpath=cwd / "data_input" / "o1.xdmf"
     )
     params_mesh.xinf = 20
@@ -554,16 +555,12 @@ if __name__ == "__main__":
     fs.initialize_time_stepping(ic=None)
 
     logger.info("Step several times")
-    G = flu.read_ss(cwd / "data_input" / "sysid_o16_d=3_ssest.mat")
-    Kss = flu.read_ss(cwd / "data_input" / "Kopt_reduced13.mat")
-
-    x_ctrl = np.zeros((Kss.A.shape[0],))
+    Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=0)
 
     u_ctrl = 0
     for i in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        y_meas_err = -y_meas[0]
-        u_ctrl, x_ctrl = flu.step_controller(Kss, x_ctrl, y_meas_err, fs.params_time.dt)
+        u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
         fs.step(u_ctrl=u_ctrl)
 
     flu.summarize_timings(fs, t000)
@@ -588,10 +585,7 @@ if __name__ == "__main__":
 
     for i in range(fs_restart.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
-        y_meas_err = -y_meas[0]
-        u_ctrl, x_ctrl = flu.step_controller(
-            Kss, x_ctrl, y_meas_err, fs_restart.params_time.dt
-        )
+        u_ctrl = Kss.step(y=-y_meas[0], dt=fs_restart.params_time.dt)
         fs_restart.step(u_ctrl=u_ctrl)
 
     fs_restart.write_timeseries()
