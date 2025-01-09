@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import dolfin
 
 
@@ -9,3 +9,4 @@ class FlowField:
     u: dolfin.Function
     p: dolfin.Function
     up: dolfin.Function
+    misc: dict = field(default_factory=dict)
