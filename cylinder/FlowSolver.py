@@ -1,5 +1,5 @@
 from __future__ import print_function
-import FlowSolverParameters
+import flowsolverparameters
 import dolfin
 from dolfin import dot, nabla_grad, dx, inner, div
 import numpy as np
@@ -23,11 +23,11 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 class FlowSolver(ABC):
     def __init__(
         self,
-        params_flow: FlowSolverParameters.ParamControl,
-        params_time: FlowSolverParameters.ParamTime,
-        params_save: FlowSolverParameters.ParamSave,
-        params_solver: FlowSolverParameters.ParamSolver,
-        params_mesh: FlowSolverParameters.ParamMesh,
+        params_flow: flowsolverparameters.ParamControl,
+        params_time: flowsolverparameters.ParamTime,
+        params_save: flowsolverparameters.ParamSave,
+        params_solver: flowsolverparameters.ParamSolver,
+        params_mesh: flowsolverparameters.ParamMesh,
         verbose: int = 1,
     ):
         self.params_flow = params_flow
@@ -42,31 +42,31 @@ class FlowSolver(ABC):
         self.params_flow.sensor_nr = self.params_flow.sensor_location.shape[0]
 
         ##
-        self.paths = self.define_paths()
-        self.mesh = self.make_mesh()
+        self.paths = self._define_paths()
+        self.mesh = self._make_mesh()
         self.n = dolfin.FacetNormal(self.mesh)
-        self.V, self.P, self.W = self.make_function_spaces()
-        self.boundaries = self.make_boundaries()  # @abstract
-        self.mark_boundaries()
-        self.actuator_expression = self.make_actuator()  # @abstract
-        self.bc_p = self.make_bcs()  # @abstract
+        self.V, self.P, self.W = self._make_function_spaces()
+        self.boundaries = self._make_boundaries()  # @abstract
+        self._mark_boundaries()
+        self.actuator_expression = self._make_actuator()  # @abstract
+        self.bc_p = self._make_bcs()  # @abstract
         ##
 
         # self.u_ = dolfin.Function(self.V)
         self.first_step = True
         self.ic = self.make_dict_ic(up=dolfin.Function(self.W))
-        self.UPsteady = self.make_dict_steady(up=dolfin.Function(self.W))
+        self.UPsteady = self._make_dict_steady(up=dolfin.Function(self.W))
 
     def make_dict_ic(self, up: dolfin.Function) -> None:
         """Define initial state
         Not intended to be used by user directly (see self.initialize_time_stepping())
         """
-        ic = self.make_field_dict(up)
+        ic = self._make_field_dict(up)
         ic["perturbation"] = None
         return ic
 
-    def make_dict_steady(self, up: dolfin.Function) -> None:
-        UPsteady = self.make_field_dict(up)
+    def _make_dict_steady(self, up: dolfin.Function) -> None:
+        UPsteady = self._make_field_dict(up)
         self.U0 = UPsteady["u"]
         self.P0 = UPsteady["p"]
         self.UP0 = UPsteady["up"]
@@ -74,14 +74,14 @@ class FlowSolver(ABC):
 
     # TODO these should be classes I believe (dict with specific contents)
 
-    def make_field_dict(self, up: dolfin.Function) -> None:
+    def _make_field_dict(self, up: dolfin.Function) -> None:
         field_dict = dict()
         field_dict["up"] = up
         field_dict["u"], field_dict["p"] = up.split(deepcopy=True)
         field_dict["y"] = self.make_measurement(up)
         return field_dict
 
-    def define_paths(self):  # TODO move to superclass
+    def _define_paths(self):  # TODO move to superclass
         """Define attribute (dict) containing useful paths (save, etc.)"""
         logger.debug("Currently defining paths...")
 
@@ -125,7 +125,7 @@ class FlowSolver(ABC):
             "mesh": self.params_mesh.meshpath,
         }
 
-    def make_mesh(self):  # TODO move to superclass
+    def _make_mesh(self):  # TODO move to superclass
         """Define mesh
         params_mesh contains either name of existing mesh
         or geometry parameters: xinf, yinf, xinfa, nx..."""
@@ -145,7 +145,7 @@ class FlowSolver(ABC):
 
         return mesh
 
-    def make_function_spaces(self):  # TODO move to superclass
+    def _make_function_spaces(self):  # TODO move to superclass
         """Define function spaces (u, p) = (CG2, CG1)"""
         Ve = dolfin.VectorElement("CG", self.mesh.ufl_cell(), 2)  # was 'P'
         Pe = dolfin.FiniteElement("CG", self.mesh.ufl_cell(), 1)  # was 'P'
@@ -160,7 +160,7 @@ class FlowSolver(ABC):
 
         return V, P, W
 
-    def mark_boundaries(self):
+    def _mark_boundaries(self):
         """Mark boundaries for num integration with assemble(F*dx(idx))"""
         bnd_markers = dolfin.MeshFunction(
             "size_t", self.mesh, self.mesh.topology().dim() - 1
@@ -193,10 +193,10 @@ class FlowSolver(ABC):
 
         if Tstart == 0.0:
             logger.debug("START FROM ZERO")
-            u_, p_, u_n, u_nn, p_n = self.initialize_with_ic(ic)
+            u_, p_, u_n, u_nn, p_n = self._initialize_with_ic(ic)
         else:
             logger.debug("START FROM NON ZERO")
-            u_, p_, u_n, u_nn, p_n = self.initialize_at_time(Tstart)
+            u_, p_, u_n, u_nn, p_n = self._initialize_at_time(Tstart)
 
         self.u_ = u_
         self.p_ = p_
@@ -204,9 +204,9 @@ class FlowSolver(ABC):
         self.u_nn = u_nn
         self.p_n = p_n
 
-        self.timeseries = self.initialize_timeseries()
+        self.timeseries = self._initialize_timeseries()
 
-    def initialize_with_ic(self, ic):
+    def _initialize_with_ic(self, ic):
         self.order = 1
 
         if ic is None:  # then zero
@@ -238,13 +238,13 @@ class FlowSolver(ABC):
 
         # Flush files and save ic as time_step 0
         if self.params_save.save_every:
-            self.export_field_as_Field_xdmf(
+            self._export_field_as_Field_xdmf(
                 u_n, u_nn, p_n, time=0, append=False, write_mesh=True
             )
 
         return u_, p_, u_n, u_nn, p_n
 
-    def initialize_at_time(self, Tstart):
+    def _initialize_at_time(self, Tstart):
         self.order = self.params_time.restart_order  # 2
 
         idxstart = (self.params_time.Tstart - self.params_time.Trestartfrom) / (
@@ -266,7 +266,7 @@ class FlowSolver(ABC):
 
         # write in new file as first time step
         if self.params_save.save_every:
-            self.export_field_as_Field_xdmf(
+            self._export_field_as_Field_xdmf(
                 U_n,
                 U_nn,
                 P_n,
@@ -286,12 +286,12 @@ class FlowSolver(ABC):
         for p, P in zip([p_n, p_], [P_n, P_]):
             p.vector()[:] = P.vector()[:] - self.UPsteady["p"].vector()[:]
 
-        # used for measurement y on ic in initialize_timeseries
+        # used for measurement y on ic in _initialize_timeseries
         self.ic = self.make_dict_ic(up=self.merge(u=u_, p=p_))
 
         return u_, p_, u_n, u_nn, p_n
 
-    def initialize_timeseries(self):
+    def _initialize_timeseries(self):
         self.t = self.params_time.Tstart
         self.iter = 0
         self.ic["y"] = self.make_measurement(self.ic["u"])
@@ -301,31 +301,31 @@ class FlowSolver(ABC):
         empty_data = np.zeros((self.params_time.num_steps + 1, len(colnames)))
         timeseries = pd.DataFrame(columns=colnames, data=empty_data)
         timeseries.loc[0, "time"] = self.params_time.Tstart
-        self.assign_y_to_df(df=timeseries, y_meas=self.ic["y"], index=0)
+        self._assign_y_to_df(df=timeseries, y_meas=self.ic["y"], index=0)
 
         dEb = self.compute_energy()
         timeseries.loc[0, "dE"] = dEb
         return timeseries
 
-    def make_solver(self, **kwargs):  # TODO could be utils
+    def _make_solver(self, **kwargs):  # TODO could be utils
         """Define solvers"""
         # other possibilities: dolfin.KrylovSolver("bicgstab", "jacobi")
         # then solverparam = solver.paramters
         # solverparam[""]=...
         return dolfin.LUSolver("mumps")
 
-    def make_varf(self, order, **kwargs):
+    def _make_varf(self, order, **kwargs):
         """Define equations"""
         if order == 1:
-            F = self.make_varf_order1(**kwargs)
+            F = self._make_varf_order1(**kwargs)
         elif order == 2:
-            F = self.make_varf_order2(**kwargs)
+            F = self._make_varf_order2(**kwargs)
         else:
             raise ValueError("Equation order not recognized")
             # There will be more important problems than this exception
         return F
 
-    def make_varf_order1(self, up, vq, U0, u_n, shift):
+    def _make_varf_order1(self, up, vq, U0, u_n, shift):
         (u, p) = up
         (v, q) = vq
         b0_1 = 1 if self.params_flow.is_eq_nonlinear else 0
@@ -343,7 +343,7 @@ class FlowSolver(ABC):
         )
         return F1
 
-    def make_varf_order2(self, up, vq, U0, u_n, u_nn, shift):
+    def _make_varf_order2(self, up, vq, U0, u_n, u_nn, shift):
         (u, p) = up
         (v, q) = vq
         if self.params_flow.is_eq_nonlinear:
@@ -365,10 +365,10 @@ class FlowSolver(ABC):
         )
         return F2
 
-    def prepare_systems(self, up, vq, u_n, u_nn):
+    def _prepare_systems(self, up, vq, u_n, u_nn):
         shift = dolfin.Constant(self.params_flow.shift)
         # 1st order integration
-        F1 = self.make_varf(
+        F1 = self._make_varf(
             order=1,
             up=up,
             vq=vq,
@@ -377,7 +377,7 @@ class FlowSolver(ABC):
             shift=shift,
         )
         # 2nd order integration
-        F2 = self.make_varf(
+        F2 = self._make_varf(
             order=2,
             up=up,
             vq=vq,
@@ -395,7 +395,7 @@ class FlowSolver(ABC):
             a = dolfin.lhs(varf)
             L = dolfin.rhs(varf)
             systemAssembler = dolfin.SystemAssembler(a, L, self.bc_p["bcu"])
-            solver = self.make_solver(order=order)
+            solver = self._make_solver(order=order)
             operatorA = dolfin.Matrix()
             systemAssembler.assemble(operatorA)
             solver.set_operator(operatorA)
@@ -419,7 +419,7 @@ class FlowSolver(ABC):
         if self.first_step:
             if self.verbose:
                 logger.debug("Perturbations forms DO NOT exist: create...")
-            self.prepare_systems((u, p), (v, q), u_n, u_nn)
+            self._prepare_systems((u, p), (v, q), u_n, u_nn)
             self.first_step = False
 
         # time
@@ -436,7 +436,7 @@ class FlowSolver(ABC):
             assembler.assemble(self.rhs)
             solver.solve(up_.vector(), self.rhs)
             u_, p_ = up_.split(deepcopy=True)
-            if self.solver_diverged(u_):
+            if self._solver_diverged(u_):
                 raise RuntimeError()
         except RuntimeError:
             logger.critical("*** Solver diverged, Inf found ***")
@@ -465,10 +465,10 @@ class FlowSolver(ABC):
         self.y_meas = self.make_measurement(self.up_)
         # Runtime
         runtime = time.time() - t0i
-        if self.niter_multiple_of(self.iter, self.verbose):
+        if self._niter_multiple_of(self.iter, self.verbose):
             flu2.print_progress(self, runtime=runtime)
         # Timeseries
-        self.log_timeseries(
+        self._log_timeseries(
             u_ctrl=u_ctrl,
             y_meas=self.y_meas,
             dE=self.compute_energy(),
@@ -477,16 +477,16 @@ class FlowSolver(ABC):
         )
 
         # Export xdmf & csv
-        if self.niter_multiple_of(self.iter, self.params_save.save_every):
-            self.export_field_as_Field_xdmf(u_n, u_nn, p_n, self.t)
+        if self._niter_multiple_of(self.iter, self.params_save.save_every):
+            self._export_field_as_Field_xdmf(u_n, u_nn, p_n, self.t)
             self.write_timeseries()
 
         return self.y_meas
 
-    def solver_diverged(self, field):
+    def _solver_diverged(self, field):
         return not np.isfinite(field.vector().get_local()[0])
 
-    def niter_multiple_of(self, iter, divider):
+    def _niter_multiple_of(self, iter, divider):
         return divider and not iter % divider
 
     def merge(self, u=None, p=None):
@@ -507,7 +507,7 @@ class FlowSolver(ABC):
         fa.assign(up, [u, p])
         return up
 
-    def export_field_as_Field_xdmf(
+    def _export_field_as_Field_xdmf(
         self, u_n, u_nn, p_n, time, append=True, write_mesh=False
     ):
         if not (hasattr(self, "P_n")):
@@ -557,7 +557,7 @@ class FlowSolver(ABC):
 
         # Assign U0, P0 >>> UP0
         UP0 = self.merge(u=U0, p=P0)
-        self.UPsteady = self.make_dict_steady(UP0)
+        self.UPsteady = self._make_dict_steady(UP0)
 
         self.Eb = (
             1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
@@ -575,9 +575,9 @@ class FlowSolver(ABC):
         if self.params_time.Tstart == 0:  # and compute_steady_state
             # Solve
             if method == "newton":
-                UP0 = self.compute_steady_state_newton(**kwargs)
+                UP0 = self._compute_steady_state_newton(**kwargs)
             else:
-                UP0 = self.compute_steady_state_picard(**kwargs)
+                UP0 = self._compute_steady_state_picard(**kwargs)
 
             U0, P0 = UP0.split()
 
@@ -610,19 +610,19 @@ class FlowSolver(ABC):
         self.actuator_expression.ampl = actuation_ampl_old
 
         # assign steady state
-        self.UPsteady = self.make_dict_steady(UP0)
+        self.UPsteady = self._make_dict_steady(UP0)
 
         # assign steady energy
         self.Eb = (
             1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
         )  # same as <up, Q@up>
 
-    def compute_steady_state_newton(
+    def _compute_steady_state_newton(
         self, max_iter: int = 25, initial_guess: dolfin.Function = None
     ):
         """Compute steady state with built-in nonlinear solver (Newton method)
         initial_guess is a (u,p)_0"""
-        self.make_form_mixed_steady(initial_guess=initial_guess)
+        self._make_form_mixed_steady(initial_guess=initial_guess)
         if initial_guess is None:
             logger.info("Newton solver --- without initial guess")
         up_ = self.up_
@@ -641,12 +641,12 @@ class FlowSolver(ABC):
         # Return
         return up_
 
-    def compute_steady_state_picard(self, max_iter: int = 10, tol: float = 1e-14):
+    def _compute_steady_state_picard(self, max_iter: int = 10, tol: float = 1e-14):
         """Compute steady state with fixed-point iteration
         Should have a larger convergence radius than Newton method
         if initialization is bad in Newton method (and it is)
         TODO: residual not 0 if u_ctrl not 0 (see bc probably)"""
-        self.make_form_mixed_steady()  # for BC only
+        self._make_form_mixed_steady()  # for BC only
         invRe = dolfin.Constant(1 / self.params_flow.Re)
 
         # for residual computation
@@ -709,13 +709,13 @@ class FlowSolver(ABC):
         return UP1
 
     # Dataframe utility
-    def make_y_df_colname(self, sensor_nr: int):
+    def _make_y_df_colname(self, sensor_nr: int):
         """Return column names of different measurements y_meas_i"""
         return ["y_meas_" + str(i + 1) for i in range(sensor_nr)]
 
-    def assign_y_to_df(self, df: pd.DataFrame, y_meas: float, index: int):
+    def _assign_y_to_df(self, df: pd.DataFrame, y_meas: float, index: int):
         """Assign measurement (array y_meas) to DataFrame at index"""
-        df.loc[index, self.make_y_df_colname(len(y_meas))] = y_meas
+        df.loc[index, self._make_y_df_colname(len(y_meas))] = y_meas
 
     def write_timeseries(self):  # TODO this is an export utility
         """Write pandas DataFrame to file"""
@@ -723,14 +723,14 @@ class FlowSolver(ABC):
             # zipfile = '.zip' if self.compress_csv else ''
             self.timeseries.to_csv(self.paths["timeseries"], sep=",", index=False)
 
-    def log_timeseries(
+    def _log_timeseries(
         self, u_ctrl: float, y_meas: float, dE: float, t: float, runtime: float
     ):
         """Fill timeseries table with data"""
         self.timeseries.loc[self.iter - 1, "u_ctrl"] = (
             u_ctrl  # careful here: log the control that was applied at time t (iter-1) to get time t+dt (iter)
         )
-        self.assign_y_to_df(df=self.timeseries, y_meas=y_meas, index=self.iter)
+        self._assign_y_to_df(df=self.timeseries, y_meas=y_meas, index=self.iter)
         self.timeseries.loc[self.iter, "dE"] = dE
         self.timeseries.loc[self.iter, "time"] = t
         self.timeseries.loc[self.iter, "runtime"] = runtime
@@ -758,15 +758,15 @@ class FlowSolver(ABC):
 
     # Abstract methods (to be reimplemented for each case)
     @abstractmethod
-    def make_boundaries(self) -> pd.DataFrame:
+    def _make_boundaries(self) -> pd.DataFrame:
         pass
 
     @abstractmethod
-    def make_bcs(self) -> dict:
+    def _make_bcs(self) -> dict:
         pass
 
     @abstractmethod
-    def make_actuator(self) -> dolfin.Expression:
+    def _make_actuator(self) -> dolfin.Expression:
         pass
 
     @abstractmethod
@@ -775,7 +775,7 @@ class FlowSolver(ABC):
 
     # NOTE: inlet BC should be 1st always, and have (u,v)=(1,0)
     # Otherwise, reimplement this
-    def make_form_mixed_steady(self, initial_guess=None):
+    def _make_form_mixed_steady(self, initial_guess=None):
         """Make nonlinear forms for steady state computation, in mixed element space.
         Can be used to assign self.F0 and compute state spaces matrices."""
         v, q = dolfin.TestFunctions(self.W)
