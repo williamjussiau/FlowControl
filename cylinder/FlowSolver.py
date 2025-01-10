@@ -553,75 +553,52 @@ class FlowSolver(ABC):
         )
 
     # Steady state
-    def load_steady_state(self) -> tuple[dolfin.Function, ...]:
+    def _assign_steady_state(self, U0, P0) -> None:
+        UP0 = self.merge(u=flu.projectm(U0, self.V), p=flu.projectm(P0, self.P))
+        self.UPsteady = self._make_ff_steady(UP0)
+        self.Eb = 1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
+
+    def load_steady_state(self) -> None:
         U0 = dolfin.Function(self.V)
         P0 = dolfin.Function(self.P)
         flu.read_xdmf(self.paths["U0"], U0, "U0")
         flu.read_xdmf(self.paths["P0"], P0, "P0")
-
-        # Assign U0, P0 >>> UP0
-        UP0 = self.merge(u=U0, p=P0)
-        self.UPsteady = self._make_ff_steady(UP0)
-
-        self.Eb = (
-            1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
-        )  # same as <up, Q@up>
-        return UP0
+        self._assign_steady_state(U0=U0, P0=P0)
 
     def compute_steady_state(
         self, method: str = "newton", u_ctrl: float = 0.0, **kwargs
     ) -> None:
         """Compute flow steady state with given steady control"""
-        # Save old control value, just in case
-        actuation_ampl_old = self.actuator_expression.ampl
         self.actuator_expression.ampl = u_ctrl
 
-        # If start is zero (i.e. not restart): compute
-        # Note : could add a flag 'compute_steady_state' to compute or read...
-        if self.params_time.Tstart == 0:  # and compute_steady_state
-            # Solve
-            if method == "newton":
-                UP0 = self._compute_steady_state_newton(**kwargs)
-            else:
-                UP0 = self._compute_steady_state_picard(**kwargs)
-
-            U0, P0 = UP0.split()
-
-            # Save steady state
-            if self.params_save.save_every:
-                flu.write_xdmf(
-                    self.paths["U0"],
-                    U0,
-                    "U0",
-                    time_step=0.0,
-                    append=False,
-                    write_mesh=True,
-                )
-                flu.write_xdmf(
-                    self.paths["P0"],
-                    P0,
-                    "P0",
-                    time_step=0.0,
-                    append=False,
-                    write_mesh=True,
-                )
-            if self.verbose:
-                logger.debug(f"Stored base flow in: {self.params_save.path_out}")
-
-        # If ic is not zero: read steady state (should exist - should check though...)
+        if method == "newton":
+            UP0 = self._compute_steady_state_newton(**kwargs)
         else:
-            U0, P0, UP0 = self.load_steady_state()
+            UP0 = self._compute_steady_state_picard(**kwargs)
 
-        # Set old actuator amplitude
-        self.actuator_expression.ampl = actuation_ampl_old
+        U0, P0 = UP0.split()
 
-        # assign steady state
-        self.UPsteady = self._make_ff_steady(UP0)
+        if self.params_save.save_every:
+            flu.write_xdmf(
+                self.paths["U0"],
+                U0,
+                "U0",
+                time_step=0.0,
+                append=False,
+                write_mesh=True,
+            )
+            flu.write_xdmf(
+                self.paths["P0"],
+                P0,
+                "P0",
+                time_step=0.0,
+                append=False,
+                write_mesh=True,
+            )
+        if self.verbose:
+            logger.debug(f"Stored base flow in: {self.params_save.path_out}")
 
-        # assign steady energy
-        self.Eb = (
-            1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
-        )  # same as <up, Q@up>
+        self._assign_steady_state(U0=U0, P0=P0)
 
     def _compute_steady_state_newton(
         self, max_iter: int = 25, initial_guess: dolfin.Function | None = None
