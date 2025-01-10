@@ -541,23 +541,19 @@ if __name__ == "__main__":
     )
 
     logger.info("__init__(): successful!")
-
     logger.info("Compute steady state...")
-    u_ctrl_steady = 0.0
-    fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=u_ctrl_steady)
+    uctrl0 = 0.0
+    fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=u_ctrl_steady, initial_guess=fs.UP0
+        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.UP0
     )
-    fs.load_steady_state()
 
     logger.info("Init time-stepping")
-    # fs.initialize_time_stepping(ic=dolfin.Function(fs.W))
-    fs.initialize_time_stepping(ic=None)
+    fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
 
     logger.info("Step several times")
     Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=0)
 
-    u_ctrl = 0
     for i in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
@@ -566,7 +562,7 @@ if __name__ == "__main__":
     flu.summarize_timings(fs, t000)
     fs.write_timeseries()
 
-    ###########################################
+    ################################################
     params_time_restart = params_time
     params_time_restart.Tstart = 0.05
     params_time_restart.dt_old = 0.005
@@ -590,6 +586,7 @@ if __name__ == "__main__":
 
     fs_restart.write_timeseries()
 
+    ################################################
     logger.info("Checking utilitary functions")
     fs.get_A()
 
@@ -606,7 +603,6 @@ if __name__ == "__main__":
     assert np.isclose(u_mean, u_mean_ref)
 
     logger.info(fs_restart.timeseries)
-
     logger.info("End with success")
 
 

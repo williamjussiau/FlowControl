@@ -180,7 +180,9 @@ class FlowSolver(ABC):
         self.cell_markers = cell_markers
         self.boundaries["idx"] = list(boundaries_idx)
 
-    def initialize_time_stepping(self, Tstart=0.0, ic=None) -> None:
+    def initialize_time_stepping(
+        self, Tstart=0.0, ic: dolfin.Function | None = None
+    ) -> None:
         """Create varitional functions/forms & flush files & define u(0), p(0)
         If Tstart is 0: ic is set in ic (or, if ic is None: = 0)
         If Tstart is not 0: ic is computed from files
