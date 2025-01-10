@@ -328,7 +328,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             # pdb.set_trace()
             ## shift
             # dF0 = dF0 - shift*dot(U_,v)*dx
-            # bcs
+            # bcs)
             self.actuator_expression.ampl = 0.0
             bcs = self.bc["bcu"]
 
