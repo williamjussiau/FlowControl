@@ -64,6 +64,7 @@ class ParamTime:
     Tstart: float = 0.0
     Trestartfrom: float = 0.0
     restart_order: int = 2
+    dt_old: float = 0.0
 
 
 @dataclass
