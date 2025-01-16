@@ -1,0 +1,28 @@
+## Short-term
+
+# subfields .time, .fem, .control, .geometry, .primitives?
+# in geometry, add dict lim["xinf"], lim["xinfa"] (user-defined)?
+# + FlowField current (u,p,up)?
+
+# sub classes for rendre flowsolver less big?
+
+# doc & type annotations
+
+# get A, B, C -> can do general form?
+
+# cylinder-specific: redefine boundaries (esp. actuation)
+# more easily -> "x in range, y in range, close to boundary"
+
+
+## Mid-term
+# sort utility funs (_flowsolver, _extract, _debug)
+
+# MIMO support
+# + both kinds of actuation -> probably need "if" statements
+
+# Add tests to Controller (stepping, add/mul)
+
+
+## Long-term
+# write_timeseries -> async somehow?
+# test parallel
