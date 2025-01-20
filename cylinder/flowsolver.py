@@ -225,7 +225,7 @@ class FlowSolver(ABC):
             # work in parallel?
             self.ic.up.vector()[:] = self.get_B().reshape((-1,))
         elif self.ic.misc["perturbation"] != 0.0:
-            logger.debug(f"Found ic perturbation: {self.ic.misc["perturbation"]}")
+            logger.debug("Found ic perturbation: {0}".format(self.ic.misc["perturbation"]))
             udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
             pert0 = self.merge(u=udiv0, p=flu.projectm(self.UPsteady.p, self.P))
             self.ic.up.vector()[:] += self.ic.misc["perturbation"] * pert0.vector()[:]

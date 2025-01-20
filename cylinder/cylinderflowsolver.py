@@ -71,66 +71,46 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         )
 
         ## Cylinder
-        delta = self.params_flow.actuator_angular_size * dolfin.pi / 180
-        theta_tol = 1 * dolfin.pi / 180
-
         # Compiled subdomains (str)
         # = increased speed but decreased readability
 
-        def between_cpp(x, xmin, xmax):
-            return f"{x}>={xmin} && {x}<={xmax}"
+        def between_cpp(x: str, xmin: str, xmax: str, tol: str="0.0"):
+            return f"{x}>={xmin}-{tol} && {x}<={xmax}+{tol}"
+        
+        and_cpp = " && "
+        or_cpp = " || "
+        on_boundary_cpp = "on_boundary"
 
-        close_to_cylinder_cpp = (
-            between_cpp("x[0]", "-d/2", "d/2")
-            + " && "
-            + between_cpp("x[1]", "-d/2", "d/2")
-        )
-        theta_cpp = "atan2(x[1], x[0])"
-        cone_up_cpp = between_cpp(
-            theta_cpp + "-pi/2", "-delta/2 - theta_tol", "delta/2 + theta_tol"
-        )
-        cone_lo_cpp = between_cpp(
-            theta_cpp + "+pi/2", "-delta/2 - theta_tol", "delta/2 + theta_tol"
-        )
-        cone_ri_cpp = between_cpp(
-            theta_cpp, "-pi/2+delta/2 - theta_tol", "pi/2-delta/2 + theta_tol"
-        )
-        cone_le_cpp = (
-            "("
-            + between_cpp(theta_cpp, "-pi", "-pi/2-delta/2 + theta_tol")
-            + ")"
-            + " || "
-            + "("
-            + between_cpp(theta_cpp, "pi/2+delta/2 - theta_tol", "pi")
-            + ")"
-        )
+        radius = self.params_flow.d/2
+        ldelta = radius * np.sin(self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180)
+        
+        #close_to_cylinder_cpp = between_cpp("x[0]*x[0] + x[1]*x[1]", "0", "2*radius*radius")
+        close_to_cylinder_cpp = between_cpp("x[0]", "-radius", "radius") + and_cpp + between_cpp("x[1]", "-radius", "radius") 
+        cylinder_boundary_cpp = on_boundary_cpp + and_cpp + close_to_cylinder_cpp
 
+        cone_up_cpp = between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01") + and_cpp + between_cpp("x[1]", "0", "radius")
+        cone_lo_cpp = between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01") + and_cpp + between_cpp("x[1]", "-radius", "0")
+        
+        cone_le_cpp = between_cpp("x[0]", "-radius", "-ldelta")
+        cone_ri_cpp = between_cpp("x[0]", "ldelta", "radius")
+
+        
         cylinder = dolfin.CompiledSubDomain(
-            "on_boundary"
-            + " && "
-            + close_to_cylinder_cpp
-            + " && "
-            + "("
-            + cone_le_cpp
-            + " ||  "
-            + cone_ri_cpp
-            + ")",
-            d=self.params_flow.d,
-            delta=delta,
-            theta_tol=theta_tol,
-        )
+            cylinder_boundary_cpp + and_cpp + "(" + cone_le_cpp + or_cpp + cone_ri_cpp + ")",
+            radius=radius,
+            ldelta=ldelta
+            )
         actuator_up = dolfin.CompiledSubDomain(
-            "on_boundary" + " && " + close_to_cylinder_cpp + " && " + cone_up_cpp,
-            d=self.params_flow.d,
-            delta=delta,
-            theta_tol=theta_tol,
+            cylinder_boundary_cpp + and_cpp + cone_up_cpp,
+            radius=radius,
+            ldelta=ldelta
         )
         actuator_lo = dolfin.CompiledSubDomain(
-            "on_boundary" + " && " + close_to_cylinder_cpp + " && " + cone_lo_cpp,
-            d=self.params_flow.d,
-            delta=delta,
-            theta_tol=theta_tol,
+            cylinder_boundary_cpp + and_cpp + cone_lo_cpp,
+            radius=radius,
+            ldelta=ldelta
         )
+
 
         # assign boundaries as pd.DataFrame
         boundaries_names = [
@@ -147,7 +127,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
                 "subdomain": [inlet, outlet, walls, cylinder, actuator_up, actuator_lo]
             },
         )
-        self.actuator_angular_size_rad = delta
+
         return boundaries_df
 
     def _make_bcs(self):
@@ -220,10 +200,10 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         # TODO
         # return actuator type (vol, bc)
         # + MIMO -> list
-        L = self.params_flow.d / 2 * np.tan(self.actuator_angular_size_rad / 2)
+        L = self.params_flow.d / 2 * np.sin(self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180)
         nsig = 2  # self.nsig_actuator
         actuator_bc = dolfin.Expression(
-            ["0", "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)"],
+            ["0", "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)"], # keeps subdomain definition in check
             element=self.V.ufl_element(),
             ampl=1,
             L=L,
@@ -541,6 +521,10 @@ if __name__ == "__main__":
     )
 
     logger.info("__init__(): successful!")
+
+    logger.info("Exporting subdomains...")
+    flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf")
+
     logger.info("Compute steady state...")
     uctrl0 = 0.0
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
@@ -591,8 +575,8 @@ if __name__ == "__main__":
     fs.get_A()
 
     logger.info("Testing max(u) and mean(u)...")
-    u_max_ref = 1.6345453902677856
-    u_mean_ref = -0.0009997385060749036
+    u_max_ref = 1.6346180053658963
+    u_mean_ref = -0.0010055159332704045
     u_max = flu.apply_fun(fs.u_, np.max)
     u_mean = flu.apply_fun(fs.u_, np.mean)
 
