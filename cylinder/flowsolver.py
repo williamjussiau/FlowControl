@@ -1,6 +1,6 @@
 from __future__ import print_function
 import flowsolverparameters
-from flowfield import FlowField
+from flowfield import FlowField, FlowFieldCollection
 import dolfin
 from dolfin import dot, nabla_grad, dx, inner, div
 import numpy as np
@@ -55,32 +55,8 @@ class FlowSolver(ABC):
         self.BC = self._make_BCs()
         ##
 
-        # self.u_ = dolfin.Function(self.V)
         self.first_step = True
-        self.ic = self._make_ff_ic(up=dolfin.Function(self.W))
-        self.UPsteady = self._make_ff_steady(up=dolfin.Function(self.W))
-
-    # TODO GO OUT CLASS???
-    def _make_ff_ic(self, up: dolfin.Function, perturbation=0.0) -> FlowField:
-        """Define initial state
-        Not intended to be used by user directly (see self.initialize_time_stepping())
-        """
-        ic = self._make_ff(up)
-        ic.misc["perturbation"] = perturbation
-        return ic
-
-    def _make_ff_steady(self, up: dolfin.Function) -> FlowField:
-        UPsteady = self._make_ff(up)
-        self.U0 = UPsteady.u
-        self.P0 = UPsteady.p
-        self.UP0 = UPsteady.up
-        return UPsteady
-
-    def _make_ff(self, up: dolfin.Function) -> FlowField:
-        u, p = up.split(deepcopy=True)
-        ff = FlowField(u=u, p=p, up=up)
-        ff.misc["y"] = self.make_measurement(up)
-        return ff
+        self.fields = FlowFieldCollection()
 
     def _define_paths(self) -> dict[str, Path]:
         """Define attribute (dict) containing useful paths (save, etc.)"""
@@ -201,11 +177,11 @@ class FlowSolver(ABC):
             logger.debug("Starting simulation from nonzero")
             u_, p_, u_n, u_nn, p_n = self._initialize_at_time(Tstart)
 
-        self.u_ = u_
-        self.p_ = p_
-        self.u_n = u_n
-        self.u_nn = u_nn
-        self.p_n = p_n
+        self.fields.u_ = u_
+        self.fields.p_ = p_
+        self.fields.u_n = u_n
+        self.fields.u_nn = u_nn
+        self.fields.p_n = p_n
 
         self.timeseries = self._initialize_timeseries()
 
@@ -214,38 +190,30 @@ class FlowSolver(ABC):
 
         if ic is None:  # then zero
             logger.debug("ic is set internally to 0")
-            self.ic = self._make_ff_ic(dolfin.Function(self.W))
+            self.fields.ic = FlowField.generate(up=dolfin.Function(self.W))
         else:
             logger.debug("ic is already set by user")
-            self.ic = self._make_ff_ic(ic)
+            self.fields.ic = FlowField.generate(up=ic)
 
-        # Impulse or state perturbation @ div0
-        # Impulse if self.ic_add_perturbation is inf
-        self.ic.misc["perturbation"] = self.params_solver.ic_add_perturbation
-        if np.isinf(self.ic.misc["perturbation"]):
-            # work in parallel?
-            self.ic.up.vector()[:] = self.get_B().reshape((-1,))
-        elif self.ic.misc["perturbation"] != 0.0:
-            logger.debug(
-                "Found ic perturbation: {0}".format(self.ic.misc["perturbation"])
-            )
+        # Add perturbation to IC
+        addpert = self.params_solver.ic_add_perturbation
+        if addpert:
+            logger.debug("Found ic perturbation: {0}".format(addpert))
             udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
-            pert0 = self.merge(u=udiv0, p=flu.projectm(self.UPsteady.p, self.P))
-            self.ic.up.vector()[:] += self.ic.misc["perturbation"] * pert0.vector()[:]
-        self.ic.up.vector().apply("insert")
-        self.ic = self._make_ff_ic(
-            self.ic.up, perturbation=self.ic.misc["perturbation"]
-        )
+            pert0 = self.merge(u=udiv0, p=flu.projectm(self.fields.STEADY.p, self.P))
+            self.fields.ic.up.vector()[:] += addpert * pert0.vector()[:]
+        self.fields.ic.up.vector().apply("insert")
+        self.fields.ic = FlowField.generate(self.fields.ic.up)
 
-        u_n = flu.projectm(v=self.ic.u, V=self.V, bcs=self.bc["bcu"])
+        u_n = flu.projectm(v=self.fields.ic.u, V=self.V, bcs=self.bc["bcu"])
         u_nn = u_n.copy(deepcopy=True)
-        p_n = flu.projectm(self.ic.p, self.P)
+        p_n = flu.projectm(self.fields.ic.p, self.P)
         u_ = u_n.copy(deepcopy=True)
         p_ = p_n.copy(deepcopy=True)
 
         # Flush files and save ic as time_step 0
         if self.params_save.save_every:
-            self._export_field_xdmf(
+            self._export_fields_xdmf(
                 u_n,
                 u_nn,
                 p_n,
@@ -279,14 +247,14 @@ class FlowSolver(ABC):
 
         # write in new file as first time step
         if self.params_save.save_every:
-            self._export_field_xdmf(
+            self._export_fields_xdmf(
                 U_n,
                 U_nn,
                 P_n,
                 time=Tstart,
                 append=False,
                 write_mesh=True,
-                adjust_baseflow=0,  ############
+                adjust_baseflow=0,
             )
 
         # remove base flow from loaded file
@@ -296,22 +264,20 @@ class FlowSolver(ABC):
         u_nn = dolfin.Function(self.V)
         p_n = dolfin.Function(self.P)
         for u, U in zip([u_n, u_nn, u_], [U_n, U_nn, U_]):
-            u.vector()[:] = U.vector()[:] - self.UPsteady.u.vector()[:]
+            u.vector()[:] = U.vector()[:] - self.fields.STEADY.u.vector()[:]
             u.vector().apply("insert")
         for p, P in zip([p_n, p_], [P_n, P_]):
-            p.vector()[:] = P.vector()[:] - self.UPsteady.p.vector()[:]
+            p.vector()[:] = P.vector()[:] - self.fields.STEADY.p.vector()[:]
             p.vector().apply("insert")
 
-        # used for measurement y on ic in _initialize_timeseries
-        self.ic = self._make_ff_ic(up=self.merge(u=u_, p=p_))
+        self.fields.ic = FlowField.generate(up=self.merge(u=u_, p=p_))
 
         return u_, p_, u_n, u_nn, p_n
 
     def _initialize_timeseries(self) -> pd.DataFrame:
         self.t = self.params_time.Tstart
         self.iter = 0
-        self.ic.misc["y"] = self.make_measurement(self.ic.u)
-        self.y_meas = self.ic.misc["y"]
+        self.y_meas = self.make_measurement(self.fields.ic.u)
         y_meas_str = [
             "y_meas_" + str(i + 1) for i in range(self.params_control.sensor_number)
         ]
@@ -319,10 +285,10 @@ class FlowSolver(ABC):
         empty_data = np.zeros((self.params_time.num_steps + 1, len(colnames)))
         timeseries = pd.DataFrame(columns=colnames, data=empty_data)
         timeseries.loc[0, "time"] = self.params_time.Tstart
-        self._assign_y_to_df(df=timeseries, y_meas=self.ic.misc["y"], index=0)
+        self._assign_y_to_df(df=timeseries, y_meas=self.y_meas, index=0)
 
-        dEb = self.compute_energy()
-        timeseries.loc[0, "dE"] = dEb
+        dE0 = self.compute_energy()
+        timeseries.loc[0, "dE"] = dE0
         return timeseries
 
     def _make_solver(self, **kwargs):
@@ -390,7 +356,7 @@ class FlowSolver(ABC):
             order=1,
             up=up,
             vq=vq,
-            U0=self.UPsteady.u,
+            U0=self.fields.STEADY.u,
             u_n=u_n,
             shift=shift,
         )
@@ -399,7 +365,7 @@ class FlowSolver(ABC):
             order=2,
             up=up,
             vq=vq,
-            U0=self.UPsteady.u,
+            U0=self.fields.STEADY.u,
             u_n=u_n,
             u_nn=u_nn,
             shift=shift,
@@ -430,9 +396,9 @@ class FlowSolver(ABC):
         up_ = dolfin.Function(self.W)
         u_, p_ = dolfin.split(up_)
 
-        u_nn = self.u_nn
-        u_n = self.u_n
-        p_n = self.p_n
+        u_nn = self.fields.u_nn
+        u_n = self.fields.u_n
+        p_n = self.fields.p_n
 
         if self.first_step:
             if self.verbose:
@@ -462,31 +428,23 @@ class FlowSolver(ABC):
         except Exception as e:
             raise e
 
-        logger.critical("after")
-        logger.critical(up_(11.44, 3.36))
-        logger.critical(up_(11.54, 3.46))
-        logger.critical(self.UP0(11.44, 3.36))
-        # strange value: [ 0.08317249 -0.02124229 -0.01486694]
-        # should be [ 1.05273178 -0.02124229 -0.01108775]
-        logger.critical(self.UP0(11.44, 0))
-
         # Update time
         self.iter += 1
         self.t = self.params_time.Tstart + self.iter * self.params_time.dt
         self.order = 2
 
         # Assign
-        self.u_ = u_
-        self.p_ = p_
-        self.up_ = up_
+        self.fields.u_ = u_
+        self.fields.p_ = p_
+        self.fields.up_ = up_
         # Shift
-        self.u_nn.assign(u_n)
-        self.u_n.assign(u_)
-        self.p_n.assign(p_)
+        self.fields.u_nn.assign(u_n)
+        self.fields.u_n.assign(u_)
+        self.fields.p_n.assign(p_)
 
         ## Output
         # Probe
-        self.y_meas = self.make_measurement(self.up_)
+        self.y_meas = self.make_measurement(self.fields.up_)
         # Runtime
         runtime = time.time() - t0i
         if self._niter_multiple_of(self.iter, self.verbose):
@@ -502,7 +460,7 @@ class FlowSolver(ABC):
 
         # Export xdmf & csv
         if self._niter_multiple_of(self.iter, self.params_save.save_every):
-            self._export_field_xdmf(u_n, u_nn, p_n, self.t, adjust_baseflow=+1)
+            self._export_fields_xdmf(u_n, u_nn, p_n, self.t, adjust_baseflow=+1)
             self.write_timeseries()
 
         return self.y_meas
@@ -521,7 +479,7 @@ class FlowSolver(ABC):
         if instruction is merge: (u,p) -> up
         FunctionAssigner(receiver, sender)"""
         # if u is None:  # split up
-        #     # probably equivalent to up.split() from dolfin
+        #     # probably equivalent to up.split(deepcopy=True) from dolfin
         #     fa = dolfin.FunctionAssigner([self.V, self.P], self.W)
         #     u = dolfin.Function(self.V)
         #     p = dolfin.Function(self.P)
@@ -533,7 +491,7 @@ class FlowSolver(ABC):
         fa.assign(up, [u, p])
         return up
 
-    def _export_field_xdmf(
+    def _export_fields_xdmf(
         self,
         u_n: dolfin.Function,
         u_nn: dolfin.Function,
@@ -543,17 +501,23 @@ class FlowSolver(ABC):
         write_mesh: bool = False,
         adjust_baseflow: float = 0,
     ) -> None:
-        if not (hasattr(self, "P_n")):
-            self.Usave = dolfin.Function(self.V)
-            self.Usave_n = dolfin.Function(self.V)
-            self.Psave_n = dolfin.Function(self.P)
+        if not (hasattr(self.fields, "Psave_n")):
+            self.fields.Usave = dolfin.Function(self.V)
+            self.fields.Usave_n = dolfin.Function(self.V)
+            self.fields.Psave = dolfin.Function(self.P)
 
         # Reconstruct full field
-        abf = adjust_baseflow
-        self.Usave.vector()[:] = u_n.vector()[:] + abf * self.UPsteady.u.vector()[:]
-        self.Usave_n.vector()[:] = u_nn.vector()[:] + abf * self.UPsteady.u.vector()[:]
-        self.Psave_n.vector()[:] = p_n.vector()[:] + abf * self.UPsteady.p.vector()[:]
-        for vec in [self.Usave, self.Usave_n, self.Psave_n]:
+        pmbf = adjust_baseflow
+        self.fields.Usave.vector()[:] = (
+            u_n.vector()[:] + pmbf * self.fields.STEADY.u.vector()[:]
+        )
+        self.fields.Usave_n.vector()[:] = (
+            u_nn.vector()[:] + pmbf * self.fields.STEADY.u.vector()[:]
+        )
+        self.fields.Psave.vector()[:] = (
+            p_n.vector()[:] + pmbf * self.fields.STEADY.p.vector()[:]
+        )
+        for vec in [self.fields.Usave, self.fields.Usave_n, self.fields.Psave]:
             vec.vector().apply("insert")
 
         if self.verbose:
@@ -561,7 +525,7 @@ class FlowSolver(ABC):
 
         flu.write_xdmf(
             filename=self.paths["U_restart"],
-            func=self.Usave,
+            func=self.fields.Usave,
             name="U",
             time_step=time,
             append=append,
@@ -569,7 +533,7 @@ class FlowSolver(ABC):
         )
         flu.write_xdmf(
             filename=self.paths["Uprev_restart"],
-            func=self.Usave_n,
+            func=self.fields.Usave_n,
             name="U_n",
             time_step=time,
             append=append,
@@ -577,7 +541,7 @@ class FlowSolver(ABC):
         )
         flu.write_xdmf(
             filename=self.paths["P_restart"],
-            func=self.Psave_n,
+            func=self.fields.Psave,
             name="P",
             time_step=time,
             append=append,
@@ -587,8 +551,11 @@ class FlowSolver(ABC):
     # Steady state
     def _assign_steady_state(self, U0, P0) -> None:
         UP0 = self.merge(u=U0, p=P0)
-        self.UPsteady = self._make_ff_steady(UP0)
-        self.Eb = 1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
+        self.fields.STEADY = FlowField.generate(UP0)
+        self.fields.U0 = self.fields.STEADY.u
+        self.fields.P0 = self.fields.STEADY.p
+        self.fields.UP0 = self.fields.STEADY.up
+        self.E0 = 1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
 
     def load_steady_state(self) -> None:
         U0 = dolfin.Function(self.V)
@@ -795,7 +762,7 @@ class FlowSolver(ABC):
         on full/restricted domain      (default:full=True)
         minus base flow                (default:diff=False)
         normalized by base flow energy (default:normalize=False)"""
-        dE = 1 / 2 * dolfin.norm(self.u_, norm_type="L2", mesh=self.mesh) ** 2
+        dE = 1 / 2 * dolfin.norm(self.fields.u_, norm_type="L2", mesh=self.mesh) ** 2
         return dE
 
     def compute_energy_field(
@@ -803,7 +770,7 @@ class FlowSolver(ABC):
     ) -> dolfin.Function:
         """Compute field dot(u, u) to see spatial location of perturbation kinetic energy
         Perturbation formulation only"""
-        Efield = dot(self.u_, self.u_)
+        Efield = dot(self.fields.u_, self.fields.u_)
         # Note: E = 1/2 * assemble(Efield * fs.dx)
         Efield = flu.projectm(Efield, self.P)  # project to deg 1
         if export:
