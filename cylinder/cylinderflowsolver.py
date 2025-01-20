@@ -83,7 +83,10 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
         radius = self.params_flow.d / 2
         ldelta = radius * np.sin(
-            self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180
+            self.params_control.actuator_parameters["angular_size_deg"]
+            / 2
+            * dolfin.pi
+            / 180
         )
 
         # close_to_cylinder_cpp = between_cpp("x[0]*x[0] + x[1]*x[1]", "0", "2*radius*radius")
@@ -178,32 +181,28 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
     def make_measurement(self, field=None, mixed_field=None):
         """Perform measurement"""
-        ns = self.params_flow.sensor_nr
+        ns = self.params_control.sensor_number
         y_meas = np.zeros((ns,))
 
         for isensor in range(ns):
-            xs_i = self.params_flow.sensor_location[isensor]
-            ts_i = self.params_flow.sensor_type[isensor]
+            xs_i = self.params_control.sensor_location[isensor, :]
+            ts_i = self.params_control.sensor_type[isensor]
 
             # no mixed field (u,v,p) is given
             if field is not None:
-                idx_dim = 0 if ts_i == "u" else 1
-                y_meas_i = flu.MpiUtils.peval(field, xs_i)[idx_dim]
+                y_meas_i = flu.MpiUtils.peval(field, xs_i)[ts_i]
             else:
                 if mixed_field is None:
                     # depending on sensor type, eval attribute field
-                    if ts_i == "u":
-                        y_meas_i = flu.MpiUtils.peval(self.u_, xs_i)[0]
-                    else:
-                        if ts_i == "v":
-                            y_meas_i = flu.MpiUtils.peval(self.u_, xs_i)[1]
-                        else:  # sensor_type=='p':
-                            y_meas_i = flu.MpiUtils.peval(self.p_, xs_i)
+                    if (
+                        ts_i == flowsolverparameters.SENSOR_TYPE.U
+                        or ts_i == flowsolverparameters.SENSOR_TYPE.V
+                    ):
+                        y_meas_i = flu.MpiUtils.peval(self.u_, xs_i)[ts_i]
+                    else:  # sensor_type=='p':
+                        y_meas_i = flu.MpiUtils.peval(self.p_, xs_i)
                 else:
-                    # some mixed field in W = (u, v, p) is given
-                    # eval and take index corresponding to sensor
-                    sensor_types = dict(u=0, v=1, p=2)
-                    y_meas_i = flu.MpiUtils.peval(mixed_field, xs_i)[sensor_types[ts_i]]
+                    y_meas_i = flu.MpiUtils.peval(mixed_field, xs_i)[ts_i]
 
             y_meas[isensor] = y_meas_i
         return y_meas
@@ -215,11 +214,17 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         # return actuator type (vol, bc)
         # + MIMO -> list
         L = (
-            self.params_flow.d
+            1
             / 2
-            * np.sin(self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180)
+            * self.params_flow.d
+            * np.sin(
+                1
+                / 2
+                * self.params_control.actuator_parameters["angular_size_deg"]
+                * dolfin.pi
+                / 180
+            )
         )
-        nsig = 2  # self.nsig_actuator
         actuator_bc = dolfin.Expression(
             [
                 "0",
@@ -228,8 +233,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             element=self.V.ufl_element(),
             ampl=1,
             L=L,
-            den=(L / nsig) ** 2,
-            nsig=nsig,
         )
 
         return actuator_bc
@@ -498,7 +501,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 ############################     RUN EXAMPLE      #############################
 ###############################################################################
 ###############################################################################
-if __name__ == "__main__":
+def main():
     t000 = time.time()
     cwd = Path(__file__).parent
 
@@ -507,20 +510,15 @@ if __name__ == "__main__":
     params_flow = flowsolverparameters.ParamFlow(Re=100)
     params_flow.uinf = 1.0
     params_flow.d = 1.0
-    params_flow.sensor_location = np.array([[3, 0], [3.1, 1], [3.1, -1]])
-    params_flow.sensor_type = ["v", "v", "v"]
-    params_flow.actuator_angular_size = 10
-    params_flow.actuator_type = [flowsolverparameters.ACTUATOR_TYPE.BC]
 
     params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=5, path_out=cwd / "data_output"
     )
-    params_save.compute_norms = True
 
     params_solver = flowsolverparameters.ParamSolver(
-        throw_error=True, is_eq_nonlinear=True, ic_add_perturbation=1
+        throw_error=True, is_eq_nonlinear=True, ic_add_perturbation=1.0, shift=0.0
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
@@ -530,8 +528,16 @@ if __name__ == "__main__":
     params_mesh.xinfa = -10
     params_mesh.yinf = 10
 
-    params_restart = flowsolverparameters.ParamRestart(
-        save_every_old=5, restart_order=2, dt_old=0.005, Trestartfrom=0.05
+    params_restart = flowsolverparameters.ParamRestart()
+
+    params_control = flowsolverparameters.ParamControl(
+        sensor_location=np.array([[3, 0], [3.1, 1], [3.1, -1]]),
+        sensor_type=[flowsolverparameters.SENSOR_TYPE.V] * 3,
+        sensor_number=3,
+        actuator_type=[flowsolverparameters.ACTUATOR_TYPE.BC],
+        actuator_location=np.array([[3, 0]]),
+        actuator_number=2,
+        actuator_parameters=dict(angular_size_deg=10),
     )
 
     fs = CylinderFlowSolver(
@@ -541,7 +547,8 @@ if __name__ == "__main__":
         params_solver=params_solver,
         params_mesh=params_mesh,
         params_restart=params_restart,
-        verbose=2,
+        params_control=params_control,
+        verbose=5,
     )
 
     logger.info("__init__(): successful!")
@@ -564,7 +571,7 @@ if __name__ == "__main__":
     logger.info("Step several times")
     Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=0)
 
-    for i in range(fs.params_time.num_steps):
+    for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
         fs.step(u_ctrl=u_ctrl)
@@ -572,9 +579,17 @@ if __name__ == "__main__":
     flu.summarize_timings(fs, t000)
     fs.write_timeseries()
 
-    ################################################
-    params_time_restart = params_time
-    params_time_restart.Tstart = 0.05
+    ################################################################################################
+    ################################################################################################
+    params_time_restart = flowsolverparameters.ParamTime(
+        num_steps=10, dt=0.005, Tstart=0.05
+    )
+    params_restart = flowsolverparameters.ParamRestart(
+        save_every_old=5,
+        restart_order=2,
+        dt_old=0.005,
+        Trestartfrom=0.0,
+    )
 
     fs_restart = CylinderFlowSolver(
         params_flow=params_flow,
@@ -583,13 +598,14 @@ if __name__ == "__main__":
         params_solver=params_solver,
         params_mesh=params_mesh,
         params_restart=params_restart,
-        verbose=3,
+        params_control=params_control,
+        verbose=5,
     )
 
     fs_restart.load_steady_state()
-    fs_restart.initialize_time_stepping(Tstart=fs.params_time.Tstart)
+    fs_restart.initialize_time_stepping(Tstart=fs_restart.params_time.Tstart)
 
-    for i in range(fs_restart.params_time.num_steps):
+    for _ in range(fs_restart.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs_restart.params_time.dt)
         fs_restart.step(u_ctrl=u_ctrl)
@@ -603,8 +619,8 @@ if __name__ == "__main__":
     logger.info("Testing max(u) and mean(u)...")
     u_max_ref = 1.6346180053658963
     u_mean_ref = -0.0010055159332704045
-    u_max = flu.apply_fun(fs.u_, np.max)
-    u_mean = flu.apply_fun(fs.u_, np.mean)
+    u_max = flu.apply_fun(fs_restart.u_, np.max)
+    u_mean = flu.apply_fun(fs_restart.u_, np.mean)
 
     logger.info(f"umax: {u_max} // {u_max_ref}")
     logger.info(f"umean: {u_mean} // {u_mean_ref}")
@@ -619,3 +635,5 @@ if __name__ == "__main__":
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
+if __name__ == "__main__":
+    main()

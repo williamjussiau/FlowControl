@@ -1,19 +1,19 @@
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import IntEnum
 from pathlib import Path
 import numpy as np
 
 
-class ACTUATOR_TYPE(Enum):
+class ACTUATOR_TYPE(IntEnum):
     BC = 1
     FORCE = 2
 
 
-class SENSOR_TYPE(Enum):
-    U = 1
-    V = 2
-    P = 3
-    OTHER = 4
+class SENSOR_TYPE(IntEnum):
+    U = 0
+    V = 1
+    P = 2
+    OTHER = 5
 
 
 @dataclass
@@ -49,13 +49,19 @@ class ParamControl:
     . case-specific sensor parameters
     . actuator parameters"""
 
-    sensor_location: np.array
+    sensor_location: np.ndarray[int, float] = field(
+        default_factory=lambda: np.empty(shape=(0, 2), dtype=float)
+    )
     sensor_number: int = 0
     sensor_type: list[SENSOR_TYPE] = field(default_factory=list)
+    sensor_parameters: dict = field(default_factory=dict)
 
-    actuator_location: np.array
+    actuator_location: np.ndarray[int, float] = field(
+        default_factory=lambda: np.empty(shape=(0, 2), dtype=float)
+    )
     actuator_number: int = 0
     actuator_type: list[ACTUATOR_TYPE] = field(default_factory=list)
+    actuator_parameters: dict = field(default_factory=dict)
 
 
 @dataclass
