@@ -512,12 +512,10 @@ if __name__ == "__main__":
     params_flow.actuator_angular_size = 10
     params_flow.actuator_type = [flowsolverparameters.ACTUATOR_TYPE.BC]
 
-    params_time = flowsolverparameters.ParamTime(
-        num_steps=10, dt=0.005, Tstart=0.0, Trestartfrom=0.0, restart_order=2
-    )
+    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=5, save_every_old=5, path_out=cwd / "data_output"
+        save_every=5, path_out=cwd / "data_output"
     )
     params_save.compute_norms = True
 
@@ -532,12 +530,17 @@ if __name__ == "__main__":
     params_mesh.xinfa = -10
     params_mesh.yinf = 10
 
+    params_restart = flowsolverparameters.ParamRestart(
+        save_every_old=5, restart_order=2, dt_old=0.005, Trestartfrom=0.05
+    )
+
     fs = CylinderFlowSolver(
         params_flow=params_flow,
         params_time=params_time,
         params_save=params_save,
         params_solver=params_solver,
         params_mesh=params_mesh,
+        params_restart=params_restart,
         verbose=2,
     )
 
@@ -572,7 +575,6 @@ if __name__ == "__main__":
     ################################################
     params_time_restart = params_time
     params_time_restart.Tstart = 0.05
-    params_time_restart.dt_old = 0.005
 
     fs_restart = CylinderFlowSolver(
         params_flow=params_flow,
@@ -580,6 +582,7 @@ if __name__ == "__main__":
         params_save=params_save,
         params_solver=params_solver,
         params_mesh=params_mesh,
+        params_restart=params_restart,
         verbose=3,
     )
 

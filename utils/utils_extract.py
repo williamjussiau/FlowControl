@@ -178,7 +178,7 @@ def print_progress(fs, runtime):
             fs.iter,
             fs.params_time.num_steps,
             fs.t,
-            fs.params_time.Tf + fs.params_time.Tstart,
+            fs.params_time.Tfinal + fs.params_time.Tstart,
             runtime,
         )
     )

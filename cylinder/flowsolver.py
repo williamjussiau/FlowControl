@@ -30,6 +30,7 @@ class FlowSolver(ABC):
         params_save: flowsolverparameters.ParamSave,
         params_solver: flowsolverparameters.ParamSolver,
         params_mesh: flowsolverparameters.ParamMesh,
+        params_restart: flowsolverparameters.ParamRestart,
         verbose: int = 1,
     ) -> None:
         self.params_flow = params_flow
@@ -37,9 +38,8 @@ class FlowSolver(ABC):
         self.params_save = params_save
         self.params_solver = params_solver
         self.params_mesh = params_mesh
+        self.params_restart = params_restart
         self.verbose = verbose
-
-        self.params_time.Tf = self.params_time.num_steps * self.params_time.dt
 
         self.params_flow.sensor_nr = self.params_flow.sensor_location.shape[0]
 
@@ -92,7 +92,7 @@ class FlowSolver(ABC):
         Tstart = self.params_time.Tstart
         ext_Tstart = make_file_extension(Tstart)
         # use older files starting from time...
-        Trestartfrom = self.params_time.Trestartfrom
+        Trestartfrom = self.params_restart.Trestartfrom
         ext_Trestart = make_file_extension(Trestartfrom)
 
         ext_xdmf = ".xdmf"
@@ -190,7 +190,7 @@ class FlowSolver(ABC):
         if self.verbose:
             logger.info(
                 f"Starting or restarting from time: {Tstart} "
-                f"with temporal scheme order: {self.params_time.restart_order}"
+                f"with temporal scheme order: {self.params_restart.restart_order}"
             )
 
         if Tstart == 0.0:
@@ -225,7 +225,9 @@ class FlowSolver(ABC):
             # work in parallel?
             self.ic.up.vector()[:] = self.get_B().reshape((-1,))
         elif self.ic.misc["perturbation"] != 0.0:
-            logger.debug("Found ic perturbation: {0}".format(self.ic.misc["perturbation"]))
+            logger.debug(
+                "Found ic perturbation: {0}".format(self.ic.misc["perturbation"])
+            )
             udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
             pert0 = self.merge(u=udiv0, p=flu.projectm(self.UPsteady.p, self.P))
             self.ic.up.vector()[:] += self.ic.misc["perturbation"] * pert0.vector()[:]
@@ -247,10 +249,10 @@ class FlowSolver(ABC):
         return u_, p_, u_n, u_nn, p_n
 
     def _initialize_at_time(self, Tstart) -> tuple[dolfin.Function, ...]:
-        self.order = self.params_time.restart_order  # 2
+        self.order = self.params_restart.restart_order  # 2
 
-        idxstart = (Tstart - self.params_time.Trestartfrom) / (
-            self.params_time.dt_old * self.params_save.save_every_old
+        idxstart = (Tstart - self.params_restart.Trestartfrom) / (
+            self.params_restart.dt_old * self.params_restart.save_every_old
         )
         idxstart = int(np.floor(idxstart))
 
@@ -330,7 +332,7 @@ class FlowSolver(ABC):
     def _make_varf_order1(self, up, vq, U0, u_n, shift) -> dolfin.Form:
         (u, p) = up
         (v, q) = vq
-        b0_1 = 1 if self.params_flow.is_eq_nonlinear else 0
+        b0_1 = 1 if self.params_solver.is_eq_nonlinear else 0
         invRe = dolfin.Constant(1 / self.params_flow.Re)
         dt = dolfin.Constant(self.params_time.dt)
         F1 = (
@@ -348,7 +350,7 @@ class FlowSolver(ABC):
     def _make_varf_order2(self, up, vq, U0, u_n, u_nn, shift) -> dolfin.Form:
         (u, p) = up
         (v, q) = vq
-        if self.params_flow.is_eq_nonlinear:
+        if self.params_solver.is_eq_nonlinear:
             b0_2, b1_2 = 2, -1
         else:
             b0_2, b1_2 = 0, 0
@@ -368,7 +370,7 @@ class FlowSolver(ABC):
         return F2
 
     def _prepare_systems(self, up, vq, u_n, u_nn) -> None:
-        shift = dolfin.Constant(self.params_flow.shift)
+        shift = dolfin.Constant(self.params_solver.shift)
         # 1st order integration
         F1 = self._make_varf(
             order=1,
