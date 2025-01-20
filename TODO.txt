@@ -1,7 +1,6 @@
 ## Short-term
 
 # subfields .time, .fem, .control, .geometry, .primitives?
-# in geometry, add dict lim["xinf"], lim["xinfa"] (user-defined)?
 # + FlowField current (u,p,up)?
 
 # sub classes for rendre flowsolver less big?
@@ -13,12 +12,12 @@
 ## Mid-term
 # sort utility funs (_flowsolver, _extract, _debug)
 
-# MIMO support
+# MIMO support u_ctrl = list() -> probably not difficult to take into account???
 # + both kinds of actuation -> probably need "if" statements
 
 # Add tests to Controller (stepping, add/mul)
 
 
 ## Long-term
-# write_timeseries -> async somehow?
+# write_timeseries -> async?
 # test parallel

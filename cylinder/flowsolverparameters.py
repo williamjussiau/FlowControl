@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 import numpy as np
@@ -9,6 +9,13 @@ class ACTUATOR_TYPE(Enum):
     FORCE = 2
 
 
+class SENSOR_TYPE(Enum):
+    U = 1
+    V = 2
+    P = 3
+    OTHER = 4
+
+
 @dataclass
 class ParamFlow:
     """Parameters related to flow configuration
@@ -17,8 +24,6 @@ class ParamFlow:
     """
 
     Re: float
-    shift: float = 0.0
-    is_eq_nonlinear: bool = True
 
 
 @dataclass
@@ -45,7 +50,12 @@ class ParamControl:
     . actuator parameters"""
 
     sensor_location: np.array
-    # additional case specific sensor/actuator param
+    sensor_number: int = 0
+    sensor_type: list[SENSOR_TYPE] = field(default_factory=list)
+
+    actuator_location: np.array
+    actuator_number: int = 0
+    actuator_type: list[ACTUATOR_TYPE] = field(default_factory=list)
 
 
 @dataclass
@@ -59,12 +69,21 @@ class ParamTime:
     restart_order
     """
 
-    num_steps: int
-    dt: float
-    Tstart: float = 0.0
-    Trestartfrom: float = 0.0
+    def __init__(self, num_steps, dt, Tstart=0.0):
+        self.num_steps = num_steps
+        self.dt = dt
+        self.Tstart = Tstart
+        self.Tfinal = num_steps * dt
+
+
+@dataclass
+class ParamRestart:
+    """For restart only?"""
+
+    save_every_old: int = 0
     restart_order: int = 2
     dt_old: float = 0.0
+    Trestartfrom: float = 0.0
 
 
 @dataclass
@@ -77,7 +96,6 @@ class ParamSave:
 
     path_out: Path
     save_every: int
-    save_every_old: int
 
 
 @dataclass
@@ -86,8 +104,9 @@ class ParamSolver:
     But not really since init_pert is initial condition"""  # --> do Param_IC?
 
     throw_error: bool = True
-    is_eq_nonlinear: bool = True
     ic_add_perturbation: float = 0.0
+    shift: float = 0.0
+    is_eq_nonlinear: bool = True
 
 
 @dataclass
