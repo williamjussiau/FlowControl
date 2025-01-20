@@ -10,10 +10,6 @@
 
 # get A, B, C -> can do general form?
 
-# cylinder-specific: redefine boundaries (esp. actuation)
-# more easily -> "x in range, y in range, close to boundary"
-
-
 ## Mid-term
 # sort utility funs (_flowsolver, _extract, _debug)
 

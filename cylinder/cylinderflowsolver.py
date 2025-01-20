@@ -74,43 +74,57 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         # Compiled subdomains (str)
         # = increased speed but decreased readability
 
-        def between_cpp(x: str, xmin: str, xmax: str, tol: str="0.0"):
+        def between_cpp(x: str, xmin: str, xmax: str, tol: str = "0.0"):
             return f"{x}>={xmin}-{tol} && {x}<={xmax}+{tol}"
-        
+
         and_cpp = " && "
         or_cpp = " || "
         on_boundary_cpp = "on_boundary"
 
-        radius = self.params_flow.d/2
-        ldelta = radius * np.sin(self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180)
-        
-        #close_to_cylinder_cpp = between_cpp("x[0]*x[0] + x[1]*x[1]", "0", "2*radius*radius")
-        close_to_cylinder_cpp = between_cpp("x[0]", "-radius", "radius") + and_cpp + between_cpp("x[1]", "-radius", "radius") 
+        radius = self.params_flow.d / 2
+        ldelta = radius * np.sin(
+            self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180
+        )
+
+        # close_to_cylinder_cpp = between_cpp("x[0]*x[0] + x[1]*x[1]", "0", "2*radius*radius")
+        close_to_cylinder_cpp = (
+            between_cpp("x[0]", "-radius", "radius")
+            + and_cpp
+            + between_cpp("x[1]", "-radius", "radius")
+        )
         cylinder_boundary_cpp = on_boundary_cpp + and_cpp + close_to_cylinder_cpp
 
-        cone_up_cpp = between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01") + and_cpp + between_cpp("x[1]", "0", "radius")
-        cone_lo_cpp = between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01") + and_cpp + between_cpp("x[1]", "-radius", "0")
-        
+        cone_up_cpp = (
+            between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01")
+            + and_cpp
+            + between_cpp("x[1]", "0", "radius")
+        )
+        cone_lo_cpp = (
+            between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01")
+            + and_cpp
+            + between_cpp("x[1]", "-radius", "0")
+        )
+
         cone_le_cpp = between_cpp("x[0]", "-radius", "-ldelta")
         cone_ri_cpp = between_cpp("x[0]", "ldelta", "radius")
 
-        
         cylinder = dolfin.CompiledSubDomain(
-            cylinder_boundary_cpp + and_cpp + "(" + cone_le_cpp + or_cpp + cone_ri_cpp + ")",
+            cylinder_boundary_cpp
+            + and_cpp
+            + "("
+            + cone_le_cpp
+            + or_cpp
+            + cone_ri_cpp
+            + ")",
             radius=radius,
-            ldelta=ldelta
-            )
+            ldelta=ldelta,
+        )
         actuator_up = dolfin.CompiledSubDomain(
-            cylinder_boundary_cpp + and_cpp + cone_up_cpp,
-            radius=radius,
-            ldelta=ldelta
+            cylinder_boundary_cpp + and_cpp + cone_up_cpp, radius=radius, ldelta=ldelta
         )
         actuator_lo = dolfin.CompiledSubDomain(
-            cylinder_boundary_cpp + and_cpp + cone_lo_cpp,
-            radius=radius,
-            ldelta=ldelta
+            cylinder_boundary_cpp + and_cpp + cone_lo_cpp, radius=radius, ldelta=ldelta
         )
-
 
         # assign boundaries as pd.DataFrame
         boundaries_names = [
@@ -200,10 +214,17 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         # TODO
         # return actuator type (vol, bc)
         # + MIMO -> list
-        L = self.params_flow.d / 2 * np.sin(self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180)
+        L = (
+            self.params_flow.d
+            / 2
+            * np.sin(self.params_flow.actuator_angular_size / 2 * dolfin.pi / 180)
+        )
         nsig = 2  # self.nsig_actuator
         actuator_bc = dolfin.Expression(
-            ["0", "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)"], # keeps subdomain definition in check
+            [
+                "0",
+                "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)",
+            ],  # keeps subdomain definition in check
             element=self.V.ufl_element(),
             ampl=1,
             L=L,
@@ -523,7 +544,9 @@ if __name__ == "__main__":
     logger.info("__init__(): successful!")
 
     logger.info("Exporting subdomains...")
-    flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf")
+    flu.export_subdomains(
+        fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
+    )
 
     logger.info("Compute steady state...")
     uctrl0 = 0.0
