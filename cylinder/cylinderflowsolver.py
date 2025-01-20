@@ -242,7 +242,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         """Overriding is useless, should do an additional method"""
         super().compute_steady_state(method, u_ctrl, **kwargs)
         # assign steady cl, cd
-        cl, cd = self.compute_force_coefficients(self.U0, self.P0)
+        cl, cd = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
 
         self.cl0 = cl
         self.cd0 = cd
@@ -266,7 +266,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         shift = dolfin.Constant(shift)
 
         if UP0 is None:
-            UP_ = self.UP0  # base flow
+            UP_ = self.fields.UP0  # base flow
         else:
             UP_ = UP0
         U_, p_ = UP_.split()
@@ -562,7 +562,7 @@ def main():
     uctrl0 = 0.0
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.UP0
+        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
 
     logger.info("Init time-stepping")
@@ -616,11 +616,13 @@ def main():
     logger.info("Checking utilitary functions")
     fs.get_A()
 
+    logger.info(fs_restart.timeseries)
+
     logger.info("Testing max(u) and mean(u)...")
     u_max_ref = 1.6346180053658963
     u_mean_ref = -0.0010055159332704045
-    u_max = flu.apply_fun(fs_restart.u_, np.max)
-    u_mean = flu.apply_fun(fs_restart.u_, np.mean)
+    u_max = flu.apply_fun(fs_restart.fields.Usave, np.max)
+    u_mean = flu.apply_fun(fs_restart.fields.Usave, np.mean)
 
     logger.info(f"umax: {u_max} // {u_max_ref}")
     logger.info(f"umean: {u_mean} // {u_mean_ref}")
@@ -628,7 +630,6 @@ def main():
     assert np.isclose(u_max, u_max_ref)
     assert np.isclose(u_mean, u_mean_ref)
 
-    logger.info(fs_restart.timeseries)
     logger.info("End with success")
 
 
