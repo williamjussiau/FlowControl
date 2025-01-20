@@ -21,3 +21,11 @@
 ## Long-term
 # write_timeseries -> async?
 # test parallel
+
+
+# CRITICAL NOTE TO SELF:
+# do not do:
+# u, p = up.split(deepcopy=False)
+# write(u)
+# write(p)
+# because it somewhat messes up the FunctionSpaces
