@@ -726,7 +726,7 @@ def export_subdomains(mesh, subdomains_list, filename="subdomains.xdmf"):
         subdomain.mark(subd, subdnr)
         logger.info("Marking subdomain nr: {0} ({1})".format(i + 1, subdnr))
     logger.info("Writing subdomains file: %s", filename)
-    with dolfin.XDMFFile(filename) as fsubd:
+    with dolfin.XDMFFile(str(filename)) as fsubd:
         fsubd.write(subd)
 
 
@@ -917,13 +917,13 @@ def summarize_timings(fs, t0=None, dolfin_timings=False):
     if fs.iter > 3:
         if t0 is not None:
             logger.info("Total time is: %f", time.time() - t0)
-        logger.info("Iteration 1 time     --- %f", fs.timeseries.loc[1, "runtime"])
-        logger.info("Iteration 2 time     --- %f", fs.timeseries.loc[2, "runtime"])
+        logger.info("Iteration 1 time     --- %E", fs.timeseries.loc[1, "runtime"])
+        logger.info("Iteration 2 time     --- %E", fs.timeseries.loc[2, "runtime"])
         logger.info(
-            "Mean iteration time  --- %f", np.mean(fs.timeseries.loc[3:, "runtime"])
+            "Mean iteration time  --- %E", np.mean(fs.timeseries.loc[3:, "runtime"])
         )
         logger.info(
-            "Time/iter/dof        --- %f",
+            "Time/iter/dof        --- %E",
             np.mean(fs.timeseries.loc[3:, "runtime"]) / fs.W.dim(),
         )
     if dolfin_timings:
