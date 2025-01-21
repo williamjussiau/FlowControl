@@ -464,7 +464,8 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         nu = self.params_flow.uinf * self.params_flow.d / self.params_flow.Re
 
         sigma = flu2.stress_tensor(nu, u, p)
-        Fo = -dot(sigma, self.n)
+        facet_normals = dolfin.FacetNormal(self.mesh)
+        Fo = -dot(sigma, facet_normals)
 
         # integration surfaces names
         surfaces_names = ["cylinder", "actuator_up", "actuator_lo"]
