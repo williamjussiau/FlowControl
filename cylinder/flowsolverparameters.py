@@ -113,14 +113,3 @@ class ParamSolver:
     ic_add_perturbation: float = 0.0
     shift: float = 0.0
     is_eq_nonlinear: bool = True
-
-
-@dataclass
-class ParamFlowSolver:
-    """Class gathering all parameters"""
-
-    param_flow: ParamFlow
-    param_mesh: ParamMesh
-    param_time: ParamTime
-    param_solver: ParamSolver
-    param_control: ParamControl
