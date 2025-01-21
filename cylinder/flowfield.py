@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass
 import dolfin
 
@@ -11,7 +12,7 @@ class FlowField:
     up: dolfin.Function
 
     @staticmethod
-    def generate(up):
+    def generate(up: dolfin.Function) -> FlowField:
         u, p = up.split(deepcopy=True)
         ff = FlowField(u=u, p=p, up=up)
         return ff

@@ -39,9 +39,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
     See method .step and main for time-stepping (possibly actuated)
     Contain methods for frequency-response computation"""
 
-    def __init__(self, **kwargs):  # redundant def
-        super().__init__(**kwargs)
-
     # Abstract methods
     def _make_boundaries(self):
         """Define boundaries (inlet, outlet, walls, cylinder, actuator)"""
@@ -179,7 +176,11 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
         return {"bcu": bcu, "bcp": []}  # log perturbation bcs
 
-    def make_measurement(self, field=None, mixed_field=None):
+    def make_measurement(
+        self,
+        field: dolfin.Function | None = None,
+        mixed_field: dolfin.Function | None = None,
+    ) -> np.ndarray:
         """Perform measurement"""
         ns = self.params_control.sensor_number
         y_meas = np.zeros((ns,))
@@ -207,7 +208,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             y_meas[isensor] = y_meas_i
         return y_meas
 
-    def _make_actuator(self):
+    def _make_actuator(self) -> dolfin.Expression:
         """Define actuator on boundary
         Could be defined as volume actuator some day"""
         # TODO
@@ -459,7 +460,9 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         return C
 
     # Additional, case-specific func
-    def compute_force_coefficients(self, u, p):  # keep this one in here
+    def compute_force_coefficients(
+        self, u: dolfin.Function, p: dolfin.Function
+    ) -> tuple[float, float]:  # keep this one in here
         """Compute lift & drag coefficients"""
         nu = self.params_flow.uinf * self.params_flow.d / self.params_flow.Re
 
