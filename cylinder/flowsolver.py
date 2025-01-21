@@ -155,7 +155,7 @@ class FlowSolver(ABC):
         self.boundaries["idx"] = list(boundaries_idx)
 
     def initialize_time_stepping(
-        self, Tstart=0.0, ic: dolfin.Function | None = None
+        self, Tstart: float = 0.0, ic: dolfin.Function | None = None
     ) -> None:
         """Create varitional functions/forms & flush files & define u(0), p(0)
         If Tstart is 0: ic is set in ic (or, if ic is None: = 0)
@@ -182,7 +182,9 @@ class FlowSolver(ABC):
 
         self.timeseries = self._initialize_timeseries()
 
-    def _initialize_with_ic(self, ic) -> tuple[dolfin.Function, ...]:
+    def _initialize_with_ic(
+        self, ic: dolfin.Function | None
+    ) -> tuple[dolfin.Function, ...]:
         self.order = 1
 
         if ic is None:  # then zero
@@ -222,7 +224,7 @@ class FlowSolver(ABC):
 
         return u_, p_, u_n, u_nn, p_n
 
-    def _initialize_at_time(self, Tstart) -> tuple[dolfin.Function, ...]:
+    def _initialize_at_time(self, Tstart: float) -> tuple[dolfin.Function, ...]:
         self.order = self.params_restart.restart_order  # 2
 
         idxstart = (Tstart - self.params_restart.Trestartfrom) / (
@@ -288,14 +290,14 @@ class FlowSolver(ABC):
         timeseries.loc[0, "dE"] = dE0
         return timeseries
 
-    def _make_solver(self, **kwargs):
+    def _make_solver(self, **kwargs) -> Any:
         """Define solvers"""
         # other possibilities: dolfin.KrylovSolver("bicgstab", "jacobi")
         # then solverparam = solver.paramters
         # solverparam[""]=...
         return dolfin.LUSolver("mumps")
 
-    def _make_varf(self, order, **kwargs) -> dolfin.Form:
+    def _make_varf(self, order: int, **kwargs) -> dolfin.Form:
         """Define equations"""
         if order == 1:
             F = self._make_varf_order1(**kwargs)
@@ -306,7 +308,14 @@ class FlowSolver(ABC):
             # There will be more important problems than this exception
         return F
 
-    def _make_varf_order1(self, up, vq, U0, u_n, shift) -> dolfin.Form:
+    def _make_varf_order1(
+        self,
+        up: tuple[dolfin.TrialFunction, dolfin.TrialFunction],
+        vq: tuple[dolfin.TestFunction, dolfin.TestFunction],
+        U0: dolfin.Function,
+        u_n: dolfin.Function,
+        shift: float,
+    ) -> dolfin.Form:
         (u, p) = up
         (v, q) = vq
         b0_1 = 1 if self.params_solver.is_eq_nonlinear else 0
@@ -324,7 +333,15 @@ class FlowSolver(ABC):
         )
         return F1
 
-    def _make_varf_order2(self, up, vq, U0, u_n, u_nn, shift) -> dolfin.Form:
+    def _make_varf_order2(
+        self,
+        up: tuple[dolfin.TrialFunction, dolfin.TrialFunction],
+        vq: tuple[dolfin.TestFunction, dolfin.TestFunction],
+        U0: dolfin.Function,
+        u_n: dolfin.Function,
+        u_nn: dolfin.Function,
+        shift: float,
+    ) -> dolfin.Form:
         (u, p) = up
         (v, q) = vq
         if self.params_solver.is_eq_nonlinear:
@@ -346,7 +363,13 @@ class FlowSolver(ABC):
         )
         return F2
 
-    def _prepare_systems(self, up, vq, u_n, u_nn) -> None:
+    def _prepare_systems(
+        self,
+        up: tuple[dolfin.TrialFunction, dolfin.TrialFunction],
+        vq: tuple[dolfin.TestFunction, dolfin.TestFunction],
+        u_n: dolfin.Function,
+        u_nn: dolfin.Function,
+    ) -> None:
         shift = dolfin.Constant(self.params_solver.shift)
         # 1st order integration
         F1 = self._make_varf(
@@ -384,7 +407,7 @@ class FlowSolver(ABC):
             self.assemblers[order] = systemAssembler
             self.solvers[order] = solver
 
-    def step(self, u_ctrl: float) -> np.array:
+    def step(self, u_ctrl: np.ndarray[int, float]) -> np.ndarray[int, float]:
         """Simulate system with perturbation formulation,
         possibly an actuation value, and a shift"""
         v, q = dolfin.TestFunctions(self.W)
@@ -469,7 +492,7 @@ class FlowSolver(ABC):
         return divider and not iter % divider
 
     def merge(
-        self, u: dolfin.Function = None, p: dolfin.Function = None
+        self, u: dolfin.Function | None = None, p: dolfin.Function | None = None
     ) -> dolfin.Function:
         """Split or merge field(s)
         if instruction is split: up -> (u,p)
@@ -545,7 +568,7 @@ class FlowSolver(ABC):
         )
 
     # Steady state
-    def _assign_steady_state(self, U0, P0) -> None:
+    def _assign_steady_state(self, U0: dolfin.Function, P0: dolfin.Function) -> None:
         UP0 = self.merge(u=U0, p=P0)
         self.fields.STEADY = FlowField.generate(UP0)
         self.fields.U0 = self.fields.STEADY.u
@@ -685,7 +708,7 @@ class FlowSolver(ABC):
     # Otherwise, reimplement this
     def _make_form_mixed_steady(
         self, initial_guess: dolfin.Function | None = None
-    ) -> None:
+    ) -> tuple[dolfin.Form, dolfin.Function]:
         """Make nonlinear forms for steady state computation, in mixed element space.
         Can be used to assign self.F0 and compute state spaces matrices."""
         v, q = dolfin.TestFunctions(self.W)
@@ -784,5 +807,5 @@ class FlowSolver(ABC):
         pass
 
     @abstractmethod
-    def make_measurement(self) -> np.array:
+    def make_measurement(self) -> np.ndarray:
         pass

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import control
 import numpy as np
 from pathlib import Path
@@ -9,18 +10,26 @@ class Controller(control.StateSpace):
     """Continuous only
     Tip: always use named arguments when constructing"""
 
-    x: np.array
+    x: np.ndarray
     file: Path = None
 
-    def __init__(self, A, B, C, D, file=None, x0=0):
+    def __init__(
+        self,
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+        file: Path = None,
+        x0: np.ndarray | None = None,
+    ):
         super().__init__(A, B, C, D)
         self.file = file
         self.x = x0
-        if np.asarray(x0).all() == 0:
+        if x0 is None:
             self.x = np.zeros((self.nstates,))
 
     @classmethod
-    def from_file(cls, file=None, x0=0):
+    def from_file(cls, file: Path = None, x0: np.ndarray | None = None) -> Controller:
         stateSpaceMatrices = flu.read_matfile(file)
         return cls(
             stateSpaceMatrices["A"],
@@ -32,10 +41,18 @@ class Controller(control.StateSpace):
         )
 
     @classmethod
-    def from_matrices(cls, A, B, C, D, file=None, x0=0):
+    def from_matrices(
+        cls,
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+        file: Path = None,
+        x0: np.ndarray | None = None,
+    ) -> Controller:
         return cls(A, B, C, D, x0=x0, file=file)
 
-    def step(self, y, dt):
+    def step(self, y: float, dt: float) -> float:
         # TODO make MIMO-compatible
         y_rep = np.repeat(np.atleast_2d(y), repeats=2, axis=0).T
         Tsim = [0, dt]
@@ -46,26 +63,26 @@ class Controller(control.StateSpace):
         self.x = xout[:, 1]
         return u
 
-    def __add__(self, other):
+    def __add__(self, other: Controller) -> Controller:
         return self._overload(other, super().__add__)
 
-    def __radd__(self, other):
+    def __radd__(self, other: Controller) -> Controller:
         return self._overload(other, super().__radd__)
 
-    def __mul__(self, other):
+    def __mul__(self, other: Controller) -> Controller:
         return self._overload(other, super().__mul__)
 
-    def __rmul__(self, other):
+    def __rmul__(self, other: Controller) -> Controller:
         return self._overload(other, super().__rmul__)
 
-    def inv(self):
+    def inv(self: Controller) -> Controller:
         invK = yu.ss_inv(self)
         return Controller(invK.A, invK.B, invK.C, invK.D)
 
-    def concatenate_states_with(self, other):
+    def concatenate_states_with(self, other: Controller) -> np.ndarray:
         return np.concatenate((self.x, other.x), axis=0)
 
-    def _overload(self, other, super_operator):
+    def _overload(self, other: Controller, super_operator) -> Controller:
         K = super_operator(other)
         # Cast as Controller instead of StateSpace
         K = Controller(A=K.A, B=K.B, C=K.C, D=K.D)
