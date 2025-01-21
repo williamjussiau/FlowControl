@@ -1,8 +1,5 @@
 ## Short-term
 
-# subfields .time, .fem, .control, .geometry, .primitives?
-# + FlowField current (u,p,up)?
-
 # sub classes for rendre flowsolver less big?
 
 # doc & type annotations

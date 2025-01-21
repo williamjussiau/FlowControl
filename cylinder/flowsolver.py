@@ -1,4 +1,5 @@
 from __future__ import print_function
+from typing import Any
 import flowsolverparameters
 from flowfield import FlowField, FlowFieldCollection
 import dolfin
@@ -46,7 +47,6 @@ class FlowSolver(ABC):
         ##
         self.paths = self._define_paths()
         self.mesh = self._make_mesh()
-        self.n = dolfin.FacetNormal(self.mesh)
         self.V, self.P, self.W = self._make_function_spaces()
         self.boundaries = self._make_boundaries()  # @abstract
         self._mark_boundaries()
@@ -107,9 +107,7 @@ class FlowSolver(ABC):
         params_mesh contains either name of existing mesh
         or geometry parameters: xinf, yinf, xinfa, nx..."""
 
-        if self.verbose:
-            logger.debug(f"Mesh exists @: {self.params_mesh.meshpath}")
-            logger.debug("--- Reading mesh...")
+        logger.info(f"Mesh exists @: {self.params_mesh.meshpath}")
 
         mesh = dolfin.Mesh(dolfin.MPI.comm_world)
         with dolfin.XDMFFile(
@@ -117,8 +115,7 @@ class FlowSolver(ABC):
         ) as fm:
             fm.read(mesh)
 
-        if self.verbose:
-            logger.debug(f"Mesh has: {mesh.num_cells()} cells")
+        logger.info(f"Mesh has: {mesh.num_cells()} cells")
 
         return mesh
 
@@ -130,10 +127,10 @@ class FlowSolver(ABC):
         V = dolfin.FunctionSpace(self.mesh, Ve)
         P = dolfin.FunctionSpace(self.mesh, Pe)
         W = dolfin.FunctionSpace(self.mesh, We)
-        if self.verbose:
-            logger.debug(
-                f"Function Space [V(CG2), P(CG1)] has: {P.dim()}+{V.dim()}={W.dim()} DOFs"
-            )
+
+        logger.debug(
+            f"Function Space [V(CG2), P(CG1)] has: {P.dim()}+{V.dim()}={W.dim()} DOFs"
+        )
 
         return V, P, W
 
@@ -164,11 +161,11 @@ class FlowSolver(ABC):
         If Tstart is 0: ic is set in ic (or, if ic is None: = 0)
         If Tstart is not 0: ic is computed from files
         """
-        if self.verbose:
-            logger.info(
-                f"Starting or restarting from time: {Tstart} "
-                f"with temporal scheme order: {self.params_restart.restart_order}"
-            )
+
+        logger.info(
+            f"Starting or restarting from time: {Tstart} "
+            f"with temporal scheme order: {self.params_restart.restart_order}"
+        )
 
         if Tstart == 0.0:
             logger.debug("Starting simulation from zero with IC")
@@ -401,8 +398,7 @@ class FlowSolver(ABC):
         p_n = self.fields.p_n
 
         if self.first_step:
-            if self.verbose:
-                logger.debug("Perturbations forms DO NOT exist: create...")
+            logger.debug("Perturbations forms DO NOT exist: create...")
             self._prepare_systems((u, p), (v, q), u_n, u_nn)
             self.first_step = False
 
@@ -520,8 +516,7 @@ class FlowSolver(ABC):
         for vec in [self.fields.Usave, self.fields.Usave_n, self.fields.Psave]:
             vec.vector().apply("insert")
 
-        if self.verbose:
-            logger.debug(f"saving to files {self.params_save.path_out}")
+        logger.debug(f"saving to files {self.params_save.path_out}")
 
         flu.write_xdmf(
             filename=self.paths["U_restart"],
@@ -597,8 +592,7 @@ class FlowSolver(ABC):
                 write_mesh=True,
             )
 
-        if self.verbose:
-            logger.debug(f"Stored base flow in: {self.params_save.path_out}")
+        logger.debug(f"Stored base flow in: {self.params_save.path_out}")
 
         self._assign_steady_state(U0=U0, P0=P0)
 
@@ -678,13 +672,11 @@ class FlowSolver(ABC):
             res = dolfin.assemble(dolfin.action(ap, UP1))
             [bc.apply(res) for bc in self.bc["bcu"]]
             res_norm = dolfin.norm(res) / dolfin.sqrt(self.W.dim())
-            if self.verbose:
-                logger.info(
-                    f"Picard iteration: {iter + 1}/{max_iter}, residual: {res_norm}"
-                )
+            logger.info(
+                f"Picard iteration: {iter + 1}/{max_iter}, residual: {res_norm}"
+            )
             if res_norm < tol:
-                if self.verbose:
-                    logger.info(f"Residual norm lower than tolerance {tol}")
+                logger.info(f"Residual norm lower than tolerance {tol}")
                 break
 
         return UP1
@@ -714,7 +706,7 @@ class FlowSolver(ABC):
         )
         return F0, UP0
 
-    def _make_BCs(self):
+    def _make_BCs(self) -> dict[str, Any]:
         # NOTE: inlet BC should be 1st always, and have (u,v)=(1,0)
         # NOTE
         # Impossible to modify existing BC without causing problems in the time-stepping
@@ -783,7 +775,7 @@ class FlowSolver(ABC):
         pass
 
     @abstractmethod
-    def _make_bcs(self) -> dict:
+    def _make_bcs(self) -> dict[str, Any]:
         pass
 
     @abstractmethod
