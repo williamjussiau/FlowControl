@@ -1,7 +1,12 @@
 ## Short-term
 
+# presentation page on github (with photos)
+
+# redo file tree
+
+# docker
+
 # doc
-# type annotations
 
 # MIMO support u_ctrl = list() -> probably not difficult to take into account???
 # + both kinds of actuation -> probably need "if" statements
