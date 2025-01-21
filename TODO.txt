@@ -1,21 +1,26 @@
 ## Short-term
 
-# sub classes for rendre flowsolver less big?
-
-# doc & type annotations
-
-# get A, B, C -> can do general form?
-
-## Mid-term
-# sort utility funs (_flowsolver, _extract, _debug)
+# doc
+# type annotations
 
 # MIMO support u_ctrl = list() -> probably not difficult to take into account???
 # + both kinds of actuation -> probably need "if" statements
 
-# Add tests to Controller (stepping, add/mul)
+
+
+## Mid-term
+# sort (& check & rm) utility funs (_flowsolver, _extract, _debug)
+
+# cavity
+# and why not cylinder with volume force (would work with MIMO/actuation support)
+
+# get A, B, C -> (more) general form?
+
+
 
 
 ## Long-term
+# Add tests to Controller (stepping, add/mul)
 # write_timeseries -> async?
 # test parallel
 
@@ -25,4 +30,4 @@
 # u, p = up.split(deepcopy=False)
 # write(u)
 # write(p)
-# because it somewhat messes up the FunctionSpaces
+# because it somewhat messes up the FunctionSpaces apparently

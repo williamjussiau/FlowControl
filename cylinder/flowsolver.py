@@ -368,6 +368,7 @@ class FlowSolver(ABC):
             shift=shift,
         )
 
+        self.forms = {1: F1, 2: F2}
         self.assemblers = dict()
         self.solvers = dict()
         self.rhs = dolfin.Vector()
