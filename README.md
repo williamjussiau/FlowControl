@@ -24,7 +24,7 @@ Docker may be coming soon.
 ## What the toolbox offers
 ### Simulation
 + By default, the toolbox integrates in time the
-**Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = [v_1({x}, t), v_2({x}, t]$ and pressure $p({x}, t)$ inside a domain ${x} = [x_1, x_2] \in\Omega$, the equations read as follows:
+**Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = [v_1({x}, t), v_2({x}, t)]$ and pressure $p({x}, t)$ inside a domain ${x} = [x_1, x_2] \in\Omega$, the equations read as follows:
 
 
 
@@ -60,19 +60,20 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 
 
 
-
-#### Flow past a cylinder at Re=100
-##### Base flow
+---
+---
+### Flow past a cylinder at Re=100
+#### Base flow
 <p align="center">
 <img src="illustration/cylinder_baseflow.png" alt="Stationary solution of the flow past a cylinder at Re=100. The base flow is symetric with respect to the axis x_2=0 and features a long recirculation bubble after the cylinder obstacle." width="400"/>
 </p>
 
-##### Periodic attractor (stable limit cycle)
+#### Periodic attractor (stable limit cycle)
 <p align="center">
 <img src="illustration/cylinder_attractor.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100. The vortex shedding exhibits symmetry around the x_2=0 axis and vortices are shed periodically." width="400"/>
 </p>
 
-##### Feedback configuration
+#### Feedback configuration
 The default feedback configuration (same as in [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. IEEE Control Systems Letters, 6, 3212-3217.](https://hal.science/hal-03947469/document)) is as follows:
 * Spanwise velocity measurement $y(t)=v_2({x_s}, t)$ at ${x_s} = [3, 0]$,
 
@@ -91,15 +92,16 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 
 
 
-
-#### Flow over an open cavity at Re=7500
-##### Base flow
+---
+---
+### Flow over an open cavity at Re=7500
+#### Base flow
 <p align="center">
 <img src="illustration/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
 </p>
 
 
-##### Quasi-periodic attractor
+#### Quasi-periodic attractor
 <p align="center">
 <img src="illustration/cavity_attractor.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
 </p>
@@ -112,7 +114,7 @@ Contrary to the cylinder, the attractor on the cavity at Re=7500 is quasi-period
 </p>
 
 
-##### Feedback configuration
+#### Feedback configuration
 The default feedback configuration (same as in [Leclercq et al. (2019). Linear iterative method for closed-loop control of quasiperiodic flows. Journal of Fluid Mechanics, 868, 26-65.](https://hal.science/hal-02296280/document)) is as follows:
 *  Actuation is produced near the upstream edge of the cavity by a volume force $f({x}, t)=B({x}) u(t)$ in the momentum equation, acting on the cross-stream velocity, with:
 
@@ -130,6 +132,8 @@ $$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \righ
 </p>
 
 
+---
+---
 ## Code overview
 The simulation revolves around the abstract class ```FlowSolver``` that implements core features such as loading mesh, defining function spaces, trial/test functions, variational formulations, numerical schemes and solvers, handling the time-stepping and exporting information. The class is abstract as it does not implement a simulation case _per se_, but only provides utility for doing so. It features four abstract methods, that are redefined for each use-case:
 
