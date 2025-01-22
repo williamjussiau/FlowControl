@@ -20,6 +20,9 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 ### Simulation
 + By default, the toolbox integrates in time the
 **Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = \begin{bmatrix} v_1({x}, t) \\\ v_2({x}, t) \end{bmatrix}$ and pressure $p({x}, t)$ inside a domain ${x} = \begin{bmatrix} x_1 \\\ x_2 \end{bmatrix}\in\Omega$, the equations read as follows:
+
+$\begin{bmatrix}A1 &A2 & A3\\A4 & A5 & A6 \end{bmatrix}$
+
 ```math
 \left\{
 \begin{aligned} 
@@ -87,17 +90,20 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 ##### Quasi-periodic attractor
 <img src="illustration/cavity_attractor.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
 
-Contrary to the cylinder, the attractor on the cavity at Re=7500 is quasi-periodic (featuring two incommensurable frequencies in its frequency spectrum):
+Contrary to the cylinder, the attractor on the cavity at Re=7500 is quasi-periodic (featuring two incomemnsurable frequencies in its frequency spectrum):
+
 <img src="illustration/cavity_timeresp_zoom.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
 
 ##### Feedback configuration
 The default feedback configuration (same as in [Leclercq et al. (2019). Linear iterative method for closed-loop control of quasiperiodic flows. Journal of Fluid Mechanics, 868, 26-65.](https://hal.science/hal-02296280/document)) is as follows:
 *  Actuation is produced near the upstream edge of the cavity by a volume force $f({x}, t)=B({x}) u(t)$ in the momentum equation, acting on the cross-stream velocity, with:
+
 $$B({x})=\left[ 0, \eta \exp\left( \frac{\left(x_1 - x_1^0\right)^2 + \left(x_2 - x_2^0\right)^2}{2\sigma_0^2}  \right), 0 \right]^T$$
 By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just before the cavity and slightly above the wall. The amplitude $\eta\approx 8.25$ is chosen such that $\int_\Omega B({x})^T B({x}) d\Omega = 1$. The spatial extent of the actuation is set by $\sigma_0 = 0.0849$, making the force reach $50\%$ of its peak value at a distance $0.1$ from its center.
 
 
 *  The measurement is made through wall friction on the bottom wall just downstream of the cavity:
+
 $$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \right\rvert_{x_2=0} dx_1$$
 
 <img src="illustration/cavity_domain.png" alt="Stationary solution of the flow past a cylinder at Re=100" width="400"/>
