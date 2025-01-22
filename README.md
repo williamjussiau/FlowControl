@@ -21,8 +21,8 @@ The core of the toolbox is in Python and relies on the backend [FEniCS](https://
 #### Cylinder
 
 #### Cavity
-![Snapshot of the attractor of the flow over an open cavity at Re=7500](illutration/cavity_attractor.png)
-![Minion](https://octodex.github.com/images/minion.png)
+![Snapshot of the attractor of the flow over an open cavity at Re=7500](/illustration/cavity_attractor.png)
+
 
 ### Define new benchmark
 Modify parameters: Re, actuators, sensors
