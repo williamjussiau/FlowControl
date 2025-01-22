@@ -18,10 +18,6 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 <img src="illustration/cylinder_lic.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100 and depiction of streamlines." width="700"/>
 </p>
 
-## Installation
-The ```conda``` environment required to run the code can be extracted from the file ```environment.yml```.
-
-Docker [coming soon]
 
 
 ## What the toolbox offers
@@ -66,7 +62,7 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 ---
 ---
 ### Flow past a cylinder at Re=100
-#### Base flow
+#### Stationary solution
 <p align="center">
 <img src="illustration/cylinder_baseflow.png" alt="Stationary solution of the flow past a cylinder at Re=100. The base flow is symetric with respect to the axis x_2=0 and features a long recirculation bubble after the cylinder obstacle." width="400"/>
 </p>
@@ -98,7 +94,7 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 ---
 ---
 ### Flow over an open cavity at Re=7500
-#### Base flow
+#### Stationary solution
 <p align="center">
 <img src="illustration/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
 </p>
@@ -137,6 +133,12 @@ $$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \righ
 
 ---
 ---
+## Installation
+The ```conda``` environment required to run the code can be extracted from the file ```environment.yml```.
+
+Docker [coming soon]
+
+
 ## Code overview
 The simulation revolves around the abstract class ```FlowSolver``` that implements core features such as loading mesh, defining function spaces, trial/test functions, variational formulations, numerical schemes and solvers, handling the time-stepping and exporting information. The class is abstract as it does not implement a simulation case _per se_, but only provides utility for doing so. It features four abstract methods, that are redefined for each use-case:
 
