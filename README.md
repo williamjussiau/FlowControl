@@ -14,11 +14,14 @@ The toolbox implements two benchmarks for flow control and is designed to allow 
 
 The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fenicsproject.org/) as a backend.
 
+<p align="center">
+<img src="illustration/cylinder_lic.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100 and depiction of streamlines." width="700"/>
+</p>
 
 ## Installation
 The ```conda``` environment required to run the code can be extracted from the file ```environment.yml```.
 
-Docker [coming soon].
+Docker [coming soon]
 
 
 ## What the toolbox offers
@@ -87,7 +90,7 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 </p>
 
 <p align="center">
-<img src="illustration/cylinder_domain.png" alt="Visual description of the feedback configuration of the cylinder. The cross-stream velocity sensor (black dot) in the wake (red wave) can be fed to the controller K (in blue) and conveyed back to the actuators at the poles of the cylinder (in green)." width="400"/>
+<img src="illustration/cylinder_domain.png" alt="Description of the feedback configuration of the cylinder. The cross-stream velocity sensor (black dot) in the wake (red wave) can be fed to the controller K (in blue) and conveyed back to the actuators at the poles of the cylinder (in green)." width="400"/>
 </p>
 
 
@@ -128,7 +131,7 @@ By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just 
 $$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \right\rvert_{x_2=0} dx_1$$
 
 <p align="center">
-<img src="illustration/cavity_domain.png" alt="Stationary solution of the flow past a cylinder at Re=100" width="400"/>
+<img src="illustration/cavity_domain.png" alt="Visual description of the feedback configuration of the cavity. The wall friction is measured on the bottom wall downstream of the cavity, then fed to a controller K, which produces an input signal u(t) modifying the amplitude of a volumic force before the cavity." width="400"/>
 </p>
 
 
@@ -184,17 +187,17 @@ See examples for a more detailed description.
 
 
 ### Meshing tools
-No meshing tools are shipped with this code, but ```gmsh``` (and its Python API) are good candidates for generating meshes for a particular use-case. The mesh should be exported to ```xdmf``` format, which can be reached thanks to the Python package [meshio](https://github.com/nschloe/meshio/tree/main).
+No meshing tools are shipped with this code, but [gmsh](https://gmsh.info/) (and [its Python API](https://pypi.org/project/gmsh/)) are suggested for generating meshes. The mesh should be exported to ```xdmf``` format, which can be reached thanks to [meshio](https://github.com/nschloe/meshio/tree/main).
 
 ### Visualization
-All visualizations can be made with Paraview, whether it be for CSV timeseries or fields (saved as ```xdmf```).
+[Paraview](https://www.paraview.org/) is suggested for visualizations, whether it be for CSV timeseries or fields saved as ```xdmf```.
 
 ### Additional used of the toolbox
 The toolbox provides additional utility related to flow control:
 * Compute dynamic operators A, B, C, D and mass matrix E,
 * Restart a simulation from given field,
 * Arbitrary number of sensors,
-* Export fields for visualization,
+* Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
 * Parallel execution native to FEniCS,
 * To some extent, easy modification of the equations, numerical schemes and solvers used for time simulation,
 * Can be used as backend in an optimization tool (as in [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. IEEE Control Systems Letters, 6, 3212-3217.](https://hal.science/hal-03947469/document)).
