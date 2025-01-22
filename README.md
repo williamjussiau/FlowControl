@@ -19,12 +19,12 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 
 ### Simulation
 + By default, the toolbox integrates in time the
-**Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity $\bm{v}(\bm{x}, t) = \begin{bmatrix} v_1(\bm{x}, t) \\ v_2(\bm{x}, t) \end{bmatrix}$ and pressure $p(\bm{x}, t)$ inside a domain $\bm{x} = \begin{bmatrix} x_1 \\ x_2 \end{bmatrix}\in\Omega$, the equations read as follows:
+**Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = \begin{bmatrix} v_1({x}, t) \\\ v_2({x}, t) \end{bmatrix}$ and pressure $p({x}, t)$ inside a domain ${x} = \begin{bmatrix} x_1 \\\ x_2 \end{bmatrix}\in\Omega$, the equations read as follows:
 ```math
 \left\{
 \begin{aligned} 
-&  \frac{\partial \bm{v}}{\partial t} + (\bm{v} \cdot \nabla)\bm{v} = -\nabla p +  \frac{1}{Re}\nabla^2 \bm{v}    \\
-&  \nabla \cdot \bm{v} = 0
+&  \frac{\partial {v}}{\partial t} + ({v} \cdot \nabla){v} = -\nabla p +  \frac{1}{Re}\nabla^2 {v}    \\
+&  \nabla \cdot {v} = 0
 \end{aligned}
 \right.
 ```
@@ -62,10 +62,10 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 
 ##### Feedback configuration
 The default feedback configuration (same as in Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. IEEE Control Systems Letters, 6, 3212-3217.) is as follows:
-* Spanwise velocity measurement $y(t)=v_2(\bm{x_s}, t)$ at $\bm{x_s} = \begin{bmatrix} 3 \\ 0 \end{bmatrix}$,
+* Spanwise velocity measurement $y(t)=v_2({x_s}, t)$ at ${x_s} = \begin{bmatrix} 3 \\\ 0 \end{bmatrix}$,
 
 * Boundary actuation at the poles of the cylinder, acting on the cross-stream velocity $v_2$. The velocity profile on the actuated boundary reads: 
-$$\bm{v_{act}}(\bm{x}, t) =  -  \dfrac{(x_1-l)(x_1+l)}{l^2} u(t)$$
+$${v_{act}}({x}, t) =  -  \dfrac{(x_1-l)(x_1+l)}{l^2} u(t)$$
 where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta}{2} \right)$, $\delta=10\degree$ are tunable actuator parameters.
 
 <img src="illustration/cylinder_actuator.png" alt="Actuator profile at the top pole of the cylinder. The spatial parabolic profile amplitude is modified by the control input u(t)." width="300"/>
@@ -92,9 +92,9 @@ Contrary to the cylinder, the attractor on the cavity at Re=7500 is quasi-period
 
 ##### Feedback configuration
 The default feedback configuration (same as in Leclercq et al. (2019). Linear iterative method for closed-loop control of quasiperiodic flows. Journal of Fluid Mechanics, 868, 26-65.) is as follows:
-*  Actuation is produced near the upstream edge of the cavity by a volume force $f(\bm{x}, t)=B(\bm{x}) u(t)$ in the momentum equation, acting on the cross-stream velocity, with:
-$$B(\bm{x})=\left[ 0, \eta \exp\left( \frac{\left(x_1 - x_1^0\right)^2 + \left(x_2 - x_2^0\right)^2}{2\sigma_0^2}  \right), 0 \right]^T$$
-By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just before the cavity and slightly above the wall. The amplitude $\eta\approx 8.25$ is chosen such that $\int_\Omega B(\bm{x})^T B(\bm{x}) d\Omega = 1$. The spatial extent of the actuation is set by $\sigma_0 = 0.0849$, making the force reach $50\%$ of its peak value at a distance $0.1$ from its center.
+*  Actuation is produced near the upstream edge of the cavity by a volume force $f({x}, t)=B({x}) u(t)$ in the momentum equation, acting on the cross-stream velocity, with:
+$$B({x})=\left[ 0, \eta \exp\left( \frac{\left(x_1 - x_1^0\right)^2 + \left(x_2 - x_2^0\right)^2}{2\sigma_0^2}  \right), 0 \right]^T$$
+By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just before the cavity and slightly above the wall. The amplitude $\eta\approx 8.25$ is chosen such that $\int_\Omega B({x})^T B({x}) d\Omega = 1$. The spatial extent of the actuation is set by $\sigma_0 = 0.0849$, making the force reach $50\%$ of its peak value at a distance $0.1$ from its center.
 
 
 *  The measurement is made through wall friction on the bottom wall just downstream of the cavity:
