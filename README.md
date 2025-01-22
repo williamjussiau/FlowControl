@@ -4,7 +4,7 @@ Prise en main du projet par les utilisateurs
 Où les utilisateurs peuvent obtenir de l’aide sur votre projet
 Qui maintient et contribue au projet -->
 
-# flowcontrol
+# FlowControl
 The flowcontrol toolbox is an open-source toolbox addressing the simulation and control of 2D incompressible flows. It aims at providing a user-friendly way to simulate flows with actuators and sensors, and a possibility to readily define new use-cases.
 
 ## Introduction
@@ -212,8 +212,8 @@ The current roadmap is as follows:
 * Refactor and release control and optimization tools,
 * Update the project to [FEniCSx](https://fenicsproject.org/documentation/),
 * Sort and check all utility functions,
-* General form for operator computation.
-* Docker embedding
+* General form for operator computation,
+* Docker embedding.
 
 
 ## Examples of use of the toolbox
@@ -224,7 +224,7 @@ The previous versions of the tool were used in the following articles:
 ## Contact
 william.jussiau@gmail.com
 
-Also, I recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfin/2019.1.0/) and [FEniCS forum](https://fenicsproject.discourse.group/) for problem solving regarding FEniCS itself.
+Also, I recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfin/2019.1.0/), [FEniCS forum](https://fenicsproject.discourse.group/) and [the BitBucket repository](https://bitbucket.org/fenics-project/dolfin/src/master/) for problem solving regarding FEniCS itself.
 
 
 ---
