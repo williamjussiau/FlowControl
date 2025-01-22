@@ -7,8 +7,6 @@ Equations were made non-dimensional
 ----------------------------------------------------------------------
 """
 
-# from __future__ import print_function
-
 import flowsolver
 import dolfin
 from dolfin import dot, inner, nabla_grad, div, dx
@@ -241,7 +239,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
     # Steady state
     def compute_steady_state(self, method="newton", u_ctrl=0.0, **kwargs):
         """Overriding is useless, should do an additional method"""
-        super().compute_steady_state(method, u_ctrl, **kwargs)
+        super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
         # assign steady cl, cd
         cl, cd = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
 
