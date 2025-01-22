@@ -15,13 +15,18 @@ The toolbox implements two benchmarks for flow control and is designed to allow 
 The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fenicsproject.org/) as a backend.
 
 
-## What the toolbox offers
+## Installation
+The ```conda``` environment required to run the code can be extracted from the file ```environment.yml```.
 
+Docker may be coming soon.
+
+
+## What the toolbox offers
 ### Simulation
 + By default, the toolbox integrates in time the
-**Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = \begin{bmatrix} v_1({x}, t) \\\ v_2({x}, t) \end{bmatrix}$ and pressure $p({x}, t)$ inside a domain ${x} = \begin{bmatrix} x_1 \\\ x_2 \end{bmatrix}\in\Omega$, the equations read as follows:
+**Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = [v_1({x}, t), v_2({x}, t]$ and pressure $p({x}, t)$ inside a domain ${x} = [x_1, x_2] \in\Omega$, the equations read as follows:
 
-$\begin{bmatrix}A1 &A2 & A3\\A4 & A5 & A6 \end{bmatrix}$
+
 
 ```math
 \left\{
@@ -58,47 +63,61 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 
 #### Flow past a cylinder at Re=100
 ##### Base flow
+<p align="center">
 <img src="illustration/cylinder_baseflow.png" alt="Stationary solution of the flow past a cylinder at Re=100. The base flow is symetric with respect to the axis x_2=0 and features a long recirculation bubble after the cylinder obstacle." width="400"/>
+</p>
 
 ##### Periodic attractor (stable limit cycle)
+<p align="center">
 <img src="illustration/cylinder_attractor.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100. The vortex shedding exhibits symmetry around the x_2=0 axis and vortices are shed periodically." width="400"/>
+</p>
 
 ##### Feedback configuration
 The default feedback configuration (same as in [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. IEEE Control Systems Letters, 6, 3212-3217.](https://hal.science/hal-03947469/document)) is as follows:
-* Spanwise velocity measurement $y(t)=v_2({x_s}, t)$ at ${x_s} = \begin{bmatrix} 3 \\\ 0 \end{bmatrix}$,
+* Spanwise velocity measurement $y(t)=v_2({x_s}, t)$ at ${x_s} = [3, 0]$,
 
 * Boundary actuation at the poles of the cylinder, acting on the cross-stream velocity $v_2$. The velocity profile on the actuated boundary reads: 
+
 $${v_{act}}({x}, t) =  -  \dfrac{(x_1-l)(x_1+l)}{l^2} u(t)$$
 where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta}{2} \right)$, $\delta=10\degree$ are tunable actuator parameters.
 
+<p align="center">
 <img src="illustration/cylinder_actuator.png" alt="Actuator profile at the top pole of the cylinder. The spatial parabolic profile amplitude is modified by the control input u(t)." width="300"/>
+</p>
 
+<p align="center">
 <img src="illustration/cylinder_domain.png" alt="Visual description of the feedback configuration of the cylinder. The cross-stream velocity sensor (black dot) in the wake (red wave) can be fed to the controller K (in blue) and conveyed back to the actuators at the poles of the cylinder (in green)." width="400"/>
+</p>
 
 
-
-
-
-<!-- ##### Summary
-<img src="illustration/cylinder_summary.png" alt="TODO" width="400"/> -->
 
 
 #### Flow over an open cavity at Re=7500
 ##### Base flow
+<p align="center">
 <img src="illustration/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
+</p>
+
 
 ##### Quasi-periodic attractor
+<p align="center">
 <img src="illustration/cavity_attractor.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
+</p>
+
 
 Contrary to the cylinder, the attractor on the cavity at Re=7500 is quasi-periodic (featuring two incomemnsurable frequencies in its frequency spectrum):
 
+<p align="center">
 <img src="illustration/cavity_timeresp_zoom.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
+</p>
+
 
 ##### Feedback configuration
 The default feedback configuration (same as in [Leclercq et al. (2019). Linear iterative method for closed-loop control of quasiperiodic flows. Journal of Fluid Mechanics, 868, 26-65.](https://hal.science/hal-02296280/document)) is as follows:
 *  Actuation is produced near the upstream edge of the cavity by a volume force $f({x}, t)=B({x}) u(t)$ in the momentum equation, acting on the cross-stream velocity, with:
 
 $$B({x})=\left[ 0, \eta \exp\left( \frac{\left(x_1 - x_1^0\right)^2 + \left(x_2 - x_2^0\right)^2}{2\sigma_0^2}  \right), 0 \right]^T$$
+
 By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just before the cavity and slightly above the wall. The amplitude $\eta\approx 8.25$ is chosen such that $\int_\Omega B({x})^T B({x}) d\Omega = 1$. The spatial extent of the actuation is set by $\sigma_0 = 0.0849$, making the force reach $50\%$ of its peak value at a distance $0.1$ from its center.
 
 
@@ -106,7 +125,9 @@ By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just 
 
 $$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \right\rvert_{x_2=0} dx_1$$
 
+<p align="center">
 <img src="illustration/cavity_domain.png" alt="Stationary solution of the flow past a cylinder at Re=100" width="400"/>
+</p>
 
 
 ## Code overview
@@ -151,8 +172,7 @@ Kss = Controller.from_file(...)
 
 # Time loop
 for _ in range(fs.params_time.num_steps):
-    y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-    u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
+    u_ctrl = Kss.step(y=-fs.y_meas[0], dt=fs.params_time.dt)
     fs.step(u_ctrl=u_ctrl)
 ```
 
@@ -202,198 +222,3 @@ Also, I recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfi
 
 This README has been optimized for accessibility based on GitHub's blogpost "[Tips for Making your GitHub Profile Page Accessible](https://github.blog/2023-10-26-5-tips-for-making-your-github-profile-page-accessible)".
 
-
-<!-- ***
----
-## Emphasis
-
-**This is bold text**
-
-__This is bold text__
-
-*This is italic text*
-
-_This is italic text_
-
-
-## Lists
-
-Unordered
-
-+ Create a list by starting a line with `+`, `-`, or `*`
-+ Sub-lists are made by indenting 2 spaces:
-  - Marker character change forces new list start:
-    * Ac tristique libero volutpat at
-    * Facilisis in pretium nisl aliquet
-    * Nulla volutpat aliquam velit
-+ Very easy!
-
-Ordered
-
-1. Lorem ipsum dolor sit amet
-2. Consectetur adipiscing elit
-3. Integer molestie lorem at massa
-
-
-1. You can use sequential numbers...
-1. ...or keep all the numbers as `1.`
-
-Start numbering with offset:
-
-57. foo
-1. bar
-
-
-## Code
-
-Inline `code`
-
-Indented code
-
-    // Some comments
-    line 1 of code
-    line 2 of code
-    line 3 of code
-
-
-Block code "fences"
-
-```
-Sample text here...
-```
-
-Syntax highlighting
-
-``` py
-def foo(bar: int=1)
-  return bar + 1
-
-print(foo(4))
-```
-
-## Tables
-
-| Option | Description |
-| ------ | ----------- |
-| data   | path to data files to supply the data that will be passed into templates. |
-| engine | engine to be used for processing templates. Handlebars is the default. |
-| ext    | extension to be used for dest files. |
-
-Right aligned columns
-
-| Option | Description |
-| ------:| -----------:|
-| data   | path to data files to supply the data that will be passed into templates. |
-| engine | engine to be used for processing templates. Handlebars is the default. |
-| ext    | extension to be used for dest files. |
-
-
-## Links
-
-[link text](http://dev.nodeca.com)
-
-[link with title](http://nodeca.github.io/pica/demo/ "title text!")
-
-Autoconverted link https://github.com/nodeca/pica (enable linkify to see)
-
-
-## Images
-
-![Minion](https://octodex.github.com/images/minion.png)
-![Stormtroopocat](https://octodex.github.com/images/stormtroopocat.jpg "The Stormtroopocat")
-
-Like links, Images also have a footnote style syntax
-
-![Alt text][id]
-
-With a reference later in the document defining the URL location:
-
-[id]: https://octodex.github.com/images/dojocat.jpg  "The Dojocat"
-
-
-## Plugins
-
-The killer feature of `markdown-it` is very effective support of
-[syntax plugins](https://www.npmjs.org/browse/keyword/markdown-it-plugin).
-
-
-### [Emojies](https://github.com/markdown-it/markdown-it-emoji)
-
-> Classic markup: :wink: :cry: :laughing: :yum:
->
-> Shortcuts (emoticons): :-) :-( 8-) ;)
-
-see [how to change output](https://github.com/markdown-it/markdown-it-emoji#change-output) with twemoji.
-
-
-### [Subscript](https://github.com/markdown-it/markdown-it-sub) / [Superscript](https://github.com/markdown-it/markdown-it-sup)
-
-- 19^th^
-- H~2~O
-
-
-### [\<ins>](https://github.com/markdown-it/markdown-it-ins)
-
-++Inserted text++
-
-
-### [\<mark>](https://github.com/markdown-it/markdown-it-mark)
-
-==Marked text==
-
-
-### [Footnotes](https://github.com/markdown-it/markdown-it-footnote)
-
-Footnote 1 link[^first].
-
-Footnote 2 link[^second].
-
-Inline footnote^[Text of inline footnote] definition.
-
-Duplicated footnote reference[^second].
-
-[^first]: Footnote **can have markup**
-
-    and multiple paragraphs.
-
-[^second]: Footnote text.
-
-
-### [Definition lists](https://github.com/markdown-it/markdown-it-deflist)
-
-Term 1
-
-:   Definition 1
-with lazy continuation.
-
-Term 2 with *inline markup*
-
-:   Definition 2
-
-        { some code, part of Definition 2 }
-
-    Third paragraph of definition 2.
-
-_Compact style:_
-
-Term 1
-  ~ Definition 1
-
-Term 2
-  ~ Definition 2a
-  ~ Definition 2b
-
-
-### [Abbreviations](https://github.com/markdown-it/markdown-it-abbr)
-
-This is HTML abbreviation example.
-
-It converts "HTML", but keep intact partial entries like "xxxHTMLyyy" and so on.
-
-*[HTML]: Hyper Text Markup Language
-
-### [Custom containers](https://github.com/markdown-it/markdown-it-container)
-
-::: warning
-*here be dragons*
-::: -->
