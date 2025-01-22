@@ -15,7 +15,7 @@ The toolbox implements two benchmarks for flow control and is designed to allow 
 The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fenicsproject.org/) as a backend.
 
 
-## What the toolbox proposes
+## What the toolbox offers
 
 ### Simulation
 + By default, the toolbox integrates in time the
@@ -61,7 +61,7 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 <img src="illustration/cylinder_attractor.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100. The vortex shedding exhibits symmetry around the x_2=0 axis and vortices are shed periodically." width="400"/>
 
 ##### Feedback configuration
-The default feedback configuration (same as in Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. IEEE Control Systems Letters, 6, 3212-3217.) is as follows:
+The default feedback configuration (same as in [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. IEEE Control Systems Letters, 6, 3212-3217.](https://hal.science/hal-03947469/document)) is as follows:
 * Spanwise velocity measurement $y(t)=v_2({x_s}, t)$ at ${x_s} = \begin{bmatrix} 3 \\\ 0 \end{bmatrix}$,
 
 * Boundary actuation at the poles of the cylinder, acting on the cross-stream velocity $v_2$. The velocity profile on the actuated boundary reads: 
@@ -91,14 +91,14 @@ Contrary to the cylinder, the attractor on the cavity at Re=7500 is quasi-period
 <img src="illustration/cavity_timeresp_zoom.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
 
 ##### Feedback configuration
-The default feedback configuration (same as in Leclercq et al. (2019). Linear iterative method for closed-loop control of quasiperiodic flows. Journal of Fluid Mechanics, 868, 26-65.) is as follows:
+The default feedback configuration (same as in [Leclercq et al. (2019). Linear iterative method for closed-loop control of quasiperiodic flows. Journal of Fluid Mechanics, 868, 26-65.](https://hal.science/hal-02296280/document)) is as follows:
 *  Actuation is produced near the upstream edge of the cavity by a volume force $f({x}, t)=B({x}) u(t)$ in the momentum equation, acting on the cross-stream velocity, with:
 $$B({x})=\left[ 0, \eta \exp\left( \frac{\left(x_1 - x_1^0\right)^2 + \left(x_2 - x_2^0\right)^2}{2\sigma_0^2}  \right), 0 \right]^T$$
 By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just before the cavity and slightly above the wall. The amplitude $\eta\approx 8.25$ is chosen such that $\int_\Omega B({x})^T B({x}) d\Omega = 1$. The spatial extent of the actuation is set by $\sigma_0 = 0.0849$, making the force reach $50\%$ of its peak value at a distance $0.1$ from its center.
 
 
 *  The measurement is made through wall friction on the bottom wall just downstream of the cavity:
-$$ y = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1}{\partial x_2} \right\rvert_{x_2=0} dx_1 $$
+$$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \right\rvert_{x_2=0} dx_1$$
 
 <img src="illustration/cavity_domain.png" alt="Stationary solution of the flow past a cylinder at Re=100" width="400"/>
 
