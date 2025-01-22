@@ -15,7 +15,7 @@ The toolbox implements two benchmarks for flow control and is designed to allow 
 The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fenicsproject.org/) as a backend.
 
 <p align="center">
-<img src="illustration/cylinder_lic.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100 and depiction of streamlines." width="700"/>
+<img src="illustrations/cylinder_lic.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100 and depiction of streamlines." width="700"/>
 </p>
 
 
@@ -64,12 +64,12 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 ### Flow past a cylinder at Re=100
 #### Stationary solution
 <p align="center">
-<img src="illustration/cylinder_baseflow.png" alt="Stationary solution of the flow past a cylinder at Re=100. The base flow is symetric with respect to the axis x_2=0 and features a long recirculation bubble after the cylinder obstacle." width="400"/>
+<img src="illustrations/cylinder_baseflow.png" alt="Stationary solution of the flow past a cylinder at Re=100. The base flow is symetric with respect to the axis x_2=0 and features a long recirculation bubble after the cylinder obstacle." width="400"/>
 </p>
 
 #### Periodic attractor (stable limit cycle)
 <p align="center">
-<img src="illustration/cylinder_attractor.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100. The vortex shedding exhibits symmetry around the x_2=0 axis and vortices are shed periodically." width="400"/>
+<img src="illustrations/cylinder_attractor.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100. The vortex shedding exhibits symmetry around the x_2=0 axis and vortices are shed periodically." width="400"/>
 </p>
 
 #### Feedback configuration
@@ -82,11 +82,11 @@ $${v_{act}}({x}, t) =  -  \dfrac{(x_1-l)(x_1+l)}{l^2} u(t)$$
 where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta}{2} \right)$, $\delta=10\degree$ are tunable actuator parameters.
 
 <p align="center">
-<img src="illustration/cylinder_actuator.png" alt="Actuator profile at the top pole of the cylinder. The spatial parabolic profile amplitude is modified by the control input u(t)." width="300"/>
+<img src="illustrations/cylinder_actuator.png" alt="Actuator profile at the top pole of the cylinder. The spatial parabolic profile amplitude is modified by the control input u(t)." width="300"/>
 </p>
 
 <p align="center">
-<img src="illustration/cylinder_domain.png" alt="Description of the feedback configuration of the cylinder. The cross-stream velocity sensor (black dot) in the wake (red wave) can be fed to the controller K (in blue) and conveyed back to the actuators at the poles of the cylinder (in green)." width="400"/>
+<img src="illustrations/cylinder_domain.png" alt="Description of the feedback configuration of the cylinder. The cross-stream velocity sensor (black dot) in the wake (red wave) can be fed to the controller K (in blue) and conveyed back to the actuators at the poles of the cylinder (in green)." width="400"/>
 </p>
 
 
@@ -96,20 +96,20 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 ### Flow over an open cavity at Re=7500
 #### Stationary solution
 <p align="center">
-<img src="illustration/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
+<img src="illustrations/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
 </p>
 
 
 #### Quasi-periodic attractor
 <p align="center">
-<img src="illustration/cavity_attractor.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
+<img src="illustrations/cavity_attractor.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
 </p>
 
 
 Contrary to the cylinder, the attractor on the cavity at Re=7500 is quasi-periodic (featuring two incomemnsurable frequencies in its frequency spectrum):
 
 <p align="center">
-<img src="illustration/cavity_timeresp_zoom.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
+<img src="illustrations/cavity_timeresp_zoom.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
 </p>
 
 
@@ -127,7 +127,7 @@ By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just 
 $$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \right\rvert_{x_2=0} dx_1$$
 
 <p align="center">
-<img src="illustration/cavity_domain.png" alt="Visual description of the feedback configuration of the cavity. The wall friction is measured on the bottom wall downstream of the cavity, then fed to a controller K, which produces an input signal u(t) modifying the amplitude of a volumic force before the cavity." width="400"/>
+<img src="illustrations/cavity_domain.png" alt="Visual description of the feedback configuration of the cavity. The wall friction is measured on the bottom wall downstream of the cavity, then fed to a controller K, which produces an input signal u(t) modifying the amplitude of a volumic force before the cavity." width="400"/>
 </p>
 
 
