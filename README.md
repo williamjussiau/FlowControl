@@ -18,7 +18,7 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 ## Installation
 The ```conda``` environment required to run the code can be extracted from the file ```environment.yml```.
 
-Docker may be coming soon.
+Docker [coming soon].
 
 
 ## What the toolbox offers
