@@ -11,15 +11,16 @@ The primary goal of the toolbox is the design and implementation of feedback con
 
 The toolbox is shipped with two benchmarks for flow control and allows for easy implementation of new cases.
 
-The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fenicsproject.org/) as a backend.
-
-<!-- <p align="center">
-<img src="illustrations/cylinder_lic.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100 and depiction of streamlines." width="700"/>
-</p> -->
-
 <p align="center">
 <img src="illustrations/cavity_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow over an open cavity at Re=7500. The self-sustained, quasi-periodic oscillations of the flow gradually disappear as the controller actuates the flow. The feedback controller uses a wall stress sensor on the wall after the cavity, and actuates the flow with a volume force upstream of the cavity. More details are given below." width="500"/>
 </p>
+
+The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fenicsproject.org/) as a backend.
+
+<p align="center">
+<img src="illustrations/fenics_banner.png" alt="FEniCS Project banner, featuring a flame meshed with colorful elements and the text fenics project next to it." width="300"/>
+</p>
+
 
 
 ## What the toolbox offers
