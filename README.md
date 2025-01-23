@@ -98,7 +98,7 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 
 ---
 ---
-### Flow over an open cavity at Re=7500
+### Flow over an open cavity at Re=7500 [WIP :hammer:]
 #### Stationary solution
 <p align="center">
 <img src="illustrations/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
