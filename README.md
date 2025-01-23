@@ -1,7 +1,10 @@
-# FlowControl
+# :cyclone: FlowControl 
 The FlowControl toolbox is an open-source toolbox addressing the simulation and control of 2D incompressible flows. It aims at providing a user-friendly way to simulate flows with actuators and sensors, and a possibility to readily define new use-cases.
 
 
+<p align="center">
+<img src="illustrations/cylinder_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow past a cylinder at Re=100. The self-sustained, periodic oscillations of the flow (known as vortex shedding) gradually disappear as the controller actuates the flow. The feedback controller uses a sensor in the wake and actuates the flow on the poles of the cylinder. More details are given below." width="500"/>
+</p>
 
 ## Introduction
 The primary goal of the toolbox is the design and implementation of feedback control algorithms, but it may be used for a variety of other topics such as model reduction or identification, actuator and sensor placement study... 
@@ -10,10 +13,13 @@ The toolbox is shipped with two benchmarks for flow control and allows for easy 
 
 The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fenicsproject.org/) as a backend.
 
-<p align="center">
+<!-- <p align="center">
 <img src="illustrations/cylinder_lic.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100 and depiction of streamlines." width="700"/>
-</p>
+</p> -->
 
+<p align="center">
+<img src="illustrations/cavity_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow over an open cavity at Re=7500. The self-sustained, quasi-periodic oscillations of the flow gradually disappear as the controller actuates the flow. The feedback controller uses a wall stress sensor on the wall after the cavity, and actuates the flow with a volume force upstream of the cavity. More details are given below." width="500"/>
+</p>
 
 
 ## What the toolbox offers
@@ -72,7 +78,7 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 
 #### Feedback configuration
 The default feedback configuration (same as in [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. _IEEE Control Systems Letters_, 6, 3212-3217.](https://hal.science/hal-03947469/document)) is as follows:
-* Spanwise velocity measurement $y(t)=v_2({x_s}, t)$ at ${x_s} = [3, 0]$,
+* Cross-stream velocity measurement $y(t)=v_2({x_s}, t)$ in the wake at ${x_s} = [3, 0]$,
 
 * Boundary actuation at the poles of the cylinder, acting on the cross-stream velocity $v_2$. The velocity profile on the actuated boundary reads: 
 
@@ -121,7 +127,7 @@ By default, the center of the actuator is $(x_1^0, x_2^0) = (-0.1, 0.02)$, just 
 
 *  The measurement is made through wall friction on the bottom wall just downstream of the cavity:
 
-$$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(t)}{\partial x_2} \right\rvert_{x_2=0} dx_1$$
+$$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(x, t)}{\partial x_2} \right\rvert_{x_2=0} dx_1$$
 
 <p align="center">
 <img src="illustrations/cavity_domain.png" alt="Visual description of the feedback configuration of the cavity. The wall friction is measured on the bottom wall downstream of the cavity, then fed to a controller K, which produces an input signal u(t) modifying the amplitude of a volumic force before the cavity." width="400"/>
@@ -138,10 +144,14 @@ The previous versions of the tool were used in the following articles:
 
 
 
-## Installation
-The ```conda``` environment required to run the code can be extracted from the file ```environment.yml```.
+---
+---
+## Installation 🛠️
+### conda
+The ```conda```  environment required to run the code can be extracted from the file ```environment.yml```. Additional path tweaking may be required for all FEniCS (```dolfin``` module) and custom modules to be found.
 
-```Docker``` [coming soon]
+### Docker :whale:
+[coming soon]
 
 
 
@@ -186,9 +196,10 @@ fs.initialize_time_stepping(...)
 Kss = Controller.from_file(...)
 
 # Time loop
+y_meas = fs.y_meas
 for _ in range(fs.params_time.num_steps):
-    u_ctrl = Kss.step(y=-fs.y_meas[0], dt=fs.params_time.dt)
-    fs.step(u_ctrl=u_ctrl)
+    u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
+    y_meas = fs.step(u_ctrl=u_ctrl)
 ```
 
 See examples for a more detailed description.
@@ -208,8 +219,8 @@ No meshing tools are shipped with this code, but [gmsh](https://gmsh.info/) (and
 ### Additional used of the toolbox
 The toolbox provides additional utility related to flow control:
 * Compute dynamic operators A, B, C, D and mass matrix E,
-* Restart a simulation from given field,
-* Arbitrary number of sensors,
+* Restart a simulation from a given time in a previous simulation,
+* Arbitrary number of sensors (for feedback or performance),
 * Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
 * Parallel execution native to FEniCS,
 * To some extent, easy modification of the equations, numerical schemes and solvers used for time simulation,
@@ -219,7 +230,7 @@ The toolbox provides additional utility related to flow control:
 
 ## Roadmap
 The current roadmap is as follows:
-* Complete the documentation,
+* Complete the documentation :book:,
 * Handle MIMO configurations seamlessly,
 * Refactor and release control and optimization tools,
 * Update the project to [FEniCSx](https://fenicsproject.org/documentation/),
@@ -230,12 +241,13 @@ The current roadmap is as follows:
 
 
 ## Contact
-E-mail: william.jussiau@gmail.com
+:mailbox: william.jussiau@gmail.com
 
-Also, I recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfin/2019.1.0/), [FEniCS forum](https://fenicsproject.discourse.group/) and [the BitBucket repository](https://bitbucket.org/fenics-project/dolfin/src/master/) for problem solving regarding FEniCS itself.
-incommensurable
+Also, I highly recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfin/2019.1.0/), [FEniCS forum](https://fenicsproject.discourse.group/) (and potentially [the BitBucket repository](https://bitbucket.org/fenics-project/dolfin/src/master/)) for problems regarding FEniCS itself.
+
 
 ---
+
 
 This README has been optimized for accessibility based on GitHub's blogpost "[Tips for Making your GitHub Profile Page Accessible](https://github.blog/2023-10-26-5-tips-for-making-your-github-profile-page-accessible)".
 
