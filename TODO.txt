@@ -1,22 +1,19 @@
 ## Short-term
 
-# presentation page on github (with photos)
-
-# redo file tree
-
-# docker
 
 # doc
 
 # MIMO support u_ctrl = list() -> probably not difficult to take into account???
-# + both kinds of actuation -> probably need "if" statements
+# + both kinds of actuation -> probably need "if" treatment
+
+# docker
 
 
 
 ## Mid-term
 # sort (& check & rm) utility funs (_flowsolver, _extract, _debug)
 
-# cavity
+# reimplement cavity
 # and why not cylinder with volume force (would work with MIMO/actuation support)
 
 # get A, B, C -> (more) general form?
@@ -29,10 +26,3 @@
 # write_timeseries -> async?
 # test parallel
 
-
-# CRITICAL NOTE TO SELF:
-# do not do:
-# u, p = up.split(deepcopy=False)
-# write(u)
-# write(p)
-# because it somewhat messes up the FunctionSpaces apparently
