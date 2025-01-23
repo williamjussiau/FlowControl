@@ -1,9 +1,7 @@
 ## Short-term
-
-
 # doc
 
-# MIMO support u_ctrl = list() -> probably not difficult to take into account???
+# MIMO support u_ctrl = list() -> probably not difficult
 # + both kinds of actuation -> probably need "if" treatment
 
 # docker
@@ -22,7 +20,6 @@
 
 
 ## Long-term
-# Add tests to Controller (stepping, add/mul)
+# add tests to Controller (stepping, add/mul)
 # write_timeseries -> async?
 # test parallel
-
