@@ -98,7 +98,7 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 
 ---
 ---
-### Flow over an open cavity at Re=7500 [WIP :hammer:]
+### Flow over an open cavity at Re=7500 [code WIP :hammer:]
 #### Stationary solution
 <p align="center">
 <img src="illustrations/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
@@ -243,7 +243,7 @@ The current roadmap is as follows:
 ## Contact
 :mailbox: william.jussiau@gmail.com
 
-Also, I highly recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfin/2019.1.0/), [FEniCS forum](https://fenicsproject.discourse.group/) (and potentially [the BitBucket repository](https://bitbucket.org/fenics-project/dolfin/src/master/)) for problems regarding FEniCS itself.
+Also, I highly recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfin/2019.1.0/), [FEniCS forum](https://fenicsproject.discourse.group/) (and potentially [the BitBucket repository](https://bitbucket.org/fenics-project/dolfin/src/master/)) for problems regarding FEniCS 2019.1.0 itself.
 
 
 ---
