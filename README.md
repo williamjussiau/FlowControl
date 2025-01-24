@@ -67,14 +67,22 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 ---
 ---
 ### Flow past a cylinder at Re=100
-#### Stationary solution
+#### Illustration
+
 <p align="center">
 <img src="illustrations/cylinder_baseflow.png" alt="Stationary solution of the flow past a cylinder at Re=100. The base flow is symetric with respect to the axis x_2=0 and features a long recirculation bubble after the cylinder obstacle." width="400"/>
 </p>
+<p align="center">
+Stationary solution
+</p>
 
-#### Periodic attractor (stable limit cycle)
+
+
 <p align="center">
 <img src="illustrations/cylinder_attractor.png" alt="Snapshot of the attractor of the flow past a cylinder at Re=100. The vortex shedding exhibits symmetry around the x_2=0 axis and vortices are shed periodically." width="400"/>
+</p>
+<p align="center">
+Periodic attractor (stable limit cycle)
 </p>
 
 #### Feedback configuration
@@ -100,14 +108,22 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 ---
 ---
 ### Flow over an open cavity at Re=7500 [code WIP :hammer:]
-#### Stationary solution
+#### Illustration
+
+
 <p align="center">
 <img src="illustrations/cavity_baseflow.png" alt="Stationary solution of the flow over an open cavity at Re=7500" width="400"/>
 </p>
+<p align="center">
+Stationary solution
+</p>
 
-#### Quasi-periodic attractor
+
 <p align="center">
 <img src="illustrations/cavity_attractor.png" alt="Snapshot of the attractor of the flow over an open cavity at Re=7500" width="400"/>
+</p>
+<p align="center">
+Quasi-periodic attractor
 </p>
 
 
@@ -213,14 +229,14 @@ No meshing tools are shipped with this code, but [gmsh](https://gmsh.info/) (and
 
 
 ### Visualization
-[Paraview](https://www.paraview.org/) is suggested for visualizations, whether it be for CSV timeseries or fields saved as ```xdmf```.
+[Paraview](https://www.paraview.org/) is suggested for visualizations, whether it be for ```csv``` timeseries or fields saved as ```xdmf```.
 
 
 
 ### Additional used of the toolbox
 The toolbox provides additional utility related to flow control:
 * Compute dynamic operators A, B, C, D and mass matrix E,
-* Restart a simulation from a given time in a previous simulation,
+* Restart a simulation from a previous one,
 * Arbitrary number of sensors (for feedback or performance),
 * Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
 * Parallel execution native to FEniCS,
