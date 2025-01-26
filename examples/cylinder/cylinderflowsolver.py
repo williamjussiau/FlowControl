@@ -9,7 +9,6 @@ Equations were made non-dimensional
 
 import flowsolver
 import dolfin
-from dolfin import dot, inner, nabla_grad, div, dx
 import numpy as np
 import time
 import pandas as pd
@@ -246,214 +245,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             logger.info(f"Lift coefficient is: cl = {cl}")
             logger.info(f"Drag coefficient is: cd = {cd}")
 
-    # Matrix computations
-    def get_A(
-        self, perturbations=True, shift=0.0, timeit=True, UP0=None
-    ):  # TODO idk, merge with make_mixed_form?
-        """Get state-space dynamic matrix A linearized around some field UP0"""
-        logger.info("Computing jacobian A...")
-
-        if timeit:
-            t0 = time.time()
-
-        Jac = dolfin.PETScMatrix()
-        v, q = dolfin.TestFunctions(self.W)
-        iRe = dolfin.Constant(1 / self.params_flow.Re)
-        shift = dolfin.Constant(shift)
-
-        if UP0 is None:
-            UP_ = self.fields.UP0  # base flow
-        else:
-            UP_ = UP0
-        U_, p_ = UP_.split()
-
-        if perturbations:  # perturbation equations linearized
-            up = dolfin.TrialFunction(self.W)
-            u, p = dolfin.split(up)
-            dF0 = (
-                -dot(dot(U_, nabla_grad(u)), v) * dx
-                - dot(dot(u, nabla_grad(U_)), v) * dx
-                - iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
-                + p * div(v) * dx
-                + div(u) * q * dx
-                - shift * dot(u, v) * dx
-            )  # sum u, v but not p
-            # create zeroBC for perturbation formulation
-            bcu_inlet = dolfin.DirichletBC(
-                self.W.sub(0),
-                dolfin.Constant((0, 0)),
-                self.boundaries.loc["inlet"].subdomain,
-            )
-            bcu_walls = dolfin.DirichletBC(
-                self.W.sub(0).sub(1),
-                dolfin.Constant(0),
-                self.boundaries.loc["walls"].subdomain,
-            )
-            bcu_cylinder = dolfin.DirichletBC(
-                self.W.sub(0),
-                dolfin.Constant((0, 0)),
-                self.boundaries.loc["cylinder"].subdomain,
-            )
-            bcu_actuation_up = dolfin.DirichletBC(
-                self.W.sub(0),
-                self.actuator_expression,
-                self.boundaries.loc["actuator_up"].subdomain,
-            )
-            bcu_actuation_lo = dolfin.DirichletBC(
-                self.W.sub(0),
-                self.actuator_expression,
-                self.boundaries.loc["actuator_lo"].subdomain,
-            )
-            bcu = [
-                bcu_inlet,
-                bcu_walls,
-                bcu_cylinder,
-                bcu_actuation_up,
-                bcu_actuation_lo,
-            ]
-            self.actuator_expression.ampl = 0.0
-            bcs = bcu
-        else:
-            F0 = (
-                -dot(dot(U_, nabla_grad(U_)), v) * dx
-                - iRe * inner(nabla_grad(U_), nabla_grad(v)) * dx
-                + p_ * div(v) * dx
-                + q * div(U_) * dx
-                - shift * dot(U_, v) * dx
-            )
-            # prepare derivation
-            du = dolfin.TrialFunction(self.W)
-            dF0 = dolfin.derivative(F0, UP_, du=du)
-            # import pdb
-            # pdb.set_trace()
-            ## shift
-            # dF0 = dF0 - shift*dot(U_,v)*dx
-            # bcs)
-            self.actuator_expression.ampl = 0.0
-            bcs = self.bc["bcu"]
-
-        dolfin.assemble(dF0, tensor=Jac)
-        [bc.apply(Jac) for bc in bcs]
-
-        if timeit:
-            logger.info(f"Elapsed time: {time.time() - t0}")
-
-        return Jac
-
-    def get_B(self, export=False, timeit=True):  # TODO keep here
-        """Get actuation matrix B"""
-        logger.info("Computing actuation matrix B...")
-
-        if timeit:
-            t0 = time.time()
-
-        # for an exponential actuator -> just evaluate actuator_exp on every coordinate, kinda?
-        # for a boundary actuator -> evaluate actuator on boundary
-        actuator_ampl_old = self.actuator_expression.ampl
-        self.actuator_expression.ampl = 1.0
-
-        # Method 1
-        # restriction of actuation of boundary
-        class RestrictFunction(dolfin.UserExpression):
-            def __init__(self, boundary, fun, **kwargs):
-                self.boundary = boundary
-                self.fun = fun
-                super(RestrictFunction, self).__init__(**kwargs)
-
-            def eval(self, values, x):
-                values[0] = 0
-                values[1] = 0
-                values[2] = 0
-                if self.boundary.inside(x, True):
-                    evalval = self.fun(x)
-                    values[0] = evalval[0]
-                    values[1] = evalval[1]
-
-            def value_shape(self):
-                return (3,)
-
-        Bi = []
-        for actuator_name in ["actuator_up", "actuator_lo"]:
-            actuator_restricted = RestrictFunction(
-                boundary=self.boundaries.loc[actuator_name].subdomain,
-                fun=self.actuator_expression,
-            )
-            actuator_restricted = dolfin.interpolate(actuator_restricted, self.W)
-            # actuator_restricted = flu.projectm(actuator_restricted, self.W)
-            Bi.append(actuator_restricted)
-
-        # this is supposedly B
-        B_all_actuator = flu.projectm(sum(Bi), self.W)
-        # get vector
-        B = B_all_actuator.vector().get_local()
-        # remove very small values (should be 0 but are not)
-        B = flu.dense_to_sparse(
-            B, eliminate_zeros=True, eliminate_under=1e-14
-        ).toarray()
-        B = B.T  # vertical B
-
-        if export:
-            # fa = dolfin.FunctionAssigner([self.V, self.P], self.W)
-            vv = dolfin.Function(self.V)
-            # pp = dolfin.Function(self.P)
-            ww = dolfin.Function(self.W)
-            ww.assign(B_all_actuator)
-            # fa.assign([vv, pp], ww)
-            vv, pp = ww.split()
-            flu.write_xdmf("B.xdmf", vv, "B")
-
-        self.actuator_expression.ampl = actuator_ampl_old
-
-        if timeit:
-            logger.info(f"Elapsed time: {time.time() - t0}")
-
-        return B
-
-    def get_C(self, timeit=True, check=False):  # TODO keep here
-        """Get measurement matrix C"""
-        logger.info("Computing measurement matrix C...")
-
-        if timeit:
-            t0 = time.time()
-
-        fspace = self.W
-        uvp = dolfin.Function(fspace)
-        uvp_vec = uvp.vector()
-        dofmap = fspace.dofmap()
-
-        ndof = fspace.dim()
-        ns = self.params_flow.sensor_nr
-        C = np.zeros((ns, ndof))
-
-        idof_old = 0
-        # xs = self.sensor_location
-        # Iteratively put each DOF at 1
-        # And evaluate measurement on said DOF
-        for idof in dofmap.dofs():
-            uvp_vec[idof] = 1
-            if idof_old > 0:
-                uvp_vec[idof_old] = 0
-            idof_old = idof
-            C[:, idof] = self.make_measurement(mixed_field=uvp)
-            # mixed_field permits p sensor
-
-        # check:
-        if check:
-            for i in range(ns):
-                sensor_types = dict(u=0, v=1, p=2)
-                logger.debug(
-                    f"True probe: {self.up0(self.sensor_location[i])[sensor_types[self.sensor_type[0]]]}"
-                )
-                logger.debug(
-                    f"\t with fun: {self.make_measurement(mixed_field=self.up0)}"
-                )
-                logger.debug(f"\t with C@x: {C[i] @ self.up0.vector().get_local()}")
-
-        if timeit:
-            logger.info(f"Elapsed time: {time.time() - t0}")
-
-        return C
-
     # Additional, case-specific func
     def compute_force_coefficients(
         self, u: dolfin.Function, p: dolfin.Function
@@ -463,7 +254,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
         sigma = flu2.stress_tensor(nu, u, p)
         facet_normals = dolfin.FacetNormal(self.mesh)
-        Fo = -dot(sigma, facet_normals)
+        Fo = -dolfin.dot(sigma, facet_normals)
 
         # integration surfaces names
         surfaces_names = ["cylinder", "actuator_up", "actuator_lo"]
@@ -610,10 +401,6 @@ if __name__ == "__main__":
         fs_restart.step(u_ctrl=u_ctrl)
 
     fs_restart.write_timeseries()
-
-    ################################################
-    logger.info("Checking utilitary functions")
-    fs.get_A()
 
     logger.info(fs_restart.timeseries)
 
