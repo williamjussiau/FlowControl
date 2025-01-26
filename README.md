@@ -38,10 +38,6 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 ```
 + The only numerical parameter of the non-dimensional equations, the Reynolds number defined as $Re = \frac{UL}{\nu}$, balances convective and viscous terms.
 
-+ For numerical integration in time, the Finite Element Method is used, using default continuous Galerkin elements of order 2 (for each component of the velocity) and 1 (for the scalar pressure).
-
-+ To some extent, the toolbox aims at making the equations, numerical integration schemes and solvers replaceable by user-defined ones.
-
 
 
 ### Actuation and sensing
@@ -152,10 +148,24 @@ $$y(t) = \int_{x_1=1}^{1.1}   \left.  \frac{\partial v_1(x, t)}{\partial x_2} \r
 
 
 
+### Numerical details
++ For discretization in space, the Finite Element Method is used, using default continuous Galerkin elements of order 2 (for each component of the velocity) and 1 (for the scalar pressure).
+
++ For the time integration, a linear multistep semi-implicit method is used (the nonlinear term is extrapolated with a second-order Adams–Bashforth scheme, while the viscous term
+is treated implicitly).
+
++ The equations are implemented using a perturbation formulation: 
+    - the field $v(x,t)$ is decomposed as $v(x,t) = V(x) + v'(x, t)$,
+    - $V(x)$ is computed first,
+    - then, we can compute the time evolution of $v'(x,t)$.
+
++ To some extent, the toolbox aims at making the equations, numerical integration schemes and solvers replaceable by user-defined ones.
+
+
 ---
 ---
 ## Examples of use of the toolbox
-The previous versions of the tool were used in the following articles:
+The following articles were based on previous versions of the code:
 * [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. _IEEE Control Systems Letters_, 6, 3212-3217.](https://hal.science/hal-03947469/document)
 * [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2024). Data-driven stabilization of an oscillating flow with linear time-invariant controllers. _Journal of Fluid Mechanics_, 999, A86.](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/47548BEA53D115E1F70FC1F772F641DB/S0022112024009042a.pdf/data-driven-stabilization-of-an-oscillating-flow-with-linear-time-invariant-controllers.pdf)
 
