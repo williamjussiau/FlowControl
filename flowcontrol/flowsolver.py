@@ -740,7 +740,8 @@ class FlowSolver(ABC):
             dolfin.Constant((self.params_flow.uinf, 0)),
             self.boundaries.loc["inlet"].subdomain,
         )
-        BC = {"bcu": [bcu_inlet] + self.bc["bcu"][1:], "bcp": []}
+        bcs = self._make_bcs()
+        BC = {"bcu": [bcu_inlet] + bcs["bcu"][1:], "bcp": []}
 
         return BC
 
