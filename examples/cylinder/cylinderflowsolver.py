@@ -32,10 +32,7 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 class CylinderFlowSolver(flowsolver.FlowSolver):
-    """Base class for calculating flow
-    Is instantiated with several structures (dicts) containing parameters
-    See method .step and main for time-stepping (possibly actuated)
-    Contain methods for frequency-response computation"""
+    """Flow past a cylinder"""
 
     # Abstract methods
     def _make_boundaries(self):
