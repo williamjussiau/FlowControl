@@ -1,15 +1,9 @@
 __pycache__
 ._*.py
-u*.xdmf
-u*.h5
-p*.xdmf
-p*.h5
 *.npy
-timeseries1D*.csv
 ._*
 *.msh
-data_output/*
-test_3rdparty/
+**/data_output/*
 notes.txt
 .DS_Store
 jitfailure*
