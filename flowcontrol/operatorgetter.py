@@ -143,20 +143,20 @@ class CylinderOperatorGetter(OperatorGetter):
         # restriction of actuation of boundary
         class RestrictFunction(dolfin.UserExpression):
             def __init__(self, boundary, fun, **kwargs):
-                self.flowsolver.boundary = boundary
-                self.flowsolver.fun = fun
-                super(RestrictFunction, self.flowsolver).__init__(**kwargs)
+                self.boundary = boundary
+                self.fun = fun
+                super(RestrictFunction, self).__init__(**kwargs)
 
             def eval(self, values, x):
                 values[0] = 0
                 values[1] = 0
                 values[2] = 0
-                if self.flowsolver.boundary.inside(x, True):
-                    evalval = self.flowsolver.fun(x)
+                if self.boundary.inside(x, True):
+                    evalval = self.fun(x)
                     values[0] = evalval[0]
                     values[1] = evalval[1]
 
-            def value_shape(self.flowsolver):
+            def value_shape(self):
                 return (3,)
 
         Bi = []
@@ -165,7 +165,9 @@ class CylinderOperatorGetter(OperatorGetter):
                 boundary=self.flowsolver.boundaries.loc[actuator_name].subdomain,
                 fun=self.flowsolver.actuator_expression,
             )
-            actuator_restricted = dolfin.interpolate(actuator_restricted, self.flowsolver.W)
+            actuator_restricted = dolfin.interpolate(
+                actuator_restricted, self.flowsolver.W
+            )
             # actuator_restricted = flu.projectm(actuator_restricted, self.flowsolver.W)
             Bi.append(actuator_restricted)
 
@@ -180,12 +182,9 @@ class CylinderOperatorGetter(OperatorGetter):
         B = B.T  # vertical B
 
         if export:
-            # fa = dolfin.FunctionAssigner([self.flowsolver.V, self.flowsolver.P], self.flowsolver.W)
             vv = dolfin.Function(self.flowsolver.V)
-            # pp = dolfin.Function(self.flowsolver.P)
             ww = dolfin.Function(self.flowsolver.W)
             ww.assign(B_all_actuator)
-            # fa.assign([vv, pp], ww)
             vv, pp = ww.split()
             flu.write_xdmf("B.xdmf", vv, "B")
 
@@ -213,16 +212,13 @@ class CylinderOperatorGetter(OperatorGetter):
         C = np.zeros((ns, ndof))
 
         idof_old = 0
-        # xs = self.flowsolver.sensor_location
-        # Iteratively put each DOF at 1
-        # And evaluate measurement on said DOF
+        # Iteratively put each DOF at 1 and evaluate measurement on said DOF
         for idof in dofmap.dofs():
             uvp_vec[idof] = 1
             if idof_old > 0:
                 uvp_vec[idof_old] = 0
             idof_old = idof
             C[:, idof] = self.flowsolver.make_measurement(mixed_field=uvp)
-            # mixed_field permits p sensor
 
         # check:
         if check:
@@ -234,7 +230,9 @@ class CylinderOperatorGetter(OperatorGetter):
                 logger.debug(
                     f"\t with fun: {self.flowsolver.make_measurement(mixed_field=self.flowsolver.up0)}"
                 )
-                logger.debug(f"\t with C@x: {C[i] @ self.flowsolver.up0.vector().get_local()}")
+                logger.debug(
+                    f"\t with C@x: {C[i] @ self.flowsolver.up0.vector().get_local()}"
+                )
 
         if timeit:
             logger.info(f"Elapsed time: {time.time() - t0}")
@@ -264,7 +262,6 @@ class CavityOperatorGetter(OperatorGetter):
         if perturbations:  # perturbation equations lidolfin.nearized
             up = dolfin.TrialFunction(self.flowsolver.W)
             u, p = dolfin.split(up)
-            # u0 = self.flowsolver.u0
             dF0 = (
                 -dot(dot(u_, nabla_grad(u)), v) * dx
                 - dot(dot(u, nabla_grad(u_)), v) * dx
@@ -288,9 +285,6 @@ class CavityOperatorGetter(OperatorGetter):
             # prepare derivation
             du = dolfin.TrialFunction(self.flowsolver.W)
             dF0 = dolfin.derivative(F0, up_, du=du)
-            ## shift
-            # dF0 = dF0 - shift*dot(u_,v)*dx
-            # bcs
             bcs = self.flowsolver.bc["bcu"]
 
         dolfin.assemble(dF0, tensor=Jac)
@@ -319,19 +313,19 @@ class CavityOperatorGetter(OperatorGetter):
             """Expand function from space [V1, V2] to [V1, V2, P]"""
 
             def __init__(self, fun, **kwargs):
-                self.flowsolver.fun = fun
-                super(ExpandFunctionSpace, self.flowsolver).__init__(**kwargs)
+                self.fun = fun
+                super(ExpandFunctionSpace, self).__init__(**kwargs)
 
             def eval(self, values, x):
-                evalval = self.flowsolver.fun(x)
+                evalval = self.fun(x)
                 values[0] = evalval[0]
                 values[1] = evalval[1]
                 values[2] = 0
 
-            def value_shape(self.flowsolver):
+            def value_shape(self):
                 return (3,)
 
-        actuator_extended = ExpandFunctionSpace(fun=self.flowsolver.actuator_expression)
+        actuator_extended = ExpandFunctionSpace(fun=self.actuator_expression)
         actuator_extended = dolfin.interpolate(actuator_extended, self.flowsolver.W)
         B_proj = flu.projectm(actuator_extended, self.flowsolver.W)
         B = B_proj.vector().get_local()
@@ -343,7 +337,9 @@ class CavityOperatorGetter(OperatorGetter):
         B = B.T  # vertical B
 
         if export:
-            fa = dolfin.FunctionAssigner([self.flowsolver.V, self.flowsolver.P], self.flowsolver.W)
+            fa = dolfin.FunctionAssigner(
+                [self.flowsolver.V, self.flowsolver.P], self.flowsolver.W
+            )
             vv = dolfin.Function(self.flowsolver.V)
             pp = dolfin.Function(self.flowsolver.P)
             ww = dolfin.Function(self.flowsolver.W)
@@ -414,10 +410,10 @@ class CavityOperatorGetter(OperatorGetter):
         # check:
         if check:
             for i in range(ns):
-                # sensor_types = dict(u=0, v=1, p=2)
-                # print('True probe: ', self.flowsolver.up0(self.flowsolver.sensor_location[i])[sensor_types[self.flowsolver.sensor_type[0]]])
-                # true probe would be make_measurement(...)
-                print("\t with fun:", self.flowsolver.make_measurement(mixed_field=self.flowsolver.up0))
+                print(
+                    "\t with fun:",
+                    self.flowsolver.make_measurement(mixed_field=self.flowsolver.up0),
+                )
                 print("\t with C@x: ", C[i] @ self.flowsolver.up0.vector().get_local())
 
         if timeit:

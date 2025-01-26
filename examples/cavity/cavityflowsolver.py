@@ -9,7 +9,6 @@ Equations were made non-dimensional
 
 import flowsolver
 import dolfin
-from dolfin import dot, inner, nabla_grad, div, dx
 import numpy as np
 import time
 import pandas as pd
@@ -36,14 +35,6 @@ class CavityFlowSolver(flowsolver.FlowSolver):
     Is instantiated with several structures (dicts) containing parameters
     See method .step and main for time-stepping (possibly actuated)
     Contain methods for frequency-response computation"""
-
-    # TODO
-    # picard initial guess
-    # form: - dot(f, v) * dx
-    # problem with make_sensor and sensor_location -> sensor_size? around some location
-    # or make_sensor then make_measurement uses sensor?
-    # or class Sensor -> size x, size y, can be 0 for point sensor... or directly a type -> intg or point
-    # and class Actuator? with an Expression, a type and stuff
 
     # def __init__(
     #     self,
@@ -390,188 +381,6 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
         return y_meas
 
-    def get_A(self, perturbations=True, shift=0.0, timeit=True, up_0=None):
-        """Get state-space dynamic matrix A around some state up_0"""
-        if timeit:
-            print("Computing jacobian A...")
-            t0 = time.time()
-
-        Jac = dolfin.PETScMatrix()
-        v, q = dolfin.TestFunctions(self.W)
-        iRe = dolfin.Constant(1 / self.Re)
-        shift = dolfin.Constant(shift)
-        self.actuator_expression.ampl = 0.0
-
-        if up_0 is None:
-            up_ = self.up0  # base flow
-        else:
-            up_ = up_0
-        u_, p_ = up_.dolfin.split()
-
-        if perturbations:  # perturbation equations lidolfin.nearized
-            up = dolfin.TrialFunction(self.W)
-            u, p = dolfin.split(up)
-            # u0 = self.u0
-            dF0 = (
-                -dot(dot(u_, nabla_grad(u)), v) * dx
-                - dot(dot(u, nabla_grad(u_)), v) * dx
-                - iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
-                + p * div(v) * dx
-                + div(u) * q * dx
-                - shift * dot(u, v) * dx
-            )  # sum u, v but not p
-            bcu = self.bc_p["bcu"]
-            bcs = bcu
-        else:  # full ns + derivative
-            up_ = self.up0
-            u_, p_ = dolfin.split(up_)
-            F0 = (
-                -dot(dot(u_, nabla_grad(u_)), v) * dx
-                - iRe * inner(nabla_grad(u_), nabla_grad(v)) * dx
-                + p_ * div(v) * dx
-                + q * div(u_) * dx
-                - shift * dot(u_, v) * dx
-            )
-            # prepare derivation
-            du = dolfin.TrialFunction(self.W)
-            dF0 = dolfin.derivative(F0, up_, du=du)
-            ## shift
-            # dF0 = dF0 - shift*dot(u_,v)*dx
-            # bcs
-            bcs = self.bc["bcu"]
-
-        dolfin.assemble(dF0, tensor=Jac)
-        [bc.apply(Jac) for bc in bcs]
-
-        if timeit:
-            print("Elapsed time: ", time.time() - t0)
-
-        return Jac
-
-    def get_B(self, export=False, timeit=True):
-        """Get actuation matrix B"""
-        print("Computing actuation matrix B...")
-
-        if timeit:
-            t0 = time.time()
-
-        # for an exponential actuator -> just evaluate actuator_exp on every coordinate, kinda?
-        # for a boundary actuator -> evaluate actuator on boundary
-        actuator_ampl_old = self.actuator_expression.ampl
-        self.actuator_expression.ampl = 1.0
-
-        # Method 2
-        # Projet actuator expression on W
-        class ExpandFunctionSpace(dolfin.UserExpression):
-            """Expand function from space [V1, V2] to [V1, V2, P]"""
-
-            def __init__(self, fun, **kwargs):
-                self.fun = fun
-                super(ExpandFunctionSpace, self).__init__(**kwargs)
-
-            def eval(self, values, x):
-                evalval = self.fun(x)
-                values[0] = evalval[0]
-                values[1] = evalval[1]
-                values[2] = 0
-
-            def value_shape(self):
-                return (3,)
-
-        actuator_extended = ExpandFunctionSpace(fun=self.actuator_expression)
-        actuator_extended = dolfin.interpolate(actuator_extended, self.W)
-        B_proj = flu.projectm(actuator_extended, self.W)
-        B = B_proj.vector().get_local()
-
-        # remove very small values (should be 0 but are not)
-        B = flu.dense_to_sparse(
-            B, eliminate_zeros=True, eliminate_under=1e-14
-        ).toarray()
-        B = B.T  # vertical B
-
-        if export:
-            fa = dolfin.FunctionAssigner([self.V, self.P], self.W)
-            vv = dolfin.Function(self.V)
-            pp = dolfin.Function(self.P)
-            ww = dolfin.Function(self.W)
-            ww.assign(B_proj)
-            fa.assign([vv, pp], ww)
-            flu.write_xdmf("B.xdmf", vv, "B")
-
-        self.actuator_expression.ampl = actuator_ampl_old
-
-        if timeit:
-            print("Elapsed time: ", time.time() - t0)
-
-        return B
-
-    def get_C(self, timeit=True, check=False, verbose=False):
-        """Get measurement matrix C"""
-        # Solution to make it faster:
-        # localize the region of dofs where C is going to be nonzero
-        # and only account for dofs in this region
-        print("Computing measurement matrix C...")
-
-        if timeit:
-            t0 = time.time()
-
-        # Initialize
-        fspace = self.W  # function space
-        uvp = dolfin.Function(fspace)  # function to store C
-        uvp_vec = uvp.vector()  # as vector
-        ndof = fspace.dim()  # size of C
-        ns = self.params_control.sensor_number
-        C = np.zeros((ns, ndof))
-
-        dofmap = fspace.dofmap()  # indices of dofs
-        dofmap_x = fspace.tabulate_dof_coordinates()  # coordinates of dofs
-
-        # Box that encapsulates all dofs on sensor
-        margin = 0.05
-        xmin = 1 - margin
-        xmax = 1.1 + margin
-        ymin = 0 - margin
-        ymax = 0 + margin
-        xymin = np.array([xmin, ymin]).reshape(1, -1)
-        xymax = np.array([xmax, ymax]).reshape(1, -1)
-        # keep dofs with coordinates inside box
-        dof_in_box = (
-            np.greater_equal(dofmap_x, xymin) * np.less_equal(dofmap_x, xymax)
-        ).all(axis=1)
-        # retrieve said dof index
-        dof_in_box_idx = np.array(dofmap.dofs())[dof_in_box]
-
-        # Iteratively put each DOF at 1
-        # And evaluate measurement on said DOF
-        idof_old = 0
-        ii = 0  # counter of the number of dofs evaluated
-        for idof in dof_in_box_idx:
-            ii += 1
-            if verbose and not ii % 1000:
-                print("get_C::eval iter {0} - dof n°{1}/{2}".format(ii, idof, ndof))
-            # set field 1 at said dof
-            uvp_vec[idof] = 1
-            uvp_vec[idof_old] = 0
-            idof_old = idof
-            # retrieve coordinates
-            # dof_x = dofmap_x[idof] # not needed for measurement
-            # evaluate measurement
-            C[:, idof] = self.make_measurement(mixed_field=uvp)
-
-        # check:
-        if check:
-            for i in range(ns):
-                # sensor_types = dict(u=0, v=1, p=2)
-                # print('True probe: ', self.up0(self.sensor_location[i])[sensor_types[self.sensor_type[0]]])
-                # true probe would be make_measurement(...)
-                print("\t with fun:", self.make_measurement(mixed_field=self.up0))
-                print("\t with C@x: ", C[i] @ self.up0.vector().get_local())
-
-        if timeit:
-            print("Elapsed time: ", time.time() - t0)
-
-        return C
-
 
 ###############################################################################
 ###############################################################################
@@ -595,8 +404,7 @@ if __name__ == "__main__":
     params_flow.uinf = 1.0
     params_flow.d = 1.0
 
-    # params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.0004, Tstart=0.0)
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.001, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.0004, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=5, path_out=cwd / "data_output"
@@ -618,9 +426,9 @@ if __name__ == "__main__":
     params_restart = flowsolverparameters.ParamRestart()
 
     params_control = flowsolverparameters.ParamControl(
-        sensor_location=np.array([[3, 0], [3.1, 1], [3.1, -1]]),
-        sensor_type=[flowsolverparameters.SENSOR_TYPE.V] * 3,
-        sensor_number=3,
+        sensor_location=np.array([[3, 0]]),
+        sensor_type=[flowsolverparameters.SENSOR_TYPE.OTHER],
+        sensor_number=1,
         actuator_type=[flowsolverparameters.ACTUATOR_TYPE.BC],
         actuator_location=np.array([[3, 0]]),
         actuator_number=2,
