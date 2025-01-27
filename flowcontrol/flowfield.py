@@ -11,11 +11,17 @@ class FlowField:
     p: dolfin.Function
     up: dolfin.Function
 
-    @staticmethod
-    def generate(up: dolfin.Function) -> FlowField:
+    def __init__(self, up: dolfin.Function):
         u, p = up.split(deepcopy=True)
-        ff = FlowField(u=u, p=p, up=up)
-        return ff
+        self.u = u
+        self.p = p
+        self.up = up
+
+    # @staticmethod
+    # def generate(up: dolfin.Function) -> FlowField:
+    #     u, p = up.split(deepcopy=True)
+    #     ff = FlowField(u=u, p=p, up=up)
+    #     return ff
 
 
 @dataclass
