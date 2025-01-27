@@ -31,11 +31,10 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 class CylinderFlowSolver(flowsolver.FlowSolver):
-    """Flow past a cylinder"""
+    """Flow past a cylinder. Proposed Re=100."""
 
     # Abstract methods
     def _make_boundaries(self):
-        """Define boundaries (inlet, outlet, walls, cylinder, actuator)"""
         MESH_TOL = dolfin.DOLFIN_EPS
         # Define as compiled subdomains
         ## Inlet
@@ -139,7 +138,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         return boundaries_df
 
     def _make_bcs(self):
-        """Define boundary conditions"""
         # create zeroBC for perturbation formulation
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
@@ -175,7 +173,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         field: dolfin.Function | None = None,
         mixed_field: dolfin.Function | None = None,
     ) -> np.ndarray:
-        """Perform measurement"""
         ns = self.params_control.sensor_number
         y_meas = np.zeros((ns,))
 
@@ -203,8 +200,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         return y_meas
 
     def _make_actuator(self) -> dolfin.Expression:
-        """Define actuator on boundary
-        Could be defined as volume actuator some day"""
         # TODO
         # return actuator type (vol, bc)
         # + MIMO -> list
@@ -234,7 +229,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
     # Steady state
     def compute_steady_state(self, method="newton", u_ctrl=0.0, **kwargs):
-        """Overriding is useless, should do an additional method"""
         super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
         # assign steady cl, cd
         cl, cd = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
@@ -249,7 +243,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
     def compute_force_coefficients(
         self, u: dolfin.Function, p: dolfin.Function
     ) -> tuple[float, float]:  # keep this one in here
-        """Compute lift & drag coefficients"""
+        """Compute lift & drag coefficients acting on the cylinder."""
         nu = self.params_flow.uinf * self.params_flow.d / self.params_flow.Re
 
         sigma = flu2.stress_tensor(nu, u, p)
