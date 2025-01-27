@@ -189,10 +189,10 @@ class FlowSolver(ABC):
 
         if ic is None:  # then zero
             logger.debug("ic is set internally to 0")
-            self.fields.ic = FlowField.generate(up=dolfin.Function(self.W))
+            self.fields.ic = FlowField(up=dolfin.Function(self.W))
         else:
             logger.debug("ic is already set by user")
-            self.fields.ic = FlowField.generate(up=ic)
+            self.fields.ic = FlowField(up=ic)
 
         # Add perturbation to IC
         addpert = self.params_solver.ic_add_perturbation
@@ -202,7 +202,7 @@ class FlowSolver(ABC):
             pert0 = self.merge(u=udiv0, p=flu.projectm(self.fields.STEADY.p, self.P))
             self.fields.ic.up.vector()[:] += addpert * pert0.vector()[:]
         self.fields.ic.up.vector().apply("insert")
-        self.fields.ic = FlowField.generate(self.fields.ic.up)
+        self.fields.ic = FlowField(self.fields.ic.up)
 
         u_n = flu.projectm(v=self.fields.ic.u, V=self.V, bcs=self.bc["bcu"])
         u_nn = u_n.copy(deepcopy=True)
@@ -269,7 +269,7 @@ class FlowSolver(ABC):
             p.vector()[:] = P.vector()[:] - self.fields.STEADY.p.vector()[:]
             p.vector().apply("insert")
 
-        self.fields.ic = FlowField.generate(up=self.merge(u=u_, p=p_))
+        self.fields.ic = FlowField(up=self.merge(u=u_, p=p_))
 
         return u_, p_, u_n, u_nn, p_n
 
@@ -570,7 +570,7 @@ class FlowSolver(ABC):
     # Steady state
     def _assign_steady_state(self, U0: dolfin.Function, P0: dolfin.Function) -> None:
         UP0 = self.merge(u=U0, p=P0)
-        self.fields.STEADY = FlowField.generate(UP0)
+        self.fields.STEADY = FlowField(UP0)
         self.fields.U0 = self.fields.STEADY.u
         self.fields.P0 = self.fields.STEADY.p
         self.fields.UP0 = self.fields.STEADY.up
