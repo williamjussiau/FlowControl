@@ -13,6 +13,7 @@ import numpy as np
 import time
 import pandas as pd
 import flowsolverparameters
+
 # from controller import Controller
 
 import logging
@@ -20,6 +21,7 @@ import logging
 from pathlib import Path
 
 import utils_flowsolver as flu
+
 # import utils_extract as flu2
 
 
@@ -31,33 +33,22 @@ logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 class CavityFlowSolver(flowsolver.FlowSolver):
-    """Base class for calculating flow
-    Is instantiated with several structures (dicts) containing parameters
-    See method .step and main for time-stepping (possibly actuated)
-    Contain methods for frequency-response computation"""
-
-    # def __init__(
-    #     self,
-    # ):
-    #     pass
+    """Flow over an open cavity. Proposed Re=7500."""
 
     # @abstractmethod
     # def _make_boundaries(self) -> pd.DataFrame:
     def _make_boundaries(self):
-        """Define boundaries (inlet, outlet, walls, and so on)
-          Geometry and boundaries are the following:
-                           sf
-          ------------------------------------------
-          |                                        |
-        in|                                        |out
-          |                                        |
-          -----x0nsl---      -----x0nsr-------------
-             sf     ns|      | ns           sf
-                      |      |
-                      |      |
-                      --------
-                         ns
-        """
+        #                    sf
+        #   ------------------------------------------
+        #   |                                        |
+        # in|                                        |out
+        #   |                                        |
+        #   -----x0nsl---      -----x0nsr-------------
+        #      sf     ns|      | ns           sf
+        #               |      |
+        #               |      |
+        #               --------
+        #                  ns
         MESH_TOL = dolfin.DOLFIN_EPS
         L = self.params_flow.d
         D = self.params_flow.d
@@ -222,41 +213,8 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
         return boundaries_df
 
-    def make_sensor(self):
-        """Define sensor-related quantities (surface of integration, dolfin.SubDomain...)"""
-        # define sensor surface
-        xs0 = 1.0
-        xs1 = 1.1
-        MESH_TOL = dolfin.DOLFIN_EPS
-        sensor_subdm = dolfin.CompiledSubDomain(
-            "on_boundary && near(x[1], 0, MESH_TOL) && x[0]>=xs0 && x[0]<=xs1",
-            MESH_TOL=MESH_TOL,
-            xs0=xs0,
-            xs1=xs1,
-        )
-        # define function to index cells
-        sensor_mark = dolfin.MeshFunction(
-            "size_t", self.mesh, self.mesh.topology().dim() - 1
-        )
-        # define sensor as index 100 and mark
-        SENSOR_IDX = 100
-        sensor_subdm.mark(sensor_mark, SENSOR_IDX)
-        # define surface element ds on sensor
-        ds_sensor = dolfin.Measure("ds", domain=self.mesh, subdomain_data=sensor_mark)
-        self.ds_sensor = ds_sensor
-        # self.sensor_dolfin.SubDomain = sensor_subdm
-
-        # Append sensor to boundaries but not to markers... might it be dangerous?
-        df_sensor = pd.DataFrame(
-            data=dict(subdomain=sensor_subdm, idx=SENSOR_IDX), index=["sensor"]
-        )
-        # self.boundaries = self.boundaries.append(df_sensor)
-        self.boundaries = pd.concat((self.boundaries, df_sensor))
-        self.sensor_ok = True  # TODO rm
-
     # @abstractmethod
     def _make_actuator(self):
-        """Define actuator: on boundary (with ternary operator cond?true:false) or volumic..."""
         # make actuator with amplitude 1
         actuator_expr = dolfin.Expression(
             [
@@ -277,7 +235,6 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
     # @abstractmethod
     def _make_bcs(self):
-        """Define boundary conditions"""
         # inlet : u=uinf, v=0
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
@@ -353,6 +310,38 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         bcp = [bcp_outlet]
 
         return {"bcu": bcu, "bcp": bcp}
+
+    def make_sensor(self):
+        """Define sensor-related quantities (surface of integration, dolfin.SubDomain...)"""
+        # define sensor surface
+        xs0 = 1.0
+        xs1 = 1.1
+        MESH_TOL = dolfin.DOLFIN_EPS
+        sensor_subdm = dolfin.CompiledSubDomain(
+            "on_boundary && near(x[1], 0, MESH_TOL) && x[0]>=xs0 && x[0]<=xs1",
+            MESH_TOL=MESH_TOL,
+            xs0=xs0,
+            xs1=xs1,
+        )
+        # define function to index cells
+        sensor_mark = dolfin.MeshFunction(
+            "size_t", self.mesh, self.mesh.topology().dim() - 1
+        )
+        # define sensor as index 100 and mark
+        SENSOR_IDX = 100
+        sensor_subdm.mark(sensor_mark, SENSOR_IDX)
+        # define surface element ds on sensor
+        ds_sensor = dolfin.Measure("ds", domain=self.mesh, subdomain_data=sensor_mark)
+        self.ds_sensor = ds_sensor
+        # self.sensor_dolfin.SubDomain = sensor_subdm
+
+        # Append sensor to boundaries but not to markers... might it be dangerous?
+        df_sensor = pd.DataFrame(
+            data=dict(subdomain=sensor_subdm, idx=SENSOR_IDX), index=["sensor"]
+        )
+        # self.boundaries = self.boundaries.append(df_sensor)
+        self.boundaries = pd.concat((self.boundaries, df_sensor))
+        self.sensor_ok = True  # TODO rm
 
     # @abstractmethod
     # def make_measurement(self) -> np.ndarray:

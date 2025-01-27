@@ -5,11 +5,27 @@ import numpy as np
 
 
 class ACTUATOR_TYPE(IntEnum):
+    """Enumeration of actuator types
+
+    Args:
+        BC: boundary condition actuation
+        FORCE: volumic force in momentum equation
+    """
+
     BC = 1
     FORCE = 2
 
 
 class SENSOR_TYPE(IntEnum):
+    """Enumeration of sensor types
+
+    Args:
+        U: sensor measuring 1st velocity component
+        V: sensor measuring 2nd velocity component
+        P: sensor measuring pressure
+        OTHER: sensor measuring something else (e.g. integral)
+    """
+
     U = 0
     V = 1
     P = 2
@@ -18,9 +34,10 @@ class SENSOR_TYPE(IntEnum):
 
 @dataclass
 class ParamFlow:
-    """Parameters related to flow configuration
-    Include by default:
-    Re
+    """Parameters related to flow configuration.
+
+    Args:
+        Re (float): Reynolds number
     """
 
     Re: float
@@ -28,26 +45,28 @@ class ParamFlow:
 
 @dataclass
 class ParamMesh:
-    """Parameters related to flow configuration
-    Include by default:
-    meshpath
-    meshname
-    Could include:
-    limits of domain
+    """Parameters related to flow configuration.
+
+    Args:
+        meshpath (pathlib.Path): path to xdmf mesh file
     """
 
     meshpath: Path
-    # additional case-specific limits
 
 
 @dataclass
 class ParamControl:
-    """Parameters related to control
-    Include by default:
-    sensor_location
-    Could include:
-    . case-specific sensor parameters
-    . actuator parameters"""
+    """Parameters related to control.
+
+    Args:
+        sensor_location (float): TODO
+        sensor_number (float): TODO
+        sensor_type (float): TODO
+        actuator_location (float): TODO
+        actuator_number (float): TODO
+        actuator_type (float): TODO
+        actuator_parameters (float): TODO
+    """
 
     sensor_location: np.ndarray[int, float] = field(
         default_factory=lambda: np.empty(shape=(0, 2), dtype=float)
@@ -66,13 +85,13 @@ class ParamControl:
 
 @dataclass
 class ParamTime:
-    """Parameters related to time-stepping
-    Include by default:
-    num_steps
-    dt
-    Tstart
-    Trestartfrom
-    restart_order
+    """Parameters related to time-stepping.
+
+    Args:
+        num_steps (int): number of steps
+        dt (float): time step
+        Tstart (float): starting simulation time
+        Tfinal (float): final simulation time (computed automatically).
     """
 
     def __init__(self, num_steps, dt, Tstart=0.0):
@@ -84,7 +103,15 @@ class ParamTime:
 
 @dataclass
 class ParamRestart:
-    """For restart only?"""
+    """Parameters related to restarting a simulation.
+
+    Args:
+        save_every_old (int): previous save_every (see ParamSave)
+        restart_order (int): equation order for restarting
+        dt_old (float): previous time step
+        Trestartfrom (float): starting time from the previous simulation
+            (for finding the corresponding field files).
+    """
 
     save_every_old: int = 0
     restart_order: int = 2
@@ -94,11 +121,12 @@ class ParamRestart:
 
 @dataclass
 class ParamSave:
-    """Parameters related to saving
-    Include by default:
-    savedir0
-    save_every
-    save_every_old (for restarting)"""  # --> do Param_restart??
+    """Parameters related to saving fields and time series.
+
+    Args:
+        path_out (pathlib.Path): folder for saving files
+        save_every (int): export files every _save_every_ iteration
+    """
 
     path_out: Path
     save_every: int
@@ -106,8 +134,16 @@ class ParamSave:
 
 @dataclass
 class ParamSolver:
-    """Parameters related to solver issues
-    But not really since init_pert is initial condition"""  # --> do Param_IC?
+    """Parameters related to equations and solvers.
+
+    Args:
+        throw_error (bool): if False, does not catch error when solver fails.
+            This may be useful when using FlowSolver as a backend for an optimization tool.
+        ic_add_perturbation (float): amplitude of perturbation added to given initial condition.
+        shift (float): shift equations by -_shift_*int(u * v * dx)
+        is_eq_nonlinear (bool): if False, simulate equations linearized around base flow (i.e. the
+            nonlinear term for the perturbation: (u.div)u, is neglected)
+    """
 
     throw_error: bool = True
     ic_add_perturbation: float = 0.0
