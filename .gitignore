@@ -3,13 +3,10 @@ __pycache__
 *.npy
 ._*
 *.msh
-**/data_output/*
 notes.txt
 .DS_Store
 jitfailure*
 movies
-sandbox
 _legacy
-flowcontrol_UML.uxf
-avi2gif
 .vscode
+examples/*/data_output/*
