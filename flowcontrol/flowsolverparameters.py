@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 import numpy as np
-import actuator
-import sensor
+from actuator import Actuator
+from sensor import Sensor
 
 
 @dataclass
@@ -36,13 +36,17 @@ class ParamControl:
         sensor_number (int): TODO
         actuator_list (list): TODO
         actuator_number (int): TODO
+        u_ctrl (list): TODO
     """
 
-    sensor_list: list[sensor.Sensor]
+    sensor_list: list[Sensor]
     sensor_number: int
 
-    actuator_list: list[actuator.Actuator]
+    actuator_list: list[Actuator]
     actuator_number: int
+
+    # u_ctrl: list[float] = field(default_factory=list)
+    # philisophy-wise, this is bad
 
     def __init__(self, sensor_list=[], actuator_list=[]):
         self.sensor_list = sensor_list

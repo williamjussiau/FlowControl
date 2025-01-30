@@ -24,7 +24,7 @@ class Actuator(ABC):
     # only on (u,v) not p if type is force, for BC on syntax of DirichletBC
 
     @abstractmethod
-    def load_expression(self, flowsolver):
+    def load_expression(self, flowsolver) -> dolfin.Expression:
         pass
 
 
@@ -45,13 +45,15 @@ class ActuatorBCParabolicV(Actuator):
         expression = dolfin.Expression(
             [
                 "0",
-                "(x[0]>=L || x[0] <=-L) ? 0 : -1*(x[0]+L)*(x[0]-L) / (L*L)",
+                "(x[0]>=L || x[0] <=-L) ? 0 : u_ctrl * -1*(x[0]+L)*(x[0]-L) / (L*L)",
             ],
             element=flowsolver.V.ufl_element(),
             L=L,
+            u_ctrl=0.0,
         )
 
         self.expression = expression
+        return expression
 
 
 @dataclass(kw_only=True)
@@ -66,18 +68,20 @@ class ActuatorForceGaussianV(Actuator):
         expression = dolfin.Expression(
             [
                 "0",
-                "eta*exp(-0.5*((x[0]-x10)*(x[0]-x10)+(x[1]-x20)*(x[1]-x20))/(sig*sig))",
+                "u_ctrl * eta*exp(-0.5*((x[0]-x10)*(x[0]-x10)+(x[1]-x20)*(x[1]-x20))/(sig*sig))",
             ],
             element=flowsolver.V.ufl_element(),
             eta=1,
             sig=self.sigma,
             x10=self.position[0],
             x20=self.position[1],
+            u_ctrl=0.0,
         )
 
         expression.eta = 1 / dolfin.norm(expression, mesh=flowsolver.mesh)
 
         self.expression = expression
+        return expression
 
 
 if __name__ == "__main__":

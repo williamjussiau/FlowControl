@@ -74,6 +74,9 @@ class FlowSolver(ABC):
 
     def _setup(self):
         """Define class attributes common to all FlowSolver problems."""
+        self.first_step = True
+        self.fields = FlowFieldCollection()
+
         self.paths = self._define_paths()
         self.mesh = self._make_mesh()
         self.V, self.P, self.W = self._make_function_spaces()
@@ -82,9 +85,6 @@ class FlowSolver(ABC):
         self.actuator_expression = self._make_actuator()  # @abstract
         self.bc = self._make_bcs()  # @abstract
         self.BC = self._make_BCs()
-
-        self.first_step = True
-        self.fields = FlowFieldCollection()
 
     def _define_paths(self) -> dict[str, Path]:
         """Define dictionary of file names for import/export.
@@ -580,7 +580,7 @@ class FlowSolver(ABC):
         t0i = time.time()
 
         # control
-        self.actuator_expression.ampl = u_ctrl
+        self._set_u_ctrl(u_ctrl)
 
         try:
             self.assemblers[self.order].assemble(self.rhs)
@@ -675,6 +675,13 @@ class FlowSolver(ABC):
         up = dolfin.Function(self.W)
         fa.assign(up, [u, p])
         return up
+
+    def _set_u_ctrl(self, u_ctrl):
+        for ii, actuator in enumerate(self.params_control.actuator_list):
+            actuator.expression.u_ctrl = u_ctrl[ii]
+
+    def _flush_u_ctrl(self):
+        self._set_u_ctrl([0] * self.params_control.actuator_number)
 
     def _export_fields_xdmf(
         self,
@@ -783,7 +790,7 @@ class FlowSolver(ABC):
             method (str, optional): method to be used (picard or newton). Defaults to "newton".
             u_ctrl (float, optional): constant input to take into account. Defaults to 0.0.
         """
-        self.actuator_expression.ampl = u_ctrl
+        self._set_u_ctrl(u_ctrl)
 
         if method == "newton":
             UP0 = self._compute_steady_state_newton(**kwargs)
@@ -998,9 +1005,7 @@ class FlowSolver(ABC):
         self, u_ctrl: float, y_meas: float, dE: float, t: float, runtime: float
     ) -> None:
         """Fill timeseries with simulation data at given index."""
-        self.timeseries.loc[self.iter - 1, "u_ctrl"] = (
-            u_ctrl  # careful here: log the control that was applied at time t (iter-1) to get time t+dt (iter)
-        )
+        self.timeseries.loc[self.iter - 1, "u_ctrl"] = u_ctrl[0]
         self._assign_y_to_df(df=self.timeseries, y_meas=y_meas, index=self.iter)
         self.timeseries.loc[self.iter, "dE"] = dE
         self.timeseries.loc[self.iter, "time"] = t

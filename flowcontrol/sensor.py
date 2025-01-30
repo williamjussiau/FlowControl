@@ -54,6 +54,9 @@ class SensorIntegral(Sensor, ABC):
     size: np.ndarray
     ds: dolfin.Measure | None = None
 
+    # setup when first time in make_measurement?
+    # for sensor, init if necessary, then measure
+
     # @abstractmethod
     # def eval(self, up):
     #     SENSOR_IDX = 1  # TODO
