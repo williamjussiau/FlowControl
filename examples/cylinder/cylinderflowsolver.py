@@ -13,6 +13,8 @@ import numpy as np
 import time
 import pandas as pd
 import flowsolverparameters
+from sensor import SensorPoint, SENSOR_TYPE
+from actuator import ActuatorBCParabolicV, ACTUATOR_TYPE
 from controller import Controller
 
 import logging
@@ -73,10 +75,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
         radius = self.params_flow.d / 2
         ldelta = radius * np.sin(
-            self.params_control.actuator_parameters["angular_size_deg"]
-            / 2
-            * dolfin.pi
-            / 180
+            self.params_control.actuator_list[0].angular_size_deg / 2 * dolfin.pi / 180
         )
 
         # close_to_cylinder_cpp = between_cpp("x[0]*x[0] + x[1]*x[1]", "0", "2*radius*radius")
@@ -170,33 +169,15 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
     def make_measurement(
         self,
-        field: dolfin.Function | None = None,
-        mixed_field: dolfin.Function | None = None,
+        up: dolfin.Function,
     ) -> np.ndarray:
+
         ns = self.params_control.sensor_number
         y_meas = np.zeros((ns,))
 
-        for isensor in range(ns):
-            xs_i = self.params_control.sensor_location[isensor, :]
-            ts_i = self.params_control.sensor_type[isensor]
+        for isensor, sensor_i in enumerate(self.params_control.sensor_list):
+            y_meas[isensor] = sensor_i.eval(up=up)
 
-            # no mixed field (u,v,p) is given
-            if field is not None:
-                y_meas_i = flu.MpiUtils.peval(field, xs_i)[ts_i]
-            else:
-                if mixed_field is None:
-                    # depending on sensor type, eval attribute field
-                    if (
-                        ts_i == flowsolverparameters.SENSOR_TYPE.U
-                        or ts_i == flowsolverparameters.SENSOR_TYPE.V
-                    ):
-                        y_meas_i = flu.MpiUtils.peval(self.u_, xs_i)[ts_i]
-                    else:  # sensor_type=='p':
-                        y_meas_i = flu.MpiUtils.peval(self.p_, xs_i)
-                else:
-                    y_meas_i = flu.MpiUtils.peval(mixed_field, xs_i)[ts_i]
-
-            y_meas[isensor] = y_meas_i
         return y_meas
 
     def _make_actuator(self) -> dolfin.Expression:
@@ -210,7 +191,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             * np.sin(
                 1
                 / 2
-                * self.params_control.actuator_parameters["angular_size_deg"]
+                * self.params_control.actuator_list[0].angular_size_deg
                 * dolfin.pi
                 / 180
             )
@@ -314,14 +295,13 @@ if __name__ == "__main__":
 
     params_restart = flowsolverparameters.ParamRestart()
 
+    actuator_bc = ActuatorBCParabolicV(angular_size_deg=10)
+    feedback_sensor = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
+    perf_sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
+    perf_sensor_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1]))
     params_control = flowsolverparameters.ParamControl(
-        sensor_location=np.array([[3, 0], [3.1, 1], [3.1, -1]]),
-        sensor_type=[flowsolverparameters.SENSOR_TYPE.V] * 3,
-        sensor_number=3,
-        actuator_type=[flowsolverparameters.ACTUATOR_TYPE.BC],
-        actuator_location=np.array([[3, 0]]),
-        actuator_number=2,
-        actuator_parameters=dict(angular_size_deg=10),
+        sensor_list=[feedback_sensor, perf_sensor_1, perf_sensor_2],
+        actuator_list=[actuator_bc],
     )
 
     fs = CylinderFlowSolver(
@@ -399,13 +379,13 @@ if __name__ == "__main__":
     logger.info(fs_restart.timeseries)
 
     logger.info("Testing max(u) and mean(u)...")
-    u_max_ref = 1.6346180053658963
-    u_mean_ref = -0.0010055159332704045
+    u_max_ref = 2.2855984664058986
+    u_mean_ref = 0.3377669778983669
     u_max = flu.apply_fun(fs_restart.fields.Usave, np.max)
     u_mean = flu.apply_fun(fs_restart.fields.Usave, np.mean)
 
-    logger.info(f"umax: {u_max} // {u_max_ref}")
-    logger.info(f"umean: {u_mean} // {u_mean_ref}")
+    logger.info(f"umax: {u_max} (found) // (ref) {u_max_ref}")
+    logger.info(f"umean: {u_mean} (found) // (ref) {u_mean_ref}")
 
     assert np.isclose(u_max, u_max_ref)
     assert np.isclose(u_mean, u_mean_ref)
