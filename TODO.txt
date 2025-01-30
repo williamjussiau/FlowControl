@@ -1,8 +1,4 @@
 ## Short-term
-# doc
-
-# MIMO support u_ctrl = list() -> probably not difficult
-# + both kinds of actuation -> probably need "if" treatment
 
 # docker
 
@@ -11,15 +7,12 @@
 ## Mid-term
 # sort (& check & rm) utility funs (_flowsolver, _extract, _debug)
 
-# reimplement cavity
-# and why not cylinder with volume force (would work with MIMO/actuation support)
-
 # get A, B, C -> (more) general form?
 
-
+# (why not reimplement cylinder with volume force)
 
 
 ## Long-term
-# add tests to Controller (stepping, add/mul)
+# add tests to Controller & FlowSolver
 # write_timeseries -> async?
-# test parallel
+# test parallel -> peval Sensor, broadcast measurement
