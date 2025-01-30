@@ -68,7 +68,7 @@ class SensorPoint(Sensor):
 
 
 @dataclass(kw_only=True)
-class SensorIntegral(Sensor, ABC):
+class SensorIntegral(Sensor):
     """Abstract base class for sensors performing integration on a subdomain,
      providing the abstract method _load. A SensorIntegral always require loading,
      which corresponds to initializing a _dolfin.SubDomain_ and a _dolfin.Measure_.
