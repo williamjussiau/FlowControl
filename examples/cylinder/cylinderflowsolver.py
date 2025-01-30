@@ -213,7 +213,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         # return self.params_control.actuator_list[0].load_expression(self)
 
     # Steady state
-    def compute_steady_state(self, method="newton", u_ctrl=0.0, **kwargs):
+    def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
         super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
         # assign steady cl, cd
         cl, cd = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
@@ -343,7 +343,7 @@ if __name__ == "__main__":
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-        fs.step(u_ctrl=[u_ctrl])
+        fs.step(u_ctrl=u_ctrl)
 
     flu.summarize_timings(fs, t000)
     fs.write_timeseries()
@@ -377,7 +377,7 @@ if __name__ == "__main__":
     for _ in range(fs_restart.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs_restart.params_time.dt)
-        fs_restart.step(u_ctrl=[u_ctrl])
+        fs_restart.step(u_ctrl=u_ctrl)
 
     fs_restart.write_timeseries()
 
