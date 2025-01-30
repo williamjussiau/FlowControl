@@ -91,7 +91,7 @@ class Controller(control.StateSpace):
         """
         return cls(A, B, C, D, x0=x0, file=file)
 
-    def step(self, y: float, dt: float) -> float:
+    def step(self, y: float, dt: float) -> np.ndarray:
         """Simulate Controller from its current state self.x on the
         time interval [0, dt] with input y, to produce a control
         output u.
@@ -103,13 +103,12 @@ class Controller(control.StateSpace):
         Returns:
             float: control output u.
         """
-        # TODO make MIMO-compatible
         y_rep = np.repeat(np.atleast_2d(y), repeats=2, axis=0).T
         Tsim = [0, dt]
         _, yout, xout = control.forced_response(
             self, U=y_rep, T=Tsim, X0=self.x, interpolate=False, return_x=True
         )
-        u = np.ravel(yout)[0]
+        u = np.atleast_2d(yout)[:, 0]
         self.x = xout[:, 1]
         return u
 
@@ -186,24 +185,40 @@ if __name__ == "__main__":
     )
     K3 = Controller(A=kd["A"], B=kd["B"], C=kd["C"], D=kd["D"])
 
-    # SHOW_IDX = 3
-    # for K in [K1, K2, K3]:
-    #     print("Loop ---")
-    #     print(K.B[SHOW_IDX])
-    #     print(K.x)
-    #     print(K.file)
+    # Tests SISO/MIMO
+    # Test SISO
+    dt = 0.1
+    num_steps = 5
 
-    print("+++")
-    print(f"Sum test: {type(K1 + K2)}")
-    print(f"Sum test: {type(K1 + 1)}")
-    print(f"Sum test: {type(1 + K1)}")
+    print("***** Test SISO *****")
+    Ksiso = Controller.from_matrices(
+        A=np.array([[1, 1, 1], [0.2, -1, 0], [0.0, 1.0, 1.0]]),
+        B=np.array([[0], [1], [0.5]]),
+        C=np.array([0.5, 0.2, 0]),
+        D=0,
+        x0=np.array([1, 2, 3]),
+    )
+    yy = [1.2]
 
-    print("***")
-    print(f"Multiplication test: {type(K1 * K2)}")
-    print(f"Multiplication test: {type(2 * K1)}")
-    print(f"Multiplication test: {type(K1 * 2)}")
-    print(f"Inversion test: {type(K1.inv())}")
+    for _ in range(num_steps):
+        print("---")
+        uu = Ksiso.step(yy, dt)
+        print(f"output {uu}")
+        print(f"states {Ksiso.x}")
 
-    print("K1 : ", K1.file)
-    print("K2 : ", K2.file)
-    print("K3 : ", K3.file)
+    # Test MIMO
+    print("***** Test MIMO *****")
+    Kmimo = Controller.from_matrices(
+        A=Ksiso.A,
+        B=np.array([[0, 1], [1, 0], [0.5, 0.5]]),
+        C=0.5 * np.eye(3),
+        D=0,
+        x0=np.array([1, 2, 3]),
+    )
+
+    yy = [1.2, -1.3]
+    for _ in range(num_steps):
+        print("---")
+        uu = Kmimo.step(yy, dt)
+        print(f"output {uu}")
+        print(f"states {Kmimo.x}")
