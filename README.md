@@ -184,7 +184,7 @@ The ```conda```  environment required to run the code can be extracted from the 
 
 ## Code overview
 
-### Define a new use-case: inherit FlowSovler abstract class
+### Define a new use-case: inherit FlowSolver abstract class
 The simulation revolves around the abstract class ```FlowSolver``` that implements core features such as loading mesh, defining function spaces, trial/test functions, variational formulations, numerical schemes and solvers, handling the time-stepping and exporting information. The class is abstract as it does not implement a simulation case _per se_, but only provides utility for doing so. It features two abstract methods, that are redefined for each use-case:
 
 1. ```_make_boundaries``` provides a definition and naming of the boundaries of the mesh in a pandas DataFrame.
@@ -204,8 +204,8 @@ For the two aforementioned examples, these methods are reimplemented in the clas
 
 
 
-### Attach ```Sensor```s and ```Actuator```s to an object inheriting from ```FlowSolver```
-In order to perform sensing and actuation (with the goal of closing the loop), dedicated classes ```Sensor``` and ```Actuator```have been implemented. They are not aimed at being instantiated, but rather inherited.
+### Attach ```Sensor```s and ```Actuator```s to an instance of a ```FlowSolver``` subclass
+In order to perform sensing and actuation (in order to close the loop), dedicated classes ```Sensor``` and ```Actuator``` are proposed. They are not aimed at being instantiated, but rather inherited.
 
 * ```Sensor``` is an abstract class that provides a method ```eval(self, up: dolfin.Function) -> float```. Classes ```SensorPoint``` (point probe) and ```SensorIntegral``` (integration on a subdomain) are examples of subclasses that implement the ```eval``` method.
 * Likewise, ```Actuator``` is an abstract class that encapsulates a ```dolfin.Expression``` among other elements, and embeds it in the variational formulations.
