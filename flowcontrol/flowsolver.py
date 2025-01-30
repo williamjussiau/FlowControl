@@ -354,7 +354,7 @@ class FlowSolver(ABC):
         """
         self.t = self.params_time.Tstart
         self.iter = 0
-        self.y_meas = self.make_measurement(self.fields.ic.u)
+        self.y_meas = self.make_measurement(up=self.fields.ic.up)
         y_meas_str = [
             "y_meas_" + str(i + 1) for i in range(self.params_control.sensor_number)
         ]
@@ -614,7 +614,7 @@ class FlowSolver(ABC):
 
         ## Output
         # Probe
-        self.y_meas = self.make_measurement(self.fields.up_)
+        self.y_meas = self.make_measurement(up=self.fields.up_)
         # Runtime
         runtime = time.time() - t0i
         if self._niter_multiple_of(self.iter, self.verbose):
@@ -830,7 +830,7 @@ class FlowSolver(ABC):
         Returns:
             dolfin.Function: estimation of steady state UP0
         """
-        F0, UP0 = self._make_form_mixed_steady(initial_guess=initial_guess)
+        F0, UP0 = self._make_varf_steady(initial_guess=initial_guess)
         BC = self._make_BCs()
 
         if initial_guess is None:
@@ -920,7 +920,7 @@ class FlowSolver(ABC):
         return UP1
 
     # Otherwise, reimplement this
-    def _make_form_mixed_steady(
+    def _make_varf_steady(
         self, initial_guess: dolfin.Function | None = None
     ) -> tuple[dolfin.Form, dolfin.Function]:
         """Make nonlinear forms for steady state computation, in mixed element space W.
@@ -1069,8 +1069,7 @@ class FlowSolver(ABC):
     @abstractmethod
     def make_measurement(
         self,
-        field: dolfin.Function | None = None,
-        mixed_field: dolfin.Function | None = None,
+        up: dolfin.Function,
     ) -> np.ndarray:
         """Define procedure for extracting a measurement from a given
         mixed field (u,v,p).

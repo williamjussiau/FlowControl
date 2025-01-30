@@ -1,35 +1,8 @@
 from dataclasses import dataclass, field
-from enum import IntEnum
 from pathlib import Path
 import numpy as np
-
-
-class ACTUATOR_TYPE(IntEnum):
-    """Enumeration of actuator types
-
-    Args:
-        BC: boundary condition actuation
-        FORCE: volumic force in momentum equation
-    """
-
-    BC = 1
-    FORCE = 2
-
-
-class SENSOR_TYPE(IntEnum):
-    """Enumeration of sensor types
-
-    Args:
-        U: sensor measuring 1st velocity component
-        V: sensor measuring 2nd velocity component
-        P: sensor measuring pressure
-        OTHER: sensor measuring something else (e.g. integral)
-    """
-
-    U = 0
-    V = 1
-    P = 2
-    OTHER = 5
+import actuator
+import sensor
 
 
 @dataclass
@@ -54,33 +27,28 @@ class ParamMesh:
     meshpath: Path
 
 
-@dataclass
+@dataclass(init=False)
 class ParamControl:
     """Parameters related to control.
 
     Args:
-        sensor_location (float): TODO
-        sensor_number (float): TODO
-        sensor_type (float): TODO
-        actuator_location (float): TODO
-        actuator_number (float): TODO
-        actuator_type (float): TODO
-        actuator_parameters (float): TODO
+        sensor_list (list): TODO
+        sensor_number (int): TODO
+        actuator_list (list): TODO
+        actuator_number (int): TODO
     """
 
-    sensor_location: np.ndarray[int, float] = field(
-        default_factory=lambda: np.empty(shape=(0, 2), dtype=float)
-    )
-    sensor_number: int = 0
-    sensor_type: list[SENSOR_TYPE] = field(default_factory=list)
-    sensor_parameters: dict = field(default_factory=dict)
+    sensor_list: list[sensor.Sensor]
+    sensor_number: int
 
-    actuator_location: np.ndarray[int, float] = field(
-        default_factory=lambda: np.empty(shape=(0, 2), dtype=float)
-    )
-    actuator_number: int = 0
-    actuator_type: list[ACTUATOR_TYPE] = field(default_factory=list)
-    actuator_parameters: dict = field(default_factory=dict)
+    actuator_list: list[actuator.Actuator]
+    actuator_number: int
+
+    def __init__(self, sensor_list=[], actuator_list=[]):
+        self.sensor_list = sensor_list
+        self.sensor_number = len(sensor_list)
+        self.actuator_list = actuator_list
+        self.actuator_number = len(actuator_list)
 
 
 @dataclass
