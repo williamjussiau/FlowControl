@@ -1,5 +1,5 @@
 from __future__ import print_function
-from typing import Any
+from typing import Any, Iterable
 import flowsolverparameters
 from flowfield import FlowField, FlowFieldCollection
 import dolfin
@@ -355,14 +355,15 @@ class FlowSolver(ABC):
         self.t = self.params_time.Tstart
         self.iter = 0
         self.y_meas = self.make_measurement(up=self.fields.ic.up)
-        y_meas_str = [
-            "y_meas_" + str(i + 1) for i in range(self.params_control.sensor_number)
-        ]
-        colnames = ["time", "u_ctrl"] + y_meas_str + ["dE", "runtime"]
+        y_meas_str = self._make_df_colname("y_meas", self.params_control.sensor_number)
+        u_meas_str = self._make_df_colname(
+            "u_ctrl", self.params_control.actuator_number
+        )
+        colnames = ["time"] + u_meas_str + y_meas_str + ["dE", "runtime"]
         empty_data = np.zeros((self.params_time.num_steps + 1, len(colnames)))
         timeseries = pd.DataFrame(columns=colnames, data=empty_data)
         timeseries.loc[0, "time"] = self.params_time.Tstart
-        self._assign_y_to_df(df=timeseries, y_meas=self.y_meas, index=0)
+        self._assign_to_df(df=timeseries, name="y_meas", value=self.y_meas, index=0)
 
         dE0 = self.compute_energy()
         timeseries.loc[0, "dE"] = dE0
@@ -580,7 +581,7 @@ class FlowSolver(ABC):
         t0i = time.time()
 
         # control
-        self._set_u_ctrl(u_ctrl)
+        self._set_actuators_u_ctrl(u_ctrl)
 
         try:
             self.assemblers[self.order].assemble(self.rhs)
@@ -676,12 +677,18 @@ class FlowSolver(ABC):
         fa.assign(up, [u, p])
         return up
 
-    def _set_u_ctrl(self, u_ctrl):
+    def _set_actuators_u_ctrl(self, u_ctrl: Iterable):
+        """Set control amplitudes for each actuator to elements of u_ctrl
+
+        Args:
+            u_ctrl (list): list of control values to assign to each actuator
+        """
         for ii, actuator in enumerate(self.params_control.actuator_list):
             actuator.expression.u_ctrl = u_ctrl[ii]
 
-    def _flush_u_ctrl(self):
-        self._set_u_ctrl([0] * self.params_control.actuator_number)
+    def _flush_actuators_u_ctrl(self):
+        """Set control amplitudes for each actuator to zero"""
+        self._set_actuators_u_ctrl([0] * self.params_control.actuator_number)
 
     def _export_fields_xdmf(
         self,
@@ -779,7 +786,7 @@ class FlowSolver(ABC):
         self._assign_steady_state(U0=U0, P0=P0)
 
     def compute_steady_state(
-        self, method: str = "newton", u_ctrl: float = 0.0, **kwargs
+        self, u_ctrl: list, method: str = "newton", **kwargs
     ) -> None:
         """Compute flow steady state with given method and constant input u_ctrl.
         Two methods are available: Picard method (see _compute_steady_state_picard)
@@ -790,7 +797,7 @@ class FlowSolver(ABC):
             method (str, optional): method to be used (picard or newton). Defaults to "newton".
             u_ctrl (float, optional): constant input to take into account. Defaults to 0.0.
         """
-        self._set_u_ctrl(u_ctrl)
+        self._set_actuators_u_ctrl(u_ctrl)
 
         if method == "newton":
             UP0 = self._compute_steady_state_newton(**kwargs)
@@ -979,21 +986,26 @@ class FlowSolver(ABC):
         return BC
 
     # Dataframe utility
-    def _make_y_df_colname(self, sensor_nr: int) -> list[str]:
-        """Return column names for sensor measurements in timeseries.
+    def _make_df_colname(self, name, column_nr: int) -> list[str]:
+        """Return column names for sensor measurements or control input in timeseries.
 
         Args:
-            sensor_nr (int): number of sensors
+            name (str): usually y_meas or u_ctrl
+            column_nr (int): number of columns to generate
 
         Returns:
-            list[str]: [ymeas1, ymeas2, ...]
+            list[str]: [name_1, name_2, ...]
         """
 
-        return ["y_meas_" + str(i + 1) for i in range(sensor_nr)]
+        return [name + "_" + str(i + 1) for i in range(column_nr)]
 
-    def _assign_y_to_df(self, df: pd.DataFrame, y_meas: float, index: int) -> None:
+    # def _assign_y_to_df(self, df: pd.DataFrame, y_meas: float, index: int) -> None:
+    #     """Assign measurement array to timeseries at given index."""
+    #     df.loc[index, self._make_y_df_colname(len(y_meas))] = y_meas
+
+    def _assign_to_df(self, df: pd.DataFrame, name, value: float, index: int) -> None:
         """Assign measurement array to timeseries at given index."""
-        df.loc[index, self._make_y_df_colname(len(y_meas))] = y_meas
+        df.loc[index, self._make_df_colname(name, len(value))] = value
 
     def write_timeseries(self) -> None:
         """Write timeseries (pandas DataFrame) to file."""
@@ -1005,8 +1017,12 @@ class FlowSolver(ABC):
         self, u_ctrl: float, y_meas: float, dE: float, t: float, runtime: float
     ) -> None:
         """Fill timeseries with simulation data at given index."""
-        self.timeseries.loc[self.iter - 1, "u_ctrl"] = u_ctrl[0]
-        self._assign_y_to_df(df=self.timeseries, y_meas=y_meas, index=self.iter)
+        self._assign_to_df(
+            df=self.timeseries, name="u_ctrl", value=u_ctrl, index=self.iter - 1
+        )
+        self._assign_to_df(
+            df=self.timeseries, name="y_meas", value=y_meas, index=self.iter
+        )
         self.timeseries.loc[self.iter, "dE"] = dE
         self.timeseries.loc[self.iter, "time"] = t
         self.timeseries.loc[self.iter, "runtime"] = runtime
