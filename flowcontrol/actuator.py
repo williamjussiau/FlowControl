@@ -25,6 +25,14 @@ class Actuator(ABC):
 
     @abstractmethod
     def load_expression(self, flowsolver) -> dolfin.Expression:
+        """Load and return actuator expression projected on flowsolver function spaces
+
+        Args:
+            flowsolver (FlowSolver): FlowSolver that will use the actuator
+
+        Returns:
+            dolfin.Expression: actuator expression compiled by dolfin from [str + parameters]
+        """
         pass
 
 
@@ -75,11 +83,12 @@ class ActuatorForceGaussianV(Actuator):
             sig=self.sigma,
             x10=self.position[0],
             x20=self.position[1],
-            u_ctrl=0.0,
+            u_ctrl=1.0,
         )
 
-        expression.eta = 1 / dolfin.norm(expression, mesh=flowsolver.mesh)
-
+        BtB = dolfin.norm(expression, mesh=flowsolver.mesh)
+        expression.eta = 1 / BtB
+        expression.u_ctrl = 0.0
         self.expression = expression
         return expression
 

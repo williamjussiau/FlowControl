@@ -13,6 +13,8 @@ import numpy as np
 import time
 import pandas as pd
 import flowsolverparameters
+from sensor import SensorHorizontalWallShear, SENSOR_TYPE
+from actuator import ActuatorForceGaussianV
 
 # from controller import Controller
 
@@ -214,26 +216,6 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         return boundaries_df
 
     # @abstractmethod
-    def _make_actuator(self):
-        # make actuator with amplitude 1
-        actuator_expr = dolfin.Expression(
-            [
-                "0",
-                "ampl*eta*exp(-0.5*((x[0]-x10)*(x[0]-x10)+(x[1]-x20)*(x[1]-x20))/(sig*sig))",
-            ],
-            element=self.V.ufl_element(),
-            ampl=1,
-            eta=1,
-            sig=0.0849,
-            x10=-0.1,
-            x20=0.02,
-        )
-
-        BtB = dolfin.norm(actuator_expr, mesh=self.mesh)  # coeff for checking things
-        actuator_expr.eta = 1 / BtB  # 1/BtB #1/int2d (not the same)
-        return actuator_expr
-
-    # @abstractmethod
     def _make_bcs(self):
         # inlet : u=uinf, v=0
         bcu_inlet = dolfin.DirichletBC(
@@ -311,65 +293,6 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
         return {"bcu": bcu, "bcp": bcp}
 
-    def make_sensor(self):
-        """Define sensor-related quantities (surface of integration, dolfin.SubDomain...)"""
-        # define sensor surface
-        xs0 = 1.0
-        xs1 = 1.1
-        MESH_TOL = dolfin.DOLFIN_EPS
-        sensor_subdm = dolfin.CompiledSubDomain(
-            "on_boundary && near(x[1], 0, MESH_TOL) && x[0]>=xs0 && x[0]<=xs1",
-            MESH_TOL=MESH_TOL,
-            xs0=xs0,
-            xs1=xs1,
-        )
-        # define function to index cells
-        sensor_mark = dolfin.MeshFunction(
-            "size_t", self.mesh, self.mesh.topology().dim() - 1
-        )
-        # define sensor as index 100 and mark
-        SENSOR_IDX = 100
-        sensor_subdm.mark(sensor_mark, SENSOR_IDX)
-        # define surface element ds on sensor
-        ds_sensor = dolfin.Measure("ds", domain=self.mesh, subdomain_data=sensor_mark)
-        self.ds_sensor = ds_sensor
-        # self.sensor_dolfin.SubDomain = sensor_subdm
-
-        # Append sensor to boundaries but not to markers... might it be dangerous?
-        df_sensor = pd.DataFrame(
-            data=dict(subdomain=sensor_subdm, idx=SENSOR_IDX), index=["sensor"]
-        )
-        # self.boundaries = self.boundaries.append(df_sensor)
-        self.boundaries = pd.concat((self.boundaries, df_sensor))
-        self.sensor_ok = True  # TODO rm
-
-    # @abstractmethod
-    # def make_measurement(self) -> np.ndarray:
-    def make_measurement(self, field=None, mixed_field=None):
-        """Perform measurement and assign"""
-
-        if not hasattr(self, "sensor_ok"):  # TODO quickfix for sensor
-            self.make_sensor()
-
-        ns = self.params_control.sensor_number
-        y_meas = np.zeros((ns,))
-
-        ds_sensor = self.ds_sensor
-        SENSOR_IDX = int(self.boundaries.loc["sensor"].idx)
-
-        for isensor in range(ns):
-            if field is not None:
-                ff = field
-            else:
-                if mixed_field is not None:
-                    ff = mixed_field
-                else:
-                    ff = self.u_
-            y_meas_i = dolfin.assemble(ff.dx(1)[0] * ds_sensor(int(SENSOR_IDX)))
-            y_meas[isensor] = y_meas_i
-
-        return y_meas
-
 
 ###############################################################################
 ###############################################################################
@@ -414,14 +337,19 @@ if __name__ == "__main__":
 
     params_restart = flowsolverparameters.ParamRestart()
 
+    actuator_force = ActuatorForceGaussianV(
+        sigma=0.0849, position=np.array([-0.1, 0.02])
+    )
+    sensor_feedback = SensorHorizontalWallShear(
+        sensor_index=100,
+        x_sensor_left=1.0,
+        x_sensor_right=1.1,
+        y_sensor=0.0,
+        sensor_type=SENSOR_TYPE.OTHER,
+    )
     params_control = flowsolverparameters.ParamControl(
-        sensor_location=np.array([[3, 0]]),
-        sensor_type=[flowsolverparameters.SENSOR_TYPE.OTHER],
-        sensor_number=1,
-        actuator_type=[flowsolverparameters.ACTUATOR_TYPE.BC],
-        actuator_location=np.array([[3, 0]]),
-        actuator_number=2,
-        actuator_parameters=dict(angular_size_deg=10),
+        sensor_list=[sensor_feedback],
+        actuator_list=[actuator_force],
     )
 
     fs = CavityFlowSolver(
@@ -443,7 +371,7 @@ if __name__ == "__main__":
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = 0.0
+    uctrl0 = [0.0]
     fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
@@ -455,11 +383,14 @@ if __name__ == "__main__":
     logger.info("Step several times")
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = 0
+        u_ctrl = [0.3 + 0.1 * y_meas[0]]
         fs.step(u_ctrl=u_ctrl)
 
     flu.summarize_timings(fs, t000)
     fs.write_timeseries()
+
+    logger.info(fs.timeseries)
+
 
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
