@@ -167,51 +167,6 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
         return {"bcu": bcu, "bcp": []}  # log perturbation bcs
 
-    def make_measurement(
-        self,
-        up: dolfin.Function,
-    ) -> np.ndarray:
-
-        ns = self.params_control.sensor_number
-        y_meas = np.zeros((ns,))
-
-        for isensor, sensor_i in enumerate(self.params_control.sensor_list):
-            y_meas[isensor] = sensor_i.eval(up=up)
-
-        return y_meas
-
-    def _make_actuator(self) -> dolfin.Expression:
-        # TODO
-        # return actuator type (vol, bc)
-        # + MIMO -> list
-        # L = (
-        #     1
-        #     / 2
-        #     * self.params_flow.d
-        #     * np.sin(
-        #         1
-        #         / 2
-        #         * self.params_control.actuator_list[0].angular_size_deg
-        #         * dolfin.pi
-        #         / 180
-        #     )
-        # )
-        # actuator_bc = dolfin.Expression(
-        #     [
-        #         "0",
-        #         "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)",
-        #     ],  # keeps subdomain definition in check
-        #     element=self.V.ufl_element(),
-        #     ampl=1,
-        #     L=L,
-        # )
-
-        # breakpoint()
-        actuator_bc = self.params_control.actuator_list[0].load_expression(self)
-
-        return actuator_bc
-        # return self.params_control.actuator_list[0].load_expression(self)
-
     # Steady state
     def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
         super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
@@ -300,11 +255,11 @@ if __name__ == "__main__":
     params_restart = flowsolverparameters.ParamRestart()
 
     actuator_bc = ActuatorBCParabolicV(angular_size_deg=10)
-    feedback_sensor = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
-    perf_sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
-    perf_sensor_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1]))
+    sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
+    sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
+    sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1]))
     params_control = flowsolverparameters.ParamControl(
-        sensor_list=[feedback_sensor, perf_sensor_1, perf_sensor_2],
+        sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
         actuator_list=[actuator_bc],
     )
 
@@ -394,6 +349,10 @@ if __name__ == "__main__":
 
     assert np.isclose(u_max, u_max_ref)
     assert np.isclose(u_mean, u_mean_ref)
+
+    logger.info(
+        "Last line should be: 10  0.100  0.000000  0.131695  0.009738  0.009810  0.122620  0.222280"
+    )
 
     logger.info("End with success")
 

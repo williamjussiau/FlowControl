@@ -1,5 +1,6 @@
 from __future__ import print_function
 from typing import Any, Iterable
+from actuator import ACTUATOR_TYPE
 import flowsolverparameters
 from flowfield import FlowField, FlowFieldCollection
 import dolfin
@@ -33,7 +34,7 @@ class FlowSolver(ABC):
     Abstract methods (subject to change, see TODO):
         _make_boundaries
         _make_bcs
-        _make_actuator
+        _load_actuators
         make_measurement
     """
 
@@ -82,7 +83,9 @@ class FlowSolver(ABC):
         self.V, self.P, self.W = self._make_function_spaces()
         self.boundaries = self._make_boundaries()  # @abstract
         self._mark_boundaries()
-        self.actuator_expression = self._make_actuator()  # @abstract
+        # self.actuator_expression =
+        self._load_actuators()
+        self._load_sensors()
         self.bc = self._make_bcs()  # @abstract
         self.BC = self._make_BCs()
 
@@ -355,8 +358,8 @@ class FlowSolver(ABC):
         self.t = self.params_time.Tstart
         self.iter = 0
         self.y_meas = self.make_measurement(up=self.fields.ic.up)
-        y_meas_str = self._make_df_colname("y_meas", self.params_control.sensor_number)
-        u_meas_str = self._make_df_colname(
+        y_meas_str = self._make_colname_df("y_meas", self.params_control.sensor_number)
+        u_meas_str = self._make_colname_df(
             "u_ctrl", self.params_control.actuator_number
         )
         colnames = ["time"] + u_meas_str + y_meas_str + ["dE", "runtime"]
@@ -429,9 +432,9 @@ class FlowSolver(ABC):
         b0_1 = 1 if self.params_solver.is_eq_nonlinear else 0
         invRe = dolfin.Constant(1 / self.params_flow.Re)
         dt = dolfin.Constant(self.params_time.dt)
-        # f = self.actuator_expression
-        # better: f = sum actuator expression for actuator in list if type is force
-        # in form: - dot(f, v) * dx
+
+        f = self._gather_actuators_expressions()
+
         F1 = (
             dot((u - u_n) / dt, v) * dx
             + dot(dot(U0, nabla_grad(u)), v) * dx
@@ -440,6 +443,7 @@ class FlowSolver(ABC):
             + dolfin.Constant(b0_1) * dot(dot(u_n, nabla_grad(u_n)), v) * dx
             - p * div(v) * dx
             - div(u) * q * dx
+            - dot(f, v) * dx
             - shift * dot(u, v) * dx
         )
         return F1
@@ -476,6 +480,9 @@ class FlowSolver(ABC):
             b0_2, b1_2 = 0, 0
         invRe = dolfin.Constant(1 / self.params_flow.Re)
         dt = dolfin.Constant(self.params_time.dt)
+
+        f = self._gather_actuators_expressions()
+
         F2 = (
             dot((3 * u - 4 * u_n + u_nn) / (2 * dt), v) * dx
             + dot(dot(U0, nabla_grad(u)), v) * dx
@@ -485,9 +492,23 @@ class FlowSolver(ABC):
             + dolfin.Constant(b1_2) * dot(dot(u_nn, nabla_grad(u_nn)), v) * dx
             - p * div(v) * dx
             - div(u) * q * dx
+            - dot(f, v) * dx
             - shift * dot(u, v) * dx
         )
         return F2
+
+    def _gather_actuators_expressions(self):
+        f = sum(
+            [
+                actuator.expression
+                for actuator in self.params_control.actuator_list
+                if actuator.actuator_type is ACTUATOR_TYPE.FORCE
+            ]
+        )
+        if f == 0:
+            f = dolfin.Constant((0, 0))
+
+        return f
 
     def _prepare_systems(
         self,
@@ -986,7 +1007,7 @@ class FlowSolver(ABC):
         return BC
 
     # Dataframe utility
-    def _make_df_colname(self, name, column_nr: int) -> list[str]:
+    def _make_colname_df(self, name, column_nr: int) -> list[str]:
         """Return column names for sensor measurements or control input in timeseries.
 
         Args:
@@ -999,13 +1020,9 @@ class FlowSolver(ABC):
 
         return [name + "_" + str(i + 1) for i in range(column_nr)]
 
-    # def _assign_y_to_df(self, df: pd.DataFrame, y_meas: float, index: int) -> None:
-    #     """Assign measurement array to timeseries at given index."""
-    #     df.loc[index, self._make_y_df_colname(len(y_meas))] = y_meas
-
     def _assign_to_df(self, df: pd.DataFrame, name, value: float, index: int) -> None:
         """Assign measurement array to timeseries at given index."""
-        df.loc[index, self._make_df_colname(name, len(value))] = value
+        df.loc[index, self._make_colname_df(name, len(value))] = value
 
     def write_timeseries(self) -> None:
         """Write timeseries (pandas DataFrame) to file."""
@@ -1056,6 +1073,30 @@ class FlowSolver(ABC):
             flu.write_xdmf(filename, Efield, "E")
         return Efield
 
+    def _load_actuators(self) -> None:
+        """Load expressions from actuators in actuator_list"""
+        for actuator in self.params_control.actuator_list:
+            actuator.load_expression(self)
+
+    def _load_sensors(self) -> None:
+        """Load sensors, in particular SensorIntegral"""
+        for sensor in self.params_control.sensor_list:
+            if sensor.require_loading:
+                sensor._load(self)
+
+    def make_measurement(
+        self,
+        up: dolfin.Function,
+    ) -> np.ndarray:
+        """Define procedure for extracting a measurement from a given
+        mixed field (u,v,p)."""
+        y_meas = np.zeros((self.params_control.sensor_number,))
+
+        for ii, sensor_i in enumerate(self.params_control.sensor_list):
+            y_meas[ii] = sensor_i.eval(up=up)
+
+        return y_meas
+
     # Abstract methods
     @abstractmethod
     def _make_boundaries(self) -> pd.DataFrame:
@@ -1078,22 +1119,4 @@ class FlowSolver(ABC):
         Returns:
             dict[str, Any]: boundary conditions for perturbation field as dict:{"bcu": list(), "bcp": list()}
         """
-        pass
-
-    @abstractmethod
-    def _make_actuator(self) -> dolfin.Expression:
-        """Define actuator expression as dolfin.Expression.
-        NOTE: this method could be removed in future releases when
-        actuators contain their own dolfin.Expression"""
-        pass
-
-    @abstractmethod
-    def make_measurement(
-        self,
-        up: dolfin.Function,
-    ) -> np.ndarray:
-        """Define procedure for extracting a measurement from a given
-        mixed field (u,v,p).
-        NOTE: this method could be removed in future releases when
-        sensors are objects with a Sensor.eval() method instead"""
         pass

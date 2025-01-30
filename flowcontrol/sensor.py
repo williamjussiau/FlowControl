@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import dolfin
 import numpy as np
 
+SENSOR_INDEX_DEFAULT = 100
+
 
 class SENSOR_TYPE(IntEnum):
     """Enumeration of sensor types
@@ -20,16 +22,10 @@ class SENSOR_TYPE(IntEnum):
     OTHER = 5
 
 
-# class SENSORPOINT_TYPE(IntEnum):
-#     U = 0
-#     V = 1
-#     P = 2
-
-
 @dataclass(kw_only=True)
 class Sensor(ABC):
     sensor_type: SENSOR_TYPE
-    position: np.ndarray
+    require_loading: bool
 
     @abstractmethod
     def eval(self, up):
@@ -42,68 +38,68 @@ class Sensor(ABC):
         pass
 
 
+@dataclass(kw_only=True)
 class SensorPoint(Sensor):
+    position: np.ndarray
+    require_loading: bool = False
+
     def eval(self, up):
         # warning: might need to be compatible with parallel
         # flu.MpiUtils.peval(up, position)
         return up(self.position[0], self.position[1])[self.sensor_type]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SensorIntegral(Sensor, ABC):
-    size: np.ndarray
     ds: dolfin.Measure | None = None
-
-    # setup when first time in make_measurement?
-    # for sensor, init if necessary, then measure
-
-    # @abstractmethod
-    # def eval(self, up):
-    #     SENSOR_IDX = 1  # TODO
-    #     return dolfin.assemble(up.dx(1)[0] * self.ds(int(SENSOR_IDX)))
+    subdomain: dolfin.SubDomain | None = None
+    sensor_index: int | None = None
+    require_loading: bool = True
 
     @abstractmethod
-    def _make_subdomain(self):
-        # xs0 = 1.0
-        # xs1 = 1.1
-        # MESH_TOL = dolfin.DOLFIN_EPS
-        # sensor_subdm = dolfin.CompiledSubDomain(
-        #     "on_boundary && near(x[1], 0, MESH_TOL) && x[0]>=xs0 && x[0]<=xs1",
-        #     MESH_TOL=MESH_TOL,
-        #     xs0=xs0,
-        #     xs1=xs1,
-        # )
-        return 1
-        # return sensor_subdm
+    def _load(self):
+        pass
 
-    def _setup_subdomain(self):
-        # subdomain = self._make_subdomain()
-        # sensor_mark = dolfin.MeshFunction(
-        #     "size_t", self.mesh, self.mesh.topology().dim() - 1
-        # )
-        # SENSOR_IDX = 100
-        # sensor_subdm.mark(sensor_mark, SENSOR_IDX)
-        # ds_sensor = dolfin.Measure("ds", domain=self.mesh, subdomain_data=sensor_mark)
-        # self.ds_sensor = ds_sensor
 
-        # df_sensor = pd.DataFrame(
-        #     data=dict(subdomain=sensor_subdm, idx=SENSOR_IDX), index=["sensor"]
-        # )
-        # self.boundaries = pd.concat((self.boundaries, df_sensor))
-        # self.sensor_ok = True  # TODO rm
-        return 1
+@dataclass(kw_only=True)
+class SensorHorizontalWallShear(SensorIntegral):
+    x_sensor_left: float = 1.0
+    x_sensor_right: float = 1.1
+    y_sensor: float = 0.0
+
+    def eval(self, up):
+        return dolfin.assemble(up.dx(1)[0] * self.ds(int(self.sensor_index)))
+
+    def _load(self, flowsolver):
+        sensor_subdm = dolfin.CompiledSubDomain(
+            "on_boundary && near(x[1], y_sensor, MESH_TOL) && x[0]>=x_sensor_left && x[0]<=x_sensor_right",
+            MESH_TOL=dolfin.DOLFIN_EPS,
+            x_sensor_left=self.x_sensor_left,
+            x_sensor_right=self.x_sensor_right,
+            y_sensor=self.y_sensor,
+        )
+
+        sensor_mark = dolfin.MeshFunction(
+            "size_t", flowsolver.mesh, flowsolver.mesh.topology().dim() - 1
+        )
+        if self.sensor_index is None:
+            self.sensor_index = SENSOR_INDEX_DEFAULT
+
+        sensor_subdm.mark(sensor_mark, self.sensor_index)
+        self.ds = dolfin.Measure(
+            "ds", domain=flowsolver.mesh, subdomain_data=sensor_mark
+        )
 
 
 if __name__ == "__main__":
-    pass
-    # sensor1 = SensorPoint(
-    #     position=np.array([1, 2]), parameters=None, sensor_type=SENSOR_TYPE.U
-    # )
+    sensor_feedback_cylinder = SensorPoint(
+        sensor_type=SENSOR_TYPE.V, position=np.array([3, 0])
+    )
 
-    # sensor2 = SensorIntegral(
-    #     position=np.array([1, 2]),
-    #     parameters=None,
-    #     sensor_type=SENSOR_TYPE.U,
-    #     size=1,
-    #     ds=1,
-    # )
+    sensor_feedback_cavity = SensorHorizontalWallShear(
+        sensor_index=100,
+        x_sensor_left=1.0,
+        x_sensor_right=1.1,
+        y_sensor=1.0,
+        sensor_type=SENSOR_TYPE.OTHER,
+    )
