@@ -14,7 +14,7 @@ import time
 import pandas as pd
 import flowsolverparameters
 from sensor import SensorPoint, SENSOR_TYPE
-from actuator import ActuatorBCParabolicV, ACTUATOR_TYPE
+from actuator import ActuatorBCParabolicV
 from controller import Controller
 
 import logging
@@ -155,12 +155,12 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         )
         bcu_actuation_up = dolfin.DirichletBC(
             self.W.sub(0),
-            self.actuator_expression,
+            self.params_control.actuator_list[0].expression,
             self.boundaries.loc["actuator_up"].subdomain,
         )
         bcu_actuation_lo = dolfin.DirichletBC(
             self.W.sub(0),
-            self.actuator_expression,
+            self.params_control.actuator_list[0].expression,
             self.boundaries.loc["actuator_lo"].subdomain,
         )
         bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
@@ -184,29 +184,33 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         # TODO
         # return actuator type (vol, bc)
         # + MIMO -> list
-        L = (
-            1
-            / 2
-            * self.params_flow.d
-            * np.sin(
-                1
-                / 2
-                * self.params_control.actuator_list[0].angular_size_deg
-                * dolfin.pi
-                / 180
-            )
-        )
-        actuator_bc = dolfin.Expression(
-            [
-                "0",
-                "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)",
-            ],  # keeps subdomain definition in check
-            element=self.V.ufl_element(),
-            ampl=1,
-            L=L,
-        )
+        # L = (
+        #     1
+        #     / 2
+        #     * self.params_flow.d
+        #     * np.sin(
+        #         1
+        #         / 2
+        #         * self.params_control.actuator_list[0].angular_size_deg
+        #         * dolfin.pi
+        #         / 180
+        #     )
+        # )
+        # actuator_bc = dolfin.Expression(
+        #     [
+        #         "0",
+        #         "(x[0]>=L || x[0] <=-L) ? 0 : ampl*-1*(x[0]+L)*(x[0]-L) / (L*L)",
+        #     ],  # keeps subdomain definition in check
+        #     element=self.V.ufl_element(),
+        #     ampl=1,
+        #     L=L,
+        # )
+
+        # breakpoint()
+        actuator_bc = self.params_control.actuator_list[0].load_expression(self)
 
         return actuator_bc
+        # return self.params_control.actuator_list[0].load_expression(self)
 
     # Steady state
     def compute_steady_state(self, method="newton", u_ctrl=0.0, **kwargs):
@@ -323,8 +327,9 @@ if __name__ == "__main__":
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = 0.0
+    uctrl0 = [0.0]
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
+
     fs.compute_steady_state(
         method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
@@ -338,7 +343,7 @@ if __name__ == "__main__":
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-        fs.step(u_ctrl=u_ctrl)
+        fs.step(u_ctrl=[u_ctrl])
 
     flu.summarize_timings(fs, t000)
     fs.write_timeseries()
@@ -372,7 +377,7 @@ if __name__ == "__main__":
     for _ in range(fs_restart.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs_restart.params_time.dt)
-        fs_restart.step(u_ctrl=u_ctrl)
+        fs_restart.step(u_ctrl=[u_ctrl])
 
     fs_restart.write_timeseries()
 
