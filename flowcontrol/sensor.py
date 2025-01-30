@@ -8,12 +8,13 @@ SENSOR_INDEX_DEFAULT = 100
 
 
 class SENSOR_TYPE(IntEnum):
-    """Enumeration of sensor types
+    """Type of data returned by the Sensor
 
-    Args: TODO
-        # POINT: pointwise measurement
-        # INTEGRAL: integral of something
-        # OTHER: other measurement
+    Args:
+        U: velocity, 1st component
+        V: velocity, 2nd component
+        P: pressure
+        OTHER: mixed, e.g. integral or derivative
     """
 
     U = 0
@@ -24,13 +25,22 @@ class SENSOR_TYPE(IntEnum):
 
 @dataclass(kw_only=True)
 class Sensor(ABC):
+    """Sensor abstract base class, providing the abstract method eval().
+
+    Args:
+        sensor_type (SENSOR_TYPE): see SENSOR_TYPE
+        require_loading (bool): flag - some sensors require loading (e.g.
+            for defining their integration subdomain) after the FlowSolver
+            they are attached to is initialized.
+    """
+
     sensor_type: SENSOR_TYPE
     require_loading: bool
 
     @abstractmethod
     def eval(self, up):
         # is it eval(up) or eval(u,v,p)? Absolutely AVOID split/merge in eval
-        """Evaluate measurement value from sensor on (mixed) field up
+        """Evaluate measurement value from sensor on (mixed) field (u,p)
         This function is going to be called a high number
         of times, so it needs to be optimized.
         The user is responsible for the parallelism compatibility
@@ -40,6 +50,14 @@ class Sensor(ABC):
 
 @dataclass(kw_only=True)
 class SensorPoint(Sensor):
+    """Pointwise probe. It extracts information from the given field
+    at a given 2D point _self.position_.
+
+    Args:
+        position (np.ndarray): position of probe
+        require_loading (bool) = False: no loading required
+    """
+
     position: np.ndarray
     require_loading: bool = False
 
@@ -51,6 +69,18 @@ class SensorPoint(Sensor):
 
 @dataclass(kw_only=True)
 class SensorIntegral(Sensor, ABC):
+    """Abstract base class for sensors performing integration on a subdomain,
+     providing the abstract method _load. A SensorIntegral always require loading,
+     which corresponds to initializing a _dolfin.SubDomain_ and a _dolfin.Measure_.
+
+    Args:
+        sensor_index (int): sensor index for marking the integration subdomain. If
+            instantiating several sensors, they should not be equal
+        ds (dolfin.Measure): curve element enabling dolfin integration
+        subdomain (dolfin.SubDomain): subdomain to integrate (1D or 2D)
+        require_loading (bool) = True: SensorIntegral always require loading
+    """
+
     ds: dolfin.Measure | None = None
     subdomain: dolfin.SubDomain | None = None
     sensor_index: int | None = None
@@ -58,11 +88,21 @@ class SensorIntegral(Sensor, ABC):
 
     @abstractmethod
     def _load(self):
+        """Defne and mark subdomain, define integration element ds."""
         pass
 
 
 @dataclass(kw_only=True)
 class SensorHorizontalWallShear(SensorIntegral):
+    """Cavity sensor, integrating the wall shear stress (dv/dx2) on a
+    portion of the channel bottom wall.
+
+    Args:
+        x_sensor_left (float): left x-limit of the sensor
+        x_sensor_right (float): right x-limit of the sensor
+        y_sensor (float): height of the sensor
+    """
+
     x_sensor_left: float = 1.0
     x_sensor_right: float = 1.1
     y_sensor: float = 0.0
@@ -89,6 +129,7 @@ class SensorHorizontalWallShear(SensorIntegral):
         self.ds = dolfin.Measure(
             "ds", domain=flowsolver.mesh, subdomain_data=sensor_mark
         )
+        # to define 2D subdomain, use dolfin.Measure("dx") instead
 
 
 if __name__ == "__main__":

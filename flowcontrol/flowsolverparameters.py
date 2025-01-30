@@ -32,11 +32,10 @@ class ParamControl:
     """Parameters related to control.
 
     Args:
-        sensor_list (list): TODO
-        sensor_number (int): TODO
-        actuator_list (list): TODO
-        actuator_number (int): TODO
-        u_ctrl (list): TODO
+        sensor_list (list): list of Sensor objects
+        sensor_number (int): number of sensors (auto)
+        actuator_list (list): list of Actuator objects
+        actuator_number (int): number of actuators (auto)
     """
 
     sensor_list: list[Sensor]
@@ -44,9 +43,6 @@ class ParamControl:
 
     actuator_list: list[Actuator]
     actuator_number: int
-
-    # u_ctrl: list[float] = field(default_factory=list)
-    # philisophy-wise, this is bad
 
     def __init__(self, sensor_list=[], actuator_list=[]):
         self.sensor_list = sensor_list
