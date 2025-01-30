@@ -15,9 +15,6 @@ class Controller(control.StateSpace):
       * the Controller internal state _x_.
     """
 
-    x: np.ndarray
-    file: Path = None
-
     def __init__(
         self,
         A: np.ndarray,
