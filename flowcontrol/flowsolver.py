@@ -31,11 +31,9 @@ class FlowSolver(ABC):
     trial and test functions, variational formulations, boundaries (geometry) and
     boundary conditions and time-stepping utility.
 
-    Abstract methods (subject to change, see TODO):
-        _make_boundaries
-        _make_bcs
-        _load_actuators
-        make_measurement
+    Abstract methods:
+        _make_boundaries(self) -> pd.DataFrame
+        _make_bcs(self) -> dict[str, Any]
     """
 
     def __init__(
@@ -497,7 +495,15 @@ class FlowSolver(ABC):
         )
         return F2
 
-    def _gather_actuators_expressions(self):
+    def _gather_actuators_expressions(self) -> dolfin.Expression | dolfin.Constant:
+        """Gathers actuators that have type ACTUATOR_TYPE.FORCE
+        and sums their expressions, in order to integrate them in
+        the momentum equation.
+
+        Returns:
+            dolfin.Expression | dolfin.Constant: sum of all force
+                actuators expressions as dolfin.Expression, or (0,0) if none
+        """
         f = sum(
             [
                 actuator.expression
@@ -698,17 +704,17 @@ class FlowSolver(ABC):
         fa.assign(up, [u, p])
         return up
 
-    def _set_actuators_u_ctrl(self, u_ctrl: Iterable):
-        """Set control amplitudes for each actuator to elements of u_ctrl
+    def _set_actuators_u_ctrl(self, u_ctrl: Iterable) -> None:
+        """Set control amplitudes for each actuator from iterable u_ctrl
 
         Args:
-            u_ctrl (list): list of control values to assign to each actuator
+            u_ctrl (list): iterable of control values to assign to each actuator
         """
         for ii, actuator in enumerate(self.params_control.actuator_list):
             actuator.expression.u_ctrl = u_ctrl[ii]
 
-    def _flush_actuators_u_ctrl(self):
-        """Set control amplitudes for each actuator to zero"""
+    def _flush_actuators_u_ctrl(self) -> None:
+        """Set control amplitudes for each actuator to zero."""
         self._set_actuators_u_ctrl([0] * self.params_control.actuator_number)
 
     def _export_fields_xdmf(
@@ -954,7 +960,6 @@ class FlowSolver(ABC):
 
         return UP1
 
-    # Otherwise, reimplement this
     def _make_varf_steady(
         self, initial_guess: dolfin.Function | None = None
     ) -> tuple[dolfin.Form, dolfin.Function]:
@@ -972,10 +977,11 @@ class FlowSolver(ABC):
             UP0 = dolfin.Function(self.W)
         else:
             UP0 = initial_guess
-        U0, P0 = dolfin.split(UP0)  # not deep copy, we need the link
+        U0, P0 = dolfin.split(UP0)  # not deep copy, need the link only
         invRe = dolfin.Constant(1 / self.params_flow.Re)
 
-        # f = self.actuator_expression # TODO activate if actuator_type is VOL
+        # f = self._gather?
+
         # Problem
         F0 = (
             dot(dot(U0, nabla_grad(U0)), v) * dx
@@ -1008,7 +1014,7 @@ class FlowSolver(ABC):
 
     # Dataframe utility
     def _make_colname_df(self, name, column_nr: int) -> list[str]:
-        """Return column names for sensor measurements or control input in timeseries.
+        """Return future column names for sensor measurements or control input in DataFrame.
 
         Args:
             name (str): usually y_meas or u_ctrl

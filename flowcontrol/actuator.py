@@ -19,26 +19,37 @@ class ACTUATOR_TYPE(IntEnum):
 
 @dataclass(kw_only=True)
 class Actuator(ABC):
+    """Actuator abstract base class
+
+    Args:
+        actuator_type (ACTUATOR_TYPE): boundary condition or force actuation
+        expression (dolfin.Expression): mathematical expression of the actuator profile
+    """
+
     actuator_type: ACTUATOR_TYPE
     expression: dolfin.Expression | None = None
     # only on (u,v) not p if type is force, for BC on syntax of DirichletBC
 
     @abstractmethod
     def load_expression(self, flowsolver) -> dolfin.Expression:
-        """Load and return actuator expression projected on flowsolver function spaces
+        """Load actuator expression projected on flowsolver function spaces. The reason
+        behind this method is to be able to instantiate an Actuator independently from a
+        FlowSolver object; then to be able to attach the first to the second and load the
+        dolfin.Expression (that needs FlowSolver to be evaluated).
 
         Args:
-            flowsolver (FlowSolver): FlowSolver that will use the actuator
-
-        Returns:
-            dolfin.Expression: actuator expression compiled by dolfin from [str + parameters]
+            flowsolver (FlowSolver): FlowSolver that is using the actuator
         """
         pass
 
 
 @dataclass(kw_only=True)
 class ActuatorBCParabolicV(Actuator):
-    """Cylinder-like actuator"""
+    """Cylinder actuator: parabolic profile depending on first spatial
+    coordinate only, located at the poles of the cylinder.
+    This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
+    to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
+    FlowSolver._make_bcs())"""
 
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
     angular_size_deg: float
@@ -61,12 +72,14 @@ class ActuatorBCParabolicV(Actuator):
         )
 
         self.expression = expression
-        return expression
 
 
 @dataclass(kw_only=True)
 class ActuatorForceGaussianV(Actuator):
-    """Cavity-like actuator"""
+    """Cavity actuator: volumic force with Gaussian profile acting on
+    the second component of the velocity, centered at custom position.
+    This Actuator has type ACTUATOR_TYPE.FORCE, so it is taken into account
+    automatically when building equations (in FlowSolver._make_varfs())."""
 
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
     sigma: float
@@ -90,7 +103,6 @@ class ActuatorForceGaussianV(Actuator):
         expression.eta = 1 / BtB
         expression.u_ctrl = 0.0
         self.expression = expression
-        return expression
 
 
 if __name__ == "__main__":

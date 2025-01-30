@@ -94,14 +94,14 @@ class Controller(control.StateSpace):
     def step(self, y: float, dt: float) -> np.ndarray:
         """Simulate Controller from its current state self.x on the
         time interval [0, dt] with input y, to produce a control
-        output u.
+        output u. MIMO-compatible.
 
         Args:
-            y (float): Controller input (e.g. Plant output).
+            y (np.ndarray): Controller input (e.g. Plant output).
             dt (float): Time interval for simulation.
 
         Returns:
-            float: control output u.
+            np.ndarray: control output u.
         """
         y_rep = np.repeat(np.atleast_2d(y), repeats=2, axis=0).T
         Tsim = [0, dt]

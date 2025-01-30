@@ -103,7 +103,7 @@ where $u(t)$ is the control input, $l = \frac{1}{2} D  \sin  \left( \frac{\delta
 
 ---
 ---
-### Flow over an open cavity at Re=7500 [code WIP :hammer:]
+### Flow over an open cavity at Re=7500
 #### Illustration
 
 
@@ -183,7 +183,9 @@ The ```conda```  environment required to run the code can be extracted from the 
 
 
 ## Code overview
-The simulation revolves around the abstract class ```FlowSolver``` that implements core features such as loading mesh, defining function spaces, trial/test functions, variational formulations, numerical schemes and solvers, handling the time-stepping and exporting information. The class is abstract as it does not implement a simulation case _per se_, but only provides utility for doing so. It features four abstract methods, that are redefined for each use-case:
+
+### Define a new use-case: inherit FlowSovler abstract class
+The simulation revolves around the abstract class ```FlowSolver``` that implements core features such as loading mesh, defining function spaces, trial/test functions, variational formulations, numerical schemes and solvers, handling the time-stepping and exporting information. The class is abstract as it does not implement a simulation case _per se_, but only provides utility for doing so. It features two abstract methods, that are redefined for each use-case:
 
 1. ```_make_boundaries``` provides a definition and naming of the boundaries of the mesh in a pandas DataFrame.
 ``` py
@@ -197,21 +199,23 @@ The simulation revolves around the abstract class ```FlowSolver``` that implemen
     def _make_bcs(self) -> dict[str, Any]:
         pass
 ```
-3. ```_make_actuator``` provides an expression for the actuator.
-``` py
-    @abstractmethod
-    def _make_actuator(self) -> dolfin.Expression:
-        pass
-```
-4. ```make_measurement``` provides a way to probe the flow given the full field.
- ``` py
-    @abstractmethod
-    def make_measurement(self) -> np.ndarray:
-        pass
-```
 
 For the two aforementioned examples, these methods are reimplemented in the classes ```CylinderFlowSolver``` and ```CavityFlowSolver``` that inherit from ```FlowSolver```.
 
+
+
+### Attach ```Sensor```s and ```Actuator```s to an object inheriting from ```FlowSolver```
+In order to perform sensing and actuation (with the goal of closing the loop), dedicated classes ```Sensor``` and ```Actuator```have been implemented. They are not aimed at being instantiated, but rather inherited.
+
+* ```Sensor``` is an abstract class that provides a method ```eval(self, up: dolfin.Function) -> float```. Classes ```SensorPoint``` (point probe) and ```SensorIntegral``` (integration on a subdomain) are examples of subclasses that implement the ```eval``` method.
+* Likewise, ```Actuator``` is an abstract class that encapsulates a ```dolfin.Expression``` among other elements, and embeds it in the variational formulations.
+
+The sensors and actuators are attached to a FlowSolver object as a list, embedded in the ```ParamControl``` object. The call to ```Sensor```s and ```Actuator```s is made automatically by ```FlowSolver```.
+
+By attaching several sensors or actuators, it is possible to use Multiple-Input, Multiple-Output controllers in the loop.
+
+
+### Running a closed-loop simulation
 Once a use-case has been defined by implementing the corresponding class, the basic feedback syntax has the following philosophy:
 ``` py
 # Instantiate and initialize FlowSolver object
@@ -219,7 +223,7 @@ fs = CylinderFlowSolver(...)
 fs.compute_steady_state(...)
 fs.initialize_time_stepping(...)
 
-# Instantiate Controller
+# Instantiate Controller (e.g. load from .mat file)
 Kss = Controller.from_file(...)
 
 # Time loop
@@ -243,7 +247,7 @@ No meshing tools are shipped with this code, but [gmsh](https://gmsh.info/) (and
 
 
 
-### Additional used of the toolbox
+### Additional uses of the toolbox
 The toolbox provides additional utility related to flow control:
 * Compute dynamic operators A, B, C, D and mass matrix E,
 * Restart a simulation from a previous one,
@@ -258,12 +262,11 @@ The toolbox provides additional utility related to flow control:
 ## Roadmap
 The current roadmap is as follows:
 * Complete the documentation :book:,
-* Handle MIMO configurations seamlessly,
-* Refactor and release control and optimization tools,
+* Refactor and release additional control-related tools,
 * Update the project to [FEniCSx](https://fenicsproject.org/documentation/),
 * Sort and check all utility functions,
 * General form for operator computation,
-* Docker embedding.
+* Docker/venv/pip.
 
 
 
