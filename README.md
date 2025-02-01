@@ -213,7 +213,7 @@ In order to perform sensing and actuation (in order to close the loop), dedicate
 The sensors and actuators are attached to a FlowSolver object as a list, embedded in the ```ParamControl``` object. The call to ```Sensor```s and ```Actuator```s is made automatically by ```FlowSolver```.
 By attaching several sensors or actuators, it is possible to use Multiple-Input, Multiple-Output controllers in the loop.
 
-In the example below, for the cylinder use-case, we are creating an actuator acting on boundary conditions and three point sensors at different positions. They are gathered in a ```ParamControl``` object, which is passed as an argument when creating a ```CylinderFlowSolver```. 
+In the example below (for the cylinder use-case), we are creating an actuator acting on boundary conditions and three point probes at different locations. They are gathered in a ```ParamControl``` object, which is passed as an argument when creating a ```CylinderFlowSolver```. 
 ``` py
 # Actuator
 actuator_bc = ActuatorBCParabolicV(angular_size_deg=10)
@@ -222,7 +222,7 @@ sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0
 sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
 sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1.3]))
 # Gather actuators and sensors in ParamControl object
-params_control = flowsolverparameters.ParamControl(
+params_control = ParamControl(
     sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
     actuator_list=[actuator_bc],
 )
