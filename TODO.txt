@@ -1,7 +1,5 @@
 ## Short-term
-
-# docker
-
+# Docker/venv/pip
 
 
 ## Mid-term
@@ -13,6 +11,6 @@
 
 
 ## Long-term
-# add tests to Controller & FlowSolver
-# write_timeseries -> async?
+# add tests
 # test parallel -> peval Sensor, broadcast measurement
+# write_timeseries -> async?

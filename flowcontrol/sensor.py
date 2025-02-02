@@ -92,7 +92,7 @@ class SensorIntegral(Sensor):
         pass
 
 
-@dataclass(kw_only=True)
+@dataclass
 class SensorHorizontalWallShear(SensorIntegral):
     """Cavity sensor, integrating the wall shear stress (dv/dx2) on a
     portion of the channel bottom wall.

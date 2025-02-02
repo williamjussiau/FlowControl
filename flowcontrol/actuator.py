@@ -51,14 +51,14 @@ class ActuatorBCParabolicV(Actuator):
     to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
     FlowSolver._make_bcs())"""
 
-    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
     angular_size_deg: float
+    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
     def load_expression(self, flowsolver):
         L = (
             1
             / 2
-            * flowsolver.params_flow.d
+            * flowsolver.params_flow.user_data["D"]
             * np.sin(1 / 2 * self.angular_size_deg * dolfin.pi / 180)
         )
         expression = dolfin.Expression(
@@ -81,9 +81,9 @@ class ActuatorForceGaussianV(Actuator):
     This Actuator has type ACTUATOR_TYPE.FORCE, so it is taken into account
     automatically when building equations (in FlowSolver._make_varfs())."""
 
-    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
     sigma: float
     position: np.ndarray
+    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
 
     def load_expression(self, flowsolver):
         expression = dolfin.Expression(
