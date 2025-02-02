@@ -38,19 +38,18 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
     # Abstract methods
     def _make_boundaries(self):
         MESH_TOL = dolfin.DOLFIN_EPS
-        # Define as compiled subdomains
         ## Inlet
         inlet = dolfin.CompiledSubDomain(
             "on_boundary && \
                 near(x[0], xinfa, MESH_TOL)",
-            xinfa=self.params_mesh.xinfa,
+            xinfa=self.params_mesh.user_data["xinfa"],
             MESH_TOL=MESH_TOL,
         )
         ## Outlet
         outlet = dolfin.CompiledSubDomain(
             "on_boundary && \
                 near(x[0], xinf, MESH_TOL)",
-            xinf=self.params_mesh.xinf,
+            xinf=self.params_mesh.user_data["xinf"],
             MESH_TOL=MESH_TOL,
         )
         ## Walls
@@ -58,7 +57,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             "on_boundary && \
                 (near(x[1], -yinf, MESH_TOL) ||   \
                  near(x[1], yinf, MESH_TOL))",
-            yinf=self.params_mesh.yinf,
+            yinf=self.params_mesh.user_data["yinf"],
             MESH_TOL=MESH_TOL,
         )
 
@@ -73,7 +72,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         or_cpp = " || "
         on_boundary_cpp = "on_boundary"
 
-        radius = self.params_flow.d / 2
+        radius = self.params_flow.user_data["D"] / 2
         ldelta = radius * np.sin(
             self.params_control.actuator_list[0].angular_size_deg / 2 * dolfin.pi / 180
         )
@@ -184,7 +183,8 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         self, u: dolfin.Function, p: dolfin.Function
     ) -> tuple[float, float]:  # keep this one in here
         """Compute lift & drag coefficients acting on the cylinder."""
-        nu = self.params_flow.uinf * self.params_flow.d / self.params_flow.Re
+        D = self.params_flow.user_data["D"]
+        nu = self.params_flow.uinf * D / self.params_flow.Re
 
         sigma = flu2.stress_tensor(nu, u, p)
         facet_normals = dolfin.FacetNormal(self.mesh)
@@ -208,8 +208,8 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         drag = dolfin.assemble(drag_sym)
 
         # define force coefficients by normalizing
-        cd = drag / (1 / 2 * self.params_flow.uinf**2 * self.params_flow.d)
-        cl = lift / (1 / 2 * self.params_flow.uinf**2 * self.params_flow.d)
+        cd = drag / (1 / 2 * self.params_flow.uinf**2 * D)
+        cl = lift / (1 / 2 * self.params_flow.uinf**2 * D)
         return cl, cd
 
 
@@ -231,9 +231,8 @@ if __name__ == "__main__":
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=100)
-    params_flow.uinf = 1.0
-    params_flow.d = 1.0
+    params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
+    params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
@@ -248,9 +247,9 @@ if __name__ == "__main__":
     params_mesh = flowsolverparameters.ParamMesh(
         meshpath=cwd / "data_input" / "o1.xdmf"
     )
-    params_mesh.xinf = 20
-    params_mesh.xinfa = -10
-    params_mesh.yinf = 10
+    params_mesh.user_data["xinf"] = 20
+    params_mesh.user_data["xinfa"] = -10
+    params_mesh.user_data["yinf"] = 10
 
     params_restart = flowsolverparameters.ParamRestart()
 

@@ -5,19 +5,33 @@ from actuator import Actuator
 from sensor import Sensor
 
 
+@dataclass(kw_only=True)
+class ParamFlowSolver:
+    """Base class for Param* classes. It includes a dedicated field
+    for user parameters, in order to avoid dynamically adding
+    parameters at runtime.
+
+    Args:
+        user_data (dict): user-defined data, e.g. domain limits..."""
+
+    user_data: dict = field(default_factory=dict)
+
+
 @dataclass
-class ParamFlow:
+class ParamFlow(ParamFlowSolver):
     """Parameters related to flow configuration.
 
     Args:
+        uinf (float): horizontal velocity at inlet
         Re (float): Reynolds number
     """
 
     Re: float
+    uinf: float = 1.0
 
 
 @dataclass
-class ParamMesh:
+class ParamMesh(ParamFlowSolver):
     """Parameters related to flow configuration.
 
     Args:
@@ -28,7 +42,7 @@ class ParamMesh:
 
 
 @dataclass(init=False)
-class ParamControl:
+class ParamControl(ParamFlowSolver):
     """Parameters related to control.
 
     Args:
@@ -52,7 +66,7 @@ class ParamControl:
 
 
 @dataclass
-class ParamTime:
+class ParamTime(ParamFlowSolver):
     """Parameters related to time-stepping.
 
     Args:
@@ -70,7 +84,7 @@ class ParamTime:
 
 
 @dataclass
-class ParamRestart:
+class ParamRestart(ParamFlowSolver):
     """Parameters related to restarting a simulation.
 
     Args:
@@ -88,7 +102,7 @@ class ParamRestart:
 
 
 @dataclass
-class ParamSave:
+class ParamSave(ParamFlowSolver):
     """Parameters related to saving fields and time series.
 
     Args:
@@ -101,7 +115,7 @@ class ParamSave:
 
 
 @dataclass
-class ParamSolver:
+class ParamSolver(ParamFlowSolver):
     """Parameters related to equations and solvers.
 
     Args:

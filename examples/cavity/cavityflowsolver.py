@@ -52,13 +52,13 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         #               --------
         #                  ns
         MESH_TOL = dolfin.DOLFIN_EPS
-        L = self.params_flow.d
-        D = self.params_flow.d
-        xinfa = self.params_mesh.xinfa
-        xinf = self.params_mesh.xinf
-        yinf = self.params_mesh.yinf
-        x0ns_left = self.params_mesh.x0ns_left
-        x0ns_right = self.params_mesh.x0ns_right
+        L = self.params_flow.user_data["L"]
+        D = self.params_flow.user_data["D"]
+        xinfa = self.params_mesh.user_data["xinfa"]
+        xinf = self.params_mesh.user_data["xinf"]
+        yinf = self.params_mesh.user_data["yinf"]
+        x0ns_left = self.params_mesh.user_data["x0ns_left"]
+        x0ns_right = self.params_mesh.user_data["x0ns_right"]
 
         ## Inlet
         inlet = dolfin.CompiledSubDomain(
@@ -312,9 +312,9 @@ if __name__ == "__main__":
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=7500)
-    params_flow.uinf = 1.0
-    params_flow.d = 1.0
+    params_flow = flowsolverparameters.ParamFlow(Re=7500, uinf=1.0)
+    params_flow.user_data["L"] = 1.0
+    params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.0004, Tstart=0.0)
 
@@ -329,11 +329,11 @@ if __name__ == "__main__":
     params_mesh = flowsolverparameters.ParamMesh(
         meshpath=cwd / "data_input" / "cavity_coarse.xdmf"
     )
-    params_mesh.xinf = 2.5
-    params_mesh.xinfa = -1.2
-    params_mesh.yinf = 0.5
-    params_mesh.x0ns_left = -0.4  # sf left from x0ns, ns right from x0ns
-    params_mesh.x0ns_right = 1.75  # ns left from x0ns, sf right from x0ns
+    params_mesh.user_data["xinf"] = 2.5
+    params_mesh.user_data["xinfa"] = -1.2
+    params_mesh.user_data["yinf"] = 0.5
+    params_mesh.user_data["x0ns_left"] = -0.4  # sf left from x0ns, ns right from x0ns
+    params_mesh.user_data["x0ns_right"] = 1.75  # ns left from x0ns, sf right from x0ns
 
     params_restart = flowsolverparameters.ParamRestart()
 
