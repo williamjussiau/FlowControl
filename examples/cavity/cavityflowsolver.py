@@ -293,6 +293,20 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
         return {"bcu": bcu, "bcp": bcp}
 
+    def _steady_state_default_initial_guess(self) -> dolfin.UserExpression:
+        class default_initial_guess(dolfin.UserExpression):
+            def eval(self, value, x):
+                value[0] = 1.0
+                value[1] = 0.0
+                value[2] = 0.0
+                if x[1] <= 0:  # inside cavity
+                    value[0] = 0.0
+
+            def value_shape(self):
+                return (3,)
+
+        return default_initial_guess()
+
 
 ###############################################################################
 ###############################################################################
