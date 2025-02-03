@@ -914,16 +914,7 @@ class FlowSolver(ABC):
         u, p = dolfin.TrialFunctions(self.W)
         v, q = dolfin.TestFunctions(self.W)
 
-        class initial_condition(dolfin.UserExpression):
-            def eval(self, value, x):
-                value[0] = 1.0
-                value[1] = 0.0
-                value[2] = 0.0
-
-            def value_shape(self):
-                return (3,)
-
-        UP0.interpolate(initial_condition())
+        UP0.interpolate(self._steady_state_default_initial_guess())
         U0 = dolfin.as_vector((UP0[0], UP0[1]))
 
         ap = (
@@ -1078,6 +1069,21 @@ class FlowSolver(ABC):
         if export:
             flu.write_xdmf(filename, Efield, "E")
         return Efield
+
+    def _steady_state_default_initial_guess(self) -> dolfin.UserExpression:
+        """Default initial guess for computing steady state. The method may
+        be overriden to propose an initial guess deemed closer to the steady state."""
+
+        class default_initial_guess(dolfin.UserExpression):
+            def eval(self, value, x):
+                value[0] = 1.0
+                value[1] = 0.0
+                value[2] = 0.0
+
+            def value_shape(self):
+                return (3,)
+
+        return default_initial_guess()
 
     def _load_actuators(self) -> None:
         """Load expressions from actuators in actuator_list"""
