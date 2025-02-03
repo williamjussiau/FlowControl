@@ -173,7 +173,7 @@ class localized_perturbation_u(dolfin.UserExpression):
 def print_progress(fs, runtime):
     """Single line to print progress"""
     logger.info(
-        "--- iter: %5d/%5d --- time: %3.3f/%3.2f --- elapsed %5.5f ---"
+        "--- iter: %5d/%5d --- time: %3.3f/%3.3f --- elapsed %5.5f ---"
         % (
             fs.iter,
             fs.params_time.num_steps,
