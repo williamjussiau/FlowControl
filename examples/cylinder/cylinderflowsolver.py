@@ -159,7 +159,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         )
         bcu_actuation_lo = dolfin.DirichletBC(
             self.W.sub(0),
-            self.params_control.actuator_list[0].expression,
+            self.params_control.actuator_list[1].expression,
             self.boundaries.loc["actuator_lo"].subdomain,
         )
         bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
@@ -253,13 +253,15 @@ if __name__ == "__main__":
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    actuator_bc = ActuatorBCParabolicV(angular_size_deg=10)
+    # duplicate actuators (1 top, 1 bottom) but assign same control input to each
+    actuator_bc_1 = ActuatorBCParabolicV(angular_size_deg=10)
+    actuator_bc_2 = ActuatorBCParabolicV(angular_size_deg=10)
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
     sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
     sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1]))
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
-        actuator_list=[actuator_bc],
+        actuator_list=[actuator_bc_1, actuator_bc_2],
     )
 
     params_ic = flowsolverparameters.ParamIC(
@@ -286,7 +288,7 @@ if __name__ == "__main__":
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = [0.0]
+    uctrl0 = [0.0, 0.0]
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
 
     fs.compute_steady_state(
@@ -302,9 +304,12 @@ if __name__ == "__main__":
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-        fs.step(u_ctrl=u_ctrl)
+        fs.step(u_ctrl=[u_ctrl[0], u_ctrl[0]])
+        # or
+        # fs.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
 
     flu.summarize_timings(fs, t000)
+    logger.info(fs.timeseries)
     fs.write_timeseries()
 
     ################################################################################################
@@ -337,7 +342,7 @@ if __name__ == "__main__":
     for _ in range(fs_restart.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs_restart.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs_restart.params_time.dt)
-        fs_restart.step(u_ctrl=u_ctrl)
+        fs_restart.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
 
     fs_restart.write_timeseries()
 
