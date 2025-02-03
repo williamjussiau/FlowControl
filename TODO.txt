@@ -1,6 +1,11 @@
 ## Short-term
 # Docker/venv/pip
 
+# cavity: see TODO
+    # inital_perturbation location
+    # replace SubDomains with CompiledSubDomains (SubDomain: 2.997e-6s/iter/dof)
+    # check outlet BC on p
+    # picard initial guess
 
 ## Mid-term
 # sort (& check & rm) utility funs (_flowsolver, _extract, _debug)
@@ -14,3 +19,6 @@
 # add tests
 # test parallel -> peval Sensor, broadcast measurement
 # write_timeseries -> async?
+
+
+
