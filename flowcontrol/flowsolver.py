@@ -607,9 +607,10 @@ class FlowSolver(ABC):
         p_n = self.fields.p_n
 
         if self.first_step:
-            logger.debug("Perturbations forms DO NOT exist: create...")
+            logger.debug("Perturbation varfs DO NOT exist: create...")
             self._prepare_systems((u, p), (v, q), u_n, u_nn)
             self.first_step = False
+            logger.debug("Perturbation varfs created.")
 
         # time
         t0i = time.time()

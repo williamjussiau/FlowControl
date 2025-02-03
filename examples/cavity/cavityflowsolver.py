@@ -60,6 +60,15 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         x0ns_left = self.params_mesh.user_data["x0ns_left"]
         x0ns_right = self.params_mesh.user_data["x0ns_right"]
 
+        def near_cpp(x: str, xnear: str, tol: str = "MESH_TOL"):
+            return f"near({x}, {xnear}, {tol})"
+
+        def between_cpp(x: str, xmin: str, xmax: str, tol: str = "0.0"):
+            return f"{x}>={xmin}-{tol} && {x}<={xmax}+{tol}"
+
+        and_cpp = " && "
+        on_boundary_cpp = "on_boundary"
+
         ## Inlet
         inlet = dolfin.CompiledSubDomain(
             "on_boundary && \
@@ -84,104 +93,185 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             MESH_TOL=MESH_TOL,
         )
 
-        ## Open cavity
-        # cavity left
-        class bnd_cavity_left(dolfin.SubDomain):
-            """Left wall of cavity"""
+        # Open cavity
+        if 0:  # not compiled - kept for information
+            # cavity left
+            class bnd_cavity_left(dolfin.SubDomain):
+                """Left wall of cavity"""
 
-            def inside(self, x, on_boundary):
-                return (
-                    on_boundary
-                    and dolfin.between(x[1], (-D, 0))
-                    and dolfin.near(x[0], 0)
-                )
+                def inside(self, x, on_boundary):
+                    return (
+                        on_boundary
+                        and dolfin.between(x[1], (-D, 0))
+                        and dolfin.near(x[0], 0)
+                    )
 
-        cavity_left = bnd_cavity_left()
+            cavity_left = bnd_cavity_left()
 
-        # cavity bottom
-        class bnd_cavity_botm(dolfin.SubDomain):
-            """Bottom wall of cavity"""
+            # cavity bottom
+            class bnd_cavity_botm(dolfin.SubDomain):
+                """Bottom wall of cavity"""
 
-            def inside(self, x, on_boundary):
-                return (
-                    on_boundary
-                    and dolfin.between(x[0], (0, L))
-                    and dolfin.near(x[1], -D)
-                )
+                def inside(self, x, on_boundary):
+                    return (
+                        on_boundary
+                        and dolfin.between(x[0], (0, L))
+                        and dolfin.near(x[1], -D)
+                    )
 
-        cavity_botm = bnd_cavity_botm()
+            cavity_botm = bnd_cavity_botm()
 
-        # cavity right
-        class bnd_cavity_right(dolfin.SubDomain):
-            """Right wall of cavity"""
+            # cavity right
+            class bnd_cavity_right(dolfin.SubDomain):
+                """Right wall of cavity"""
 
-            def inside(self, x, on_boundary):
-                return (
-                    on_boundary
-                    and dolfin.between(x[1], (-D, 0))
-                    and dolfin.near(x[0], L)
-                )
+                def inside(self, x, on_boundary):
+                    return (
+                        on_boundary
+                        and dolfin.between(x[1], (-D, 0))
+                        and dolfin.near(x[0], L)
+                    )
 
-        cavity_right = bnd_cavity_right()
+            cavity_right = bnd_cavity_right()
 
-        # Lower wall
-        # left
-        # stress free
-        class bnd_lower_wall_left_sf(dolfin.SubDomain):
-            """Lower wall left, stress free"""
+            # Lower wall
+            # left
+            # stress free
+            class bnd_lower_wall_left_sf(dolfin.SubDomain):
+                """Lower wall left, stress free"""
 
-            def inside(self, x, on_boundary):
-                return (
-                    on_boundary
-                    and x[0] >= xinfa
-                    and x[0] <= x0ns_left + 10 * MESH_TOL
-                    and dolfin.near(x[1], 0)
-                )
-                # add MESH_TOL to force all cells to belong to a dolfin.SubDomain
+                def inside(self, x, on_boundary):
+                    return (
+                        on_boundary
+                        and x[0] >= xinfa
+                        and x[0] <= x0ns_left + 10 * MESH_TOL
+                        and dolfin.near(x[1], 0)
+                    )
+                    # add MESH_TOL to force all cells to belong to a dolfin.SubDomain
 
-        lower_wall_left_sf = bnd_lower_wall_left_sf()
+            lower_wall_left_sf = bnd_lower_wall_left_sf()
 
-        # no slip
-        class bnd_lower_wall_left_ns(dolfin.SubDomain):
-            """Lower wall left, no stress"""
+            # no slip
+            class bnd_lower_wall_left_ns(dolfin.SubDomain):
+                """Lower wall left, no stress"""
 
-            def inside(self, x, on_boundary):
-                return (
-                    on_boundary
-                    and x[0] >= x0ns_left - 10 * MESH_TOL
-                    and x[0] <= 0
-                    and dolfin.near(x[1], 0)
-                )
-                # add MESH_TOL to force all cells to belong to a dolfin.SubDomain
+                def inside(self, x, on_boundary):
+                    return (
+                        on_boundary
+                        and x[0] >= x0ns_left - 10 * MESH_TOL
+                        and x[0] <= 0
+                        and dolfin.near(x[1], 0)
+                    )
+                    # add MESH_TOL to force all cells to belong to a dolfin.SubDomain
 
-        lower_wall_left_ns = bnd_lower_wall_left_ns()
+            lower_wall_left_ns = bnd_lower_wall_left_ns()
 
-        # right
-        # no slip
-        class bnd_lower_wall_right_ns(dolfin.SubDomain):
-            """Lower wall right, no slip"""
+            # right
+            # no slip
+            class bnd_lower_wall_right_ns(dolfin.SubDomain):
+                """Lower wall right, no slip"""
 
-            def inside(self, x, on_boundary):
-                return (
-                    on_boundary
-                    and dolfin.between(x[0], (L, x0ns_right))
-                    and dolfin.near(x[1], 0)
-                )
+                def inside(self, x, on_boundary):
+                    return (
+                        on_boundary
+                        and dolfin.between(x[0], (L, x0ns_right))
+                        and dolfin.near(x[1], 0)
+                    )
 
-        lower_wall_right_ns = bnd_lower_wall_right_ns()
+            lower_wall_right_ns = bnd_lower_wall_right_ns()
 
-        # stress free
-        class bnd_lower_wall_right_sf(dolfin.SubDomain):
-            """Lower wall right, stress free"""
+            # # stress free
+            class bnd_lower_wall_right_sf(dolfin.SubDomain):
+                """Lower wall right, stress free"""
 
-            def inside(self, x, on_boundary):
-                return (
-                    on_boundary
-                    and dolfin.between(x[0], (x0ns_right, xinf))
-                    and dolfin.near(x[1], 0)
-                )
+                def inside(self, x, on_boundary):
+                    return (
+                        on_boundary
+                        and dolfin.between(x[0], (x0ns_right, xinf))
+                        and dolfin.near(x[1], 0)
+                    )
 
-        lower_wall_right_sf = bnd_lower_wall_right_sf()
+            lower_wall_right_sf = bnd_lower_wall_right_sf()
+
+        else:  # compiled
+            cavity_left = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + near_cpp("x[0]", "0", "MESH_TOL")
+                + and_cpp
+                + between_cpp("x[1]", "-D", "0"),
+                MESH_TOL=MESH_TOL,
+                D=D,
+            )
+
+            cavity_botm = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + near_cpp("x[1]", "-D", "MESH_TOL")
+                + and_cpp
+                + between_cpp("x[0]", "0", "L"),
+                L=L,
+                D=D,
+                MESH_TOL=MESH_TOL,
+            )
+
+            cavity_right = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + "near(x[0], L, MESH_TOL)"
+                + and_cpp
+                + between_cpp("x[1]", -D, 0),
+                L=L,
+                D=D,
+                MESH_TOL=MESH_TOL,
+            )
+
+            lower_wall_left_sf = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + "x[0] >= xinfa"
+                + and_cpp
+                + "x[0] <= x0ns_left + 10*MESH_TOL"
+                + and_cpp
+                + near_cpp("x[1]", "0"),
+                xinfa=xinfa,
+                x0ns_left=x0ns_left,
+                MESH_TOL=MESH_TOL,
+            )
+
+            lower_wall_left_ns = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + "x[0] >= x0ns_left - 10*MESH_TOL"
+                + and_cpp
+                + "x[0] <= 0"
+                + and_cpp
+                + near_cpp("x[1]", "0"),
+                x0ns_left=x0ns_left,
+                MESH_TOL=MESH_TOL,
+            )
+
+            lower_wall_right_ns = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + near_cpp("x[1]", 0)
+                + and_cpp
+                + between_cpp("x[0]", "L", "x0ns_right"),
+                x0ns_right=x0ns_right,
+                L=L,
+                MESH_TOL=MESH_TOL,
+            )
+
+            lower_wall_right_sf = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + near_cpp("x[1]", 0)
+                + and_cpp
+                + between_cpp("x[0]", "x0ns_right", "xinf"),
+                x0ns_right=x0ns_right,
+                xinf=xinf,
+                MESH_TOL=MESH_TOL,
+            )
 
         # Concatenate all boundaries
         subdmlist = [
@@ -388,6 +478,10 @@ if __name__ == "__main__":
     flu.export_subdomains(
         fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
     )
+
+    # import sys
+
+    # sys.exit()
 
     logger.info("Compute steady state...")
     uctrl0 = [0.0]
