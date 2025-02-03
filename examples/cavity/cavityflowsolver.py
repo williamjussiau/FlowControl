@@ -282,14 +282,14 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             bcu_cavity_right,
         ]
 
-        # pressure on outlet -> TODO not free like cylinder?
-        bcp_outlet = dolfin.DirichletBC(
-            self.W.sub(1),
-            dolfin.Constant(0),
-            self.boundaries.loc["outlet"].subdomain,
-        )
-
-        bcp = [bcp_outlet]
+        # pressure on outlet -> p=0 or p free (standard outflow)
+        # bcp_outlet = dolfin.DirichletBC(
+        #     self.W.sub(1),
+        #     dolfin.Constant(0),
+        #     self.boundaries.loc["outlet"].subdomain,
+        # )
+        # bcp = [bcp_outlet]
+        bcp = []
 
         return {"bcu": bcu, "bcp": bcp}
 
