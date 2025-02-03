@@ -241,7 +241,7 @@ if __name__ == "__main__":
     )
 
     params_solver = flowsolverparameters.ParamSolver(
-        throw_error=True, is_eq_nonlinear=True, ic_add_perturbation=1.0, shift=0.0
+        throw_error=True, is_eq_nonlinear=True, shift=0.0
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
@@ -262,6 +262,10 @@ if __name__ == "__main__":
         actuator_list=[actuator_bc],
     )
 
+    params_ic = flowsolverparameters.ParamIC(
+        xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
+    )
+
     fs = CylinderFlowSolver(
         params_flow=params_flow,
         params_time=params_time,
@@ -270,6 +274,7 @@ if __name__ == "__main__":
         params_mesh=params_mesh,
         params_restart=params_restart,
         params_control=params_control,
+        params_ic=params_ic,
         verbose=5,
     )
 
@@ -322,6 +327,7 @@ if __name__ == "__main__":
         params_mesh=params_mesh,
         params_restart=params_restart,
         params_control=params_control,
+        params_ic=params_ic,
         verbose=5,
     )
 

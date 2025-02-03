@@ -45,6 +45,7 @@ class FlowSolver(ABC):
         params_mesh: flowsolverparameters.ParamMesh,
         params_restart: flowsolverparameters.ParamRestart,
         params_control: flowsolverparameters.ParamControl,
+        params_ic: flowsolverparameters.ParamIC,
         verbose: int = 1,
     ) -> None:
         """Initialize FlowSolver object with Parameters objects and
@@ -58,6 +59,7 @@ class FlowSolver(ABC):
             params_mesh (flowsolverparameters.ParamMesh): see flowsolverparameters
             params_restart (flowsolverparameters.ParamRestart): see flowsolverparameters
             params_control (flowsolverparameters.ParamControl): see flowsolverparameters
+            params_ic (flowsolverparameters.ParamIC): see flowsolerparameters
             verbose (int, optional): print every _verbose_ iteration. Defaults to 1.
         """
         self.params_flow = params_flow
@@ -67,6 +69,7 @@ class FlowSolver(ABC):
         self.params_mesh = params_mesh
         self.params_restart = params_restart
         self.params_control = params_control
+        self.params_ic = params_ic
         self.verbose = verbose
 
         self._setup()
@@ -259,12 +262,16 @@ class FlowSolver(ABC):
             self.fields.ic = FlowField(up=ic)
 
         # Add perturbation to IC
-        addpert = self.params_solver.ic_add_perturbation
-        if addpert:
-            logger.debug("Found ic perturbation: {0}".format(addpert))
-            udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
-            pert0 = self.merge(u=udiv0, p=flu.projectm(self.fields.STEADY.p, self.P))
-            self.fields.ic.up.vector()[:] += addpert * pert0.vector()[:]
+        if self.params_ic.amplitude:
+            logger.debug("Found ic perturbation: {0}".format(self.params_ic))
+            ic_perturbation = self._default_initial_perturbation(
+                xloc=self.params_ic.xloc,
+                yloc=self.params_ic.yloc,
+                radius=self.params_ic.radius,
+            )
+            self.fields.ic.up.vector()[:] += (
+                self.params_ic.amplitude * ic_perturbation.vector()[:]
+            )
         self.fields.ic.up.vector().apply("insert")
         self.fields.ic = FlowField(self.fields.ic.up)
 
@@ -914,7 +921,7 @@ class FlowSolver(ABC):
         u, p = dolfin.TrialFunctions(self.W)
         v, q = dolfin.TestFunctions(self.W)
 
-        UP0.interpolate(self._steady_state_default_initial_guess())
+        UP0.interpolate(self._default_steady_state_initial_guess())
         U0 = dolfin.as_vector((UP0[0], UP0[1]))
 
         ap = (
@@ -1070,7 +1077,7 @@ class FlowSolver(ABC):
             flu.write_xdmf(filename, Efield, "E")
         return Efield
 
-    def _steady_state_default_initial_guess(self) -> dolfin.UserExpression:
+    def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
         """Default initial guess for computing steady state. The method may
         be overriden to propose an initial guess deemed closer to the steady state."""
 
@@ -1084,6 +1091,15 @@ class FlowSolver(ABC):
                 return (3,)
 
         return default_initial_guess()
+
+    def _default_initial_perturbation(
+        self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
+    ) -> dolfin.Function:
+        """Default perturbation added to the initial state, modulated by the amplitude
+        self.params_solver.ic_add_perturbation (float)."""
+        u_nodiv = flu2.get_div0_u(self, xloc=xloc, yloc=yloc, size=radius)
+        p_default = flu.projectm(self.fields.STEADY.p, self.P)
+        return self.merge(u=u_nodiv, p=p_default)
 
     def _load_actuators(self) -> None:
         """Load expressions from actuators in actuator_list"""

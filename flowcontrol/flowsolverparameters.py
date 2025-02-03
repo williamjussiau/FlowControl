@@ -73,7 +73,7 @@ class ParamTime(ParamFlowSolver):
         num_steps (int): number of steps
         dt (float): time step
         Tstart (float): starting simulation time
-        Tfinal (float): final simulation time (computed automatically).
+        Tfinal (float): final simulation time (computed automatically)
     """
 
     def __init__(self, num_steps, dt, Tstart=0.0):
@@ -131,3 +131,20 @@ class ParamSolver(ParamFlowSolver):
     ic_add_perturbation: float = 0.0
     shift: float = 0.0
     is_eq_nonlinear: bool = True
+
+
+@dataclass
+class ParamIC(ParamFlowSolver):
+    """Parameters for Initial Condition (IC).
+
+    Args:
+        xloc (float): a
+        yloc (float): a
+        radius (float): a
+        amplitude (float): a
+    """
+
+    xloc: float = 0.0
+    yloc: float = 0.0
+    radius: float = 0.0
+    amplitude: float = 1.0
