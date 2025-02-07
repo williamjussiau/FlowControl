@@ -10,8 +10,8 @@ Equations were made non-dimensional
 import flowsolver
 import dolfin
 import numpy as np
+import pandas
 import time
-import pandas as pd
 import flowsolverparameters
 from flowfield import BoundaryConditions
 from sensor import SensorPoint, SENSOR_TYPE
@@ -36,43 +36,41 @@ logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 class CylinderFlowSolver(flowsolver.FlowSolver):
     """Flow past a cylinder. Proposed Re=100."""
 
-    # Abstract methods
     def _make_boundaries(self):
+        near_cpp = flu.near_cpp
+        between_cpp = flu.between_cpp
+        and_cpp = flu.and_cpp()
+        or_cpp = flu.or_cpp()
+        on_boundary_cpp = flu.on_boundary_cpp()
+
         MESH_TOL = dolfin.DOLFIN_EPS
+
         ## Inlet
         inlet = dolfin.CompiledSubDomain(
-            "on_boundary && \
-                near(x[0], xinfa, MESH_TOL)",
+            on_boundary_cpp + and_cpp + near_cpp("x[0]", "xinfa", "MESH_TOL"),
             xinfa=self.params_mesh.user_data["xinfa"],
             MESH_TOL=MESH_TOL,
         )
         ## Outlet
         outlet = dolfin.CompiledSubDomain(
-            "on_boundary && \
-                near(x[0], xinf, MESH_TOL)",
+            on_boundary_cpp + and_cpp + near_cpp("x[0]", "xinf", "MESH_TOL"),
             xinf=self.params_mesh.user_data["xinf"],
             MESH_TOL=MESH_TOL,
         )
         ## Walls
         walls = dolfin.CompiledSubDomain(
-            "on_boundary && \
-                (near(x[1], -yinf, MESH_TOL) ||   \
-                 near(x[1], yinf, MESH_TOL))",
+            on_boundary_cpp
+            + and_cpp
+            + "("
+            + near_cpp("x[1]", "-yinf", "MESH_TOL")
+            + or_cpp
+            + near_cpp("x[1]", "yinf", "MESH_TOL")
+            + ")",
             yinf=self.params_mesh.user_data["yinf"],
             MESH_TOL=MESH_TOL,
         )
 
         ## Cylinder
-        # Compiled subdomains (str)
-        # = increased speed but decreased readability
-
-        def between_cpp(x: str, xmin: str, xmax: str, tol: str = "0.0"):
-            return f"{x}>={xmin}-{tol} && {x}<={xmax}+{tol}"
-
-        and_cpp = " && "
-        or_cpp = " || "
-        on_boundary_cpp = "on_boundary"
-
         radius = self.params_flow.user_data["D"] / 2
         ldelta = radius * np.sin(
             self.params_control.actuator_list[0].angular_size_deg / 2 * dolfin.pi / 180
@@ -127,11 +125,10 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             "actuator_up",
             "actuator_lo",
         ]
-        boundaries_df = pd.DataFrame(
-            index=boundaries_names,
-            data={
-                "subdomain": [inlet, outlet, walls, cylinder, actuator_up, actuator_lo]
-            },
+        subdomains_list = [inlet, outlet, walls, cylinder, actuator_up, actuator_lo]
+
+        boundaries_df = pandas.DataFrame(
+            index=boundaries_names, data={"subdomain": subdomains_list}
         )
 
         return boundaries_df
@@ -141,27 +138,27 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["inlet"].subdomain,
+            self.get_subdomain("inlet"),
         )
         bcu_walls = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),
-            self.boundaries.loc["walls"].subdomain,
+            self.get_subdomain("walls"),
         )
         bcu_cylinder = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["cylinder"].subdomain,
+            self.get_subdomain["cylinder"],
         )
         bcu_actuation_up = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[0].expression,
-            self.boundaries.loc["actuator_up"].subdomain,
+            self.get_subdomain["actuator_up"],
         )
         bcu_actuation_lo = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[1].expression,
-            self.boundaries.loc["actuator_lo"].subdomain,
+            self.get_subdomain["actuator_lo"],
         )
         bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
 

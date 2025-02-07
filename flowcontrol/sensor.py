@@ -87,7 +87,7 @@ class SensorIntegral(Sensor):
     require_loading: bool = True
 
     @abstractmethod
-    def _load(self):
+    def _load(self) -> None:
         """Defne and mark subdomain, define integration element ds."""
         pass
 

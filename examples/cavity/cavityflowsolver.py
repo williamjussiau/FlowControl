@@ -11,7 +11,7 @@ import flowsolver
 import dolfin
 import numpy as np
 import time
-import pandas as pd
+import pandas
 import flowsolverparameters
 from flowfield import BoundaryConditions
 from sensor import SensorHorizontalWallShear, SENSOR_TYPE, SensorPoint
@@ -52,6 +52,11 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         #               |      |
         #               --------
         #                  ns
+        near_cpp = flu.near_cpp
+        between_cpp = flu.between_cpp
+        and_cpp = flu.and_cpp()
+        on_boundary_cpp = flu.on_boundary_cpp()
+
         MESH_TOL = dolfin.DOLFIN_EPS
         L = self.params_flow.user_data["L"]
         D = self.params_flow.user_data["D"]
@@ -60,15 +65,6 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         yinf = self.params_mesh.user_data["yinf"]
         x0ns_left = self.params_mesh.user_data["x0ns_left"]
         x0ns_right = self.params_mesh.user_data["x0ns_right"]
-
-        def near_cpp(x: str, xnear: str, tol: str = "MESH_TOL"):
-            return f"near({x}, {xnear}, {tol})"
-
-        def between_cpp(x: str, xmin: str, xmax: str, tol: str = "0.0"):
-            return f"{x}>={xmin}-{tol} && {x}<={xmax}+{tol}"
-
-        and_cpp = " && "
-        on_boundary_cpp = "on_boundary"
 
         ## Inlet
         inlet = dolfin.CompiledSubDomain(
@@ -275,7 +271,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             )
 
         # Concatenate all boundaries
-        subdmlist = [
+        subdomains_list = [
             inlet,
             outlet,
             upper_wall,
@@ -288,7 +284,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             lower_wall_right_sf,
         ]
 
-        boundaries_list = [
+        boundaries_names = [
             "inlet",
             "outlet",
             "upper_wall",
@@ -300,8 +296,9 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             "lower_wall_right_ns",
             "lower_wall_right_sf",
         ]
-        boundaries_df = pd.DataFrame(
-            index=boundaries_list, data={"subdomain": subdmlist}
+
+        boundaries_df = pandas.DataFrame(
+            index=boundaries_names, data={"subdomain": subdomains_list}
         )
 
         return boundaries_df
@@ -312,53 +309,53 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["inlet"].subdomain,
+            self.get_subdomain("inlet"),
         )
         # upper wall : dy(u)=0 # TODO
         bcu_upper_wall = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),
-            self.boundaries.loc["upper_wall"].subdomain,
+            self.get_subdomain("upper_wall"),
         )
         # lower wall left sf : v=0 + dy(u)=0 # TODO
         bcu_lower_wall_left_sf = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),
-            self.boundaries.loc["lower_wall_left_sf"].subdomain,
+            self.get_subdomain("lower_wall_left_sf"),
         )
         # lower wall left ns : u=0; v=0
         bcu_lower_wall_left_ns = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["lower_wall_left_ns"].subdomain,
+            self.get_subdomain("lower_wall_left_ns"),
         )
         # lower wall right ns : u=0; v=0
         bcu_lower_wall_right_ns = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["lower_wall_right_ns"].subdomain,
+            self.get_subdomain("lower_wall_right_ns"),
         )
         # lower wall right sf : v=0 + dy(u)=0 # TODO
         bcu_lower_wall_right_sf = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),
-            self.boundaries.loc["lower_wall_right_sf"].subdomain,
+            self.get_subdomain("lower_wall_right_sf"),
         )
         # cavity : no slip, u=0; v=0
         bcu_cavity_left = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["cavity_left"].subdomain,
+            self.get_subdomain("cavity_left"),
         )
         bcu_cavity_botm = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["cavity_botm"].subdomain,
+            self.get_subdomain("cavity_botm"),
         )
         bcu_cavity_right = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.boundaries.loc["cavity_right"].subdomain,
+            self.get_subdomain("cavity_right"),
         )
 
         bcu = [
@@ -377,7 +374,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         # bcp_outlet = dolfin.DirichletBC(
         #     self.W.sub(1),
         #     dolfin.Constant(0),
-        #     self.boundaries.loc["outlet"].subdomain,
+        #     self.get_subdomain("outlet"),
         # )
         # bcp = [bcp_outlet]
         bcp = []
@@ -453,7 +450,7 @@ if __name__ == "__main__":
         sensor_type=SENSOR_TYPE.OTHER,
     )
     sensor_perf_1 = SensorPoint(
-        sensor_type=SENSOR_TYPE.V, position=np.array([0.0, 0.0])
+        sensor_type=SENSOR_TYPE.U, position=np.array([0.1, 0.1])
     )
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[sensor_feedback, sensor_perf_1],
