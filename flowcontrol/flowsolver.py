@@ -96,7 +96,6 @@ class FlowSolver(ABC):
         self.V, self.P, self.W = self._make_function_spaces()
         self.boundaries = self._make_boundaries()  # @abstract
         self._mark_boundaries()
-        # self.actuator_expression =
         self._load_actuators()
         self._load_sensors()
         self.bc = self._make_bcs()  # @abstract
@@ -1089,6 +1088,9 @@ class FlowSolver(ABC):
         if export:
             flu.write_xdmf(filename, Efield, "E")
         return Efield
+
+    def get_subdomain(self, name):
+        return self.boundaries.loc[name].subdomain
 
     def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
         """Default initial guess for computing steady state. The method may

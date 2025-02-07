@@ -24,12 +24,6 @@ class FlowField:
         self.p = p
         self.up = up
 
-    # @staticmethod
-    # def generate(up: dolfin.Function) -> FlowField:
-    #     u, p = up.split(deepcopy=True)
-    #     ff = FlowField(u=u, p=p, up=up)
-    #     return ff
-
 
 @dataclass
 class FlowFieldCollection:
