@@ -13,7 +13,8 @@ import numpy as np
 import time
 import pandas as pd
 import flowsolverparameters
-from sensor import SensorHorizontalWallShear, SENSOR_TYPE
+from flowfield import BoundaryConditions
+from sensor import SensorHorizontalWallShear, SENSOR_TYPE, SensorPoint
 from actuator import ActuatorForceGaussianV
 
 # from controller import Controller
@@ -381,7 +382,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         # bcp = [bcp_outlet]
         bcp = []
 
-        return {"bcu": bcu, "bcp": bcp}
+        return BoundaryConditions(bcu=bcu, bcp=bcp)
 
     def _steady_state_default_initial_guess(self) -> dolfin.UserExpression:
         class default_initial_guess(dolfin.UserExpression):
@@ -451,8 +452,11 @@ if __name__ == "__main__":
         y_sensor=0.0,
         sensor_type=SENSOR_TYPE.OTHER,
     )
+    sensor_perf_1 = SensorPoint(
+        sensor_type=SENSOR_TYPE.V, position=np.array([0.0, 0.0])
+    )
     params_control = flowsolverparameters.ParamControl(
-        sensor_list=[sensor_feedback],
+        sensor_list=[sensor_feedback, sensor_perf_1],
         actuator_list=[actuator_force],
     )
 
@@ -478,10 +482,6 @@ if __name__ == "__main__":
     flu.export_subdomains(
         fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
     )
-
-    # import sys
-
-    # sys.exit()
 
     logger.info("Compute steady state...")
     uctrl0 = [0.0]

@@ -70,3 +70,9 @@ class FlowFieldCollection:
     Usave: dolfin.Function | None = None
     Psave: dolfin.Function | None = None
     Usave_n: dolfin.Function | None = None
+
+
+@dataclass
+class BoundaryConditions:
+    bcu: list[dolfin.DirichletBC]
+    bcp: list[dolfin.DirichletBC]
