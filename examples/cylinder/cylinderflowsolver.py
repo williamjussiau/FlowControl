@@ -13,6 +13,7 @@ import numpy as np
 import time
 import pandas as pd
 import flowsolverparameters
+from flowfield import BoundaryConditions
 from sensor import SensorPoint, SENSOR_TYPE
 from actuator import ActuatorBCParabolicV
 from controller import Controller
@@ -29,7 +30,7 @@ import utils_extract as flu2
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
 logger = logging.getLogger(__name__)
 FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-logging.basicConfig(format=FORMAT, level=logging.INFO)
+logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
 
 class CylinderFlowSolver(flowsolver.FlowSolver):
@@ -164,7 +165,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         )
         bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
 
-        return {"bcu": bcu, "bcp": []}  # log perturbation bcs
+        return BoundaryConditions(bcu=bcu, bcp=[])
 
     # Steady state
     def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
