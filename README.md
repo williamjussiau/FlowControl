@@ -89,8 +89,8 @@ The toolbox provides additional utility related to flow control:
 * Define an arbitrary number of actuators and sensors (e.g. feedback and performance sensors),
 * Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
 * Modify the equations, the numerical schemes and the solvers used for the time simulation,
-* Parallel execution native to FEniCS,
-* Can be used as backend in an optimization tool (as in [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)).
+* Leverage parallel execution native to FEniCS,
+* Used it as backend in an optimization tool (as in [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)).
 
 
 
@@ -100,7 +100,7 @@ The current roadmap is as follows:
 * Refactor and release additional control-related tools,
 * Update the project to [FEniCSx](https://fenicsproject.org/documentation/),
 * Sort and check all utility functions,
-* General form for operator computation,
+* Write general form for operator computation,
 * Docker/venv/pip.
 
 
