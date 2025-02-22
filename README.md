@@ -22,6 +22,14 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 </p>
 
 
+## Installation 🛠️
+### conda
+The ```conda```  environment required to run the code can be extracted from the file ```environment.yml```. Additional path tweaking may be required for all FEniCS (```dolfin``` module) and custom modules to be found.
+
+### Docker :whale:
+[coming soon]
+
+
 
 ## What the toolbox offers
 ### Simulation
@@ -47,10 +55,10 @@ The toolbox allows the user to define actuators and sensors for forcing the flow
 
 ### Two benchmarks
 Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) used for flow control are shipped with the current code.
-| Use-case | Description | Feedback configuration |
-| ------   | ----------- | ---------------------- |
-| Cylinder | Flow past a cylinder at Re=100 |  SISO |
-| Cavity | Flow over an open cavity at Re=7500  | SISO |
+| Use-case | Description |
+| ------   | ----------- |
+| Cylinder | Flow past a cylinder at Re=100 |
+| Cavity | Flow over an open cavity at Re=7500  |
 
 ### Examples of use of the toolbox
 The following articles were based on previous versions of the code:
@@ -60,28 +68,22 @@ The following articles were based on previous versions of the code:
 
 
 
----
-## Installation 🛠️
-### conda
-The ```conda```  environment required to run the code can be extracted from the file ```environment.yml```. Additional path tweaking may be required for all FEniCS (```dolfin``` module) and custom modules to be found.
 
-### Docker :whale:
-[coming soon]
+
 
 
 
 ## Code overview
-
+The philosophy of the toolbox for enabling the implementation of new use-cases easily, is the following:
 1. Define a new use-case: inherit FlowSolver abstract class
 1. Attach ```Sensor```s and ```Actuator```s to an instance of a ```FlowSolver``` subclass
 1. Run a closed-loop simulation
 
-
-See the wiki at [https://github.com/williamjussiau/FlowControl/wiki] for more information.
-
+See the wiki at [https://github.com/williamjussiau/FlowControl/wiki] for more information on how to perform these steps.
 
 
-### Additional uses of the toolbox
+
+## Additional uses of the toolbox
 The toolbox provides additional utility related to flow control:
 * Compute dynamic operators A, B, C, D and mass matrix E,
 * Restart a simulation from a previous one,
