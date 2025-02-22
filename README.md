@@ -52,21 +52,14 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 | Cylinder | Flow past a cylinder at Re=100 |  SISO |
 | Cavity | Flow over an open cavity at Re=7500  | SISO |
 
-+ For the flow past a cylinder at Re=100, see e.g.:
-  - [Barkley, D. (2006). Linear analysis of the cylinder wake mean flow. _Europhysics Letters_, 75(5), 750.](https://homepages.warwick.ac.uk/~masax/Research/Papers/Cylinder_EPL_75.pdf),
-  - [Paris, R., Beneddine, S., & Dandois, J. (2021). Robust flow control and optimal sensor placement using deep reinforcement learning. _Journal of Fluid Mechanics_, 913, A25.](https://arxiv.org/pdf/2006.11005),
-+ For the flow over an open cavity at Re=7500, see e.g.: 
-  - [Barbagallo, A., Sipp, D., & Schmid, P. J. (2009). Closed-loop control of an open cavity flow using reduced-order models. _Journal of Fluid Mechanics_, 641, 1-50.](https://polytechnique.hal.science/hal-01021129/file/S0022112009991418a.pdf).
-
-
-## Examples of use of the toolbox
+### Examples of use of the toolbox
 The following articles were based on previous versions of the code:
 * [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. _IEEE Control Systems Letters_, 6, 3212-3217.](https://hal.science/hal-03947469/document)
 * [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2024). Data-driven stabilization of an oscillating flow with linear time-invariant controllers. _Journal of Fluid Mechanics_, 999, A86.](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/47548BEA53D115E1F70FC1F772F641DB/S0022112024009042a.pdf/data-driven-stabilization-of-an-oscillating-flow-with-linear-time-invariant-controllers.pdf)
+* [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)
 
 
 
----
 ---
 ## Installation 🛠️
 ### conda
@@ -79,79 +72,12 @@ The ```conda```  environment required to run the code can be extracted from the 
 
 ## Code overview
 
-### Define a new use-case: inherit FlowSolver abstract class
-The simulation revolves around the abstract class ```FlowSolver``` that implements core features such as loading mesh, defining function spaces, trial/test functions, variational formulations, numerical schemes and solvers, handling the time-stepping and exporting information. The class is abstract as it does not implement a simulation case _per se_, but only provides utility for doing so. It features two abstract methods, that are redefined for each use-case:
-
-1. ```_make_boundaries``` provides a definition and naming of the boundaries of the mesh in a pandas DataFrame.
-``` py
-    @abstractmethod
-    def _make_boundaries(self) -> pd.DataFrame:
-        pass
-```
-2. ```_make_bcs``` provides a description of the boundary conditions on the boundaries defined above, in a dictionary.
-``` py
-    @abstractmethod
-    def _make_bcs(self) -> dict[str, Any]:
-        pass
-```
-
-For the two aforementioned examples, these methods are reimplemented in the classes ```CylinderFlowSolver``` and ```CavityFlowSolver``` that inherit from ```FlowSolver```.
+1. Define a new use-case: inherit FlowSolver abstract class
+1. Attach ```Sensor```s and ```Actuator```s to an instance of a ```FlowSolver``` subclass
+1. Run a closed-loop simulation
 
 
-
-### Attach ```Sensor```s and ```Actuator```s to an instance of a ```FlowSolver``` subclass
-In order to perform sensing and actuation (in order to close the loop), dedicated classes ```Sensor``` and ```Actuator``` are proposed. They are not aimed at being instantiated, but rather inherited.
-
-* ```Sensor``` is an abstract class that provides a method ```eval(self, up: dolfin.Function) -> float```. Classes ```SensorPoint``` (point probe) and ```SensorIntegral``` (integration on a subdomain) are examples of subclasses that implement the ```eval``` method.
-* Likewise, ```Actuator``` is an abstract class that encapsulates a ```dolfin.Expression``` among other elements, and embeds it in the variational formulations.
-
-The sensors and actuators are attached to a FlowSolver object as a list, embedded in the ```ParamControl``` object. The call to ```Sensor```s and ```Actuator```s is made automatically by ```FlowSolver```.
-By attaching several sensors or actuators, it is possible to use Multiple-Input, Multiple-Output controllers in the loop.
-
-In the example below (for the cylinder use-case), we are creating an actuator acting on boundary conditions and three point probes at different locations. They are gathered in a ```ParamControl``` object, which is passed as an argument when creating a ```CylinderFlowSolver```. 
-``` py
-# Actuator
-actuator_bc = ActuatorBCParabolicV(angular_size_deg=10)
-# Sensors
-sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
-sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
-sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1.3]))
-# Gather actuators and sensors in ParamControl object
-params_control = ParamControl(
-    sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
-    actuator_list=[actuator_bc],
-)
-```
-
-### Run a closed-loop simulation
-Once a use-case has been defined by implementing the corresponding class, the basic feedback syntax has the following philosophy:
-``` py
-# Instantiate and initialize FlowSolver object
-fs = CylinderFlowSolver(...)
-fs.compute_steady_state(...)
-fs.initialize_time_stepping(...)
-
-# Instantiate Controller (e.g. load from .mat file)
-Kss = Controller.from_file(...)
-
-# Time loop
-y_meas = fs.y_meas
-for _ in range(fs.params_time.num_steps):
-    u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-    y_meas = fs.step(u_ctrl=u_ctrl)
-```
-
-See examples for a more detailed description.
-
-
-
-### Meshing tools
-No meshing tools are shipped with this code, but [gmsh](https://gmsh.info/) (and [its Python API](https://pypi.org/project/gmsh/)) are suggested for generating meshes. The mesh should be exported to ```xdmf``` format, which can be reached thanks to [meshio](https://github.com/nschloe/meshio/tree/main).
-
-
-
-### Visualization
-[Paraview](https://www.paraview.org/) is suggested for visualizations, whether it be for ```csv``` timeseries or fields saved as ```xdmf```.
+See the wiki at [https://github.com/williamjussiau/FlowControl/wiki] for more information.
 
 
 
@@ -163,7 +89,7 @@ The toolbox provides additional utility related to flow control:
 * Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
 * Parallel execution native to FEniCS,
 * To some extent, easy modification of the equations, numerical schemes and solvers used for time simulation,
-* Can be used as backend in an optimization tool (as in [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. _IEEE Control Systems Letters_, 6, 3212-3217.](https://hal.science/hal-03947469/document)).
+* Can be used as backend in an optimization tool (as in [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)).
 
 
 
@@ -181,7 +107,6 @@ The current roadmap is as follows:
 ## Contact
 :mailbox: william.jussiau@gmail.com
 
-Also, I highly recommend [FEniCS documentation](https://olddocs.fenicsproject.org/dolfin/2019.1.0/), [FEniCS forum](https://fenicsproject.discourse.group/) (and potentially [the BitBucket repository](https://bitbucket.org/fenics-project/dolfin/src/master/)) for problems regarding FEniCS 2019.1.0 itself.
 
 
 ---
