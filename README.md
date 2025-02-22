@@ -8,9 +8,6 @@ This page contains introductory information about the toolbox. For more in-depth
 <img src="illustrations/cylinder_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow past a cylinder at Re=100. The self-sustained, periodic oscillations of the flow (known as vortex shedding) gradually disappear as the controller actuates the flow. The feedback controller uses a sensor in the wake and actuates the flow on the poles of the cylinder. More details are given below." width="500"/>
 </p>
 
-## Introduction
-The primary goal of the toolbox is the design and implementation of feedback control algorithms, but it may be used for a variety of other topics such as model reduction or identification, actuator and sensor placement study... 
-
 The toolbox is shipped with two benchmarks for flow control and allows for easy implementation of new cases.
 
 <p align="center">
@@ -51,7 +48,7 @@ The ```conda```  environment required to run the code can be extracted from the 
 
 
 ### Actuation and sensing
-The toolbox allows the user to define actuators and sensors for forcing the flow. It also provides utility for controller design and implementation. See the examples given below.
+The toolbox allows the user to define actuators for forcing and sensors to probe the flow. It also provides utility for controller design and implementation.
 
 
 
@@ -88,11 +85,11 @@ See [the toolbox Wiki](https://github.com/williamjussiau/FlowControl/wiki) for m
 ## Additional uses of the toolbox
 The toolbox provides additional utility related to flow control:
 * Compute dynamic operators A, B, C, D and mass matrix E,
-* Restart a simulation from a previous one,
-* Arbitrary number of sensors (e.g. feedback and performance sensors),
+* Restart a simulation from a saved file,
+* Define an arbitrary number of actuators and sensors (e.g. feedback and performance sensors),
 * Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
+* Modify the equations, the numerical schemes and the solvers used for the time simulation,
 * Parallel execution native to FEniCS,
-* To some extent, easy modification of the equations, numerical schemes and solvers used for time simulation,
 * Can be used as backend in an optimization tool (as in [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)).
 
 
