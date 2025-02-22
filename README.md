@@ -45,12 +45,8 @@ The ```conda```  environment required to run the code can be extracted from the 
 ```
 + The only numerical parameter of the non-dimensional equations, the Reynolds number defined as $Re = \frac{UL}{\nu}$, balances convective and viscous terms.
 
-
-
 ### Actuation and sensing
 The toolbox allows the user to define actuators for forcing and sensors to probe the flow. It also provides utility for controller design and implementation.
-
-
 
 ### Two benchmarks
 Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) used for flow control are shipped with the current code.
@@ -63,7 +59,7 @@ Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Phy
 The following articles were based on previous versions of the code:
 * [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. _IEEE Control Systems Letters_, 6, 3212-3217.](https://hal.science/hal-03947469/document)
 * [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2024). Data-driven stabilization of an oscillating flow with linear time-invariant controllers. _Journal of Fluid Mechanics_, 999, A86.](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/47548BEA53D115E1F70FC1F772F641DB/S0022112024009042a.pdf/data-driven-stabilization-of-an-oscillating-flow-with-linear-time-invariant-controllers.pdf)
-* [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)
+* [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. _IEEE Transactions on Control Systems Technology_.](https://ieeexplore.ieee.org/abstract/document/10884641/)
 
 
 
@@ -72,7 +68,7 @@ The following articles were based on previous versions of the code:
 
 
 
-## Code overview
+## Code philosophy
 The philosophy of the toolbox for enabling the implementation of new use-cases easily, is the following:
 1. Define a new use-case: inherit the ```FlowSolver``` abstract class
 1. Attach ```Sensor```s and ```Actuator```s to an instance of a ```FlowSolver``` subclass
@@ -90,7 +86,7 @@ The toolbox provides additional utility related to flow control:
 * Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
 * Modify the equations, the numerical schemes and the solvers used for the time simulation,
 * Leverage parallel execution native to FEniCS,
-* Used it as backend in an optimization tool (as in [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)).
+* Use it as backend in an optimization tool (as in [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)).
 
 
 
