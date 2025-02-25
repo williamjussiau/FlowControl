@@ -24,12 +24,6 @@ class FlowField:
         self.p = p
         self.up = up
 
-    # @staticmethod
-    # def generate(up: dolfin.Function) -> FlowField:
-    #     u, p = up.split(deepcopy=True)
-    #     ff = FlowField(u=u, p=p, up=up)
-    #     return ff
-
 
 @dataclass
 class FlowFieldCollection:
@@ -70,3 +64,9 @@ class FlowFieldCollection:
     Usave: dolfin.Function | None = None
     Psave: dolfin.Function | None = None
     Usave_n: dolfin.Function | None = None
+
+
+@dataclass
+class BoundaryConditions:
+    bcu: list[dolfin.DirichletBC]
+    bcp: list[dolfin.DirichletBC]

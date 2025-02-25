@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-import numpy as np
 from actuator import Actuator
 from sensor import Sensor
 
@@ -58,14 +57,15 @@ class ParamControl(ParamFlowSolver):
     actuator_list: list[Actuator]
     actuator_number: int
 
-    def __init__(self, sensor_list=[], actuator_list=[]):
+    def __init__(self, sensor_list=[], actuator_list=[], user_data={}):
         self.sensor_list = sensor_list
         self.sensor_number = len(sensor_list)
         self.actuator_list = actuator_list
         self.actuator_number = len(actuator_list)
+        self.user_data = user_data
 
 
-@dataclass
+@dataclass(init=False)
 class ParamTime(ParamFlowSolver):
     """Parameters related to time-stepping.
 
@@ -76,11 +76,17 @@ class ParamTime(ParamFlowSolver):
         Tfinal (float): final simulation time (computed automatically)
     """
 
-    def __init__(self, num_steps, dt, Tstart=0.0):
+    num_steps: int
+    dt: float
+    Tstart: float
+    Tfinal: float
+
+    def __init__(self, num_steps, dt, Tstart=0.0, user_data={}):
         self.num_steps = num_steps
         self.dt = dt
         self.Tstart = Tstart
         self.Tfinal = num_steps * dt
+        self.user_data = user_data
 
 
 @dataclass
@@ -135,13 +141,14 @@ class ParamSolver(ParamFlowSolver):
 
 @dataclass
 class ParamIC(ParamFlowSolver):
-    """Parameters for Initial Condition (IC).
+    """Parameters for Initial Condition (IC). By default, derivative of Gaussian bell
+    (therefore divergence-free) with given position (xloc, yloc), radius and amplitude.
 
     Args:
-        xloc (float): a
-        yloc (float): a
-        radius (float): a
-        amplitude (float): a
+        xloc (float): x position of center
+        yloc (float): y position of center
+        radius (float): radius of IC
+        amplitude (float): amplitude of IC
     """
 
     xloc: float = 0.0
