@@ -1,16 +1,21 @@
 ## Short-term
 # Docker/venv/pip
 
+# standardize initial_guess of Picard & Newton
+
+# in Controller.inv -> replicate self.x0 as well?
+
+
 ## Mid-term
 # sort (& check & rm) utility funs (_flowsolver, _extract, _debug)
 
-# get A, B, C -> (more) general form?
+# get A, B, C -> general form
 
 # (why not reimplement cylinder with volume force)
 
 
 ## Long-term
-# add tests
+# unit tests
 # test parallel -> peval Sensor, broadcast measurement
 # write_timeseries -> async?
 

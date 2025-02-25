@@ -1,0 +1,1636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.5">
+<title>Toolbox.flowcontrol.flowsolver API documentation</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>Toolbox.flowcontrol.flowsolver</code></h1>
+</header>
+<section id="section-intro">
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver"><code class="flex name class">
+<span>class <span class="ident">FlowSolver</span></span>
+<span>(</span><span>params_flow: flowsolverparameters.ParamControl,<br>params_time: flowsolverparameters.ParamTime,<br>params_save: flowsolverparameters.ParamSave,<br>params_solver: flowsolverparameters.ParamSolver,<br>params_mesh: flowsolverparameters.ParamMesh,<br>params_restart: flowsolverparameters.ParamRestart,<br>params_control: flowsolverparameters.ParamControl,<br>verbose: int = 1)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class FlowSolver(ABC):
+    &#34;&#34;&#34;Abstract base class for defining flow simulations and control problems.
+    This class implements utility functions but does not correspond to a flow problem.
+    It implements: defining file paths, reading mesh, defining function spaces,
+    trial and test functions, variational formulations, boundaries (geometry) and
+    boundary conditions and time-stepping utility.
+
+    Abstract methods:
+        _make_boundaries(self) -&gt; pd.DataFrame
+        _make_bcs(self) -&gt; dict[str, Any]
+    &#34;&#34;&#34;
+
+    def __init__(
+        self,
+        params_flow: flowsolverparameters.ParamControl,
+        params_time: flowsolverparameters.ParamTime,
+        params_save: flowsolverparameters.ParamSave,
+        params_solver: flowsolverparameters.ParamSolver,
+        params_mesh: flowsolverparameters.ParamMesh,
+        params_restart: flowsolverparameters.ParamRestart,
+        params_control: flowsolverparameters.ParamControl,
+        verbose: int = 1,
+    ) -&gt; None:
+        &#34;&#34;&#34;Initialize FlowSolver object with Parameters objects and
+        setup FlowSolver object.
+
+        Args:
+            params_flow (flowsolverparameters.ParamControl): see flowsolverparameters
+            params_time (flowsolverparameters.ParamTime): see flowsolverparameters
+            params_save (flowsolverparameters.ParamSave): see flowsolverparameters
+            params_solver (flowsolverparameters.ParamSolver): see flowsolverparameters
+            params_mesh (flowsolverparameters.ParamMesh): see flowsolverparameters
+            params_restart (flowsolverparameters.ParamRestart): see flowsolverparameters
+            params_control (flowsolverparameters.ParamControl): see flowsolverparameters
+            verbose (int, optional): print every _verbose_ iteration. Defaults to 1.
+        &#34;&#34;&#34;
+        self.params_flow = params_flow
+        self.params_time = params_time
+        self.params_save = params_save
+        self.params_solver = params_solver
+        self.params_mesh = params_mesh
+        self.params_restart = params_restart
+        self.params_control = params_control
+        self.verbose = verbose
+
+        self._setup()
+
+    def _setup(self):
+        &#34;&#34;&#34;Define class attributes common to all FlowSolver problems.&#34;&#34;&#34;
+        self.first_step = True
+        self.fields = FlowFieldCollection()
+
+        self.paths = self._define_paths()
+        self.mesh = self._make_mesh()
+        self.V, self.P, self.W = self._make_function_spaces()
+        self.boundaries = self._make_boundaries()  # @abstract
+        self._mark_boundaries()
+        # self.actuator_expression =
+        self._load_actuators()
+        self._load_sensors()
+        self.bc = self._make_bcs()  # @abstract
+        self.BC = self._make_BCs()
+
+    def _define_paths(self) -&gt; dict[str, Path]:
+        &#34;&#34;&#34;Define dictionary of file names for import/export.
+
+        Returns:
+            dict[str, Path]: dictionary of paths for importing/exporting files
+        &#34;&#34;&#34;
+        logger.debug(&#34;Currently defining paths...&#34;)
+
+        NUMBER_OF_DECIMALS = 3
+
+        def make_file_extension(T):
+            return &#34;_restart&#34; + str(np.round(T, decimals=NUMBER_OF_DECIMALS)).replace(
+                &#34;.&#34;, &#34;,&#34;
+            )
+
+        # start simulation from time...
+        Tstart = self.params_time.Tstart
+        ext_Tstart = make_file_extension(Tstart)
+        # use older files starting from time...
+        Trestartfrom = self.params_restart.Trestartfrom
+        ext_Trestart = make_file_extension(Trestartfrom)
+
+        ext_xdmf = &#34;.xdmf&#34;
+        ext_csv = &#34;.csv&#34;
+        path_out = self.params_save.path_out
+
+        filename_U0 = path_out / &#34;steady&#34; / (&#34;U0&#34; + ext_xdmf)
+        filename_P0 = path_out / &#34;steady&#34; / (&#34;P0&#34; + ext_xdmf)
+
+        filename_U = path_out / (&#34;U&#34; + ext_Trestart + ext_xdmf)
+        filename_Uprev = path_out / (&#34;Uprev&#34; + ext_Trestart + ext_xdmf)
+        filename_P = path_out / (&#34;P&#34; + ext_Trestart + ext_xdmf)
+
+        filename_U_restart = path_out / (&#34;U&#34; + ext_Tstart + ext_xdmf)
+        filename_Uprev_restart = path_out / (&#34;Uprev&#34; + ext_Tstart + ext_xdmf)
+        filename_P_restart = path_out / (&#34;P&#34; + ext_Tstart + ext_xdmf)
+
+        filename_timeseries = path_out / (&#34;timeseries1D&#34; + ext_Tstart + ext_csv)
+
+        return {
+            &#34;U0&#34;: filename_U0,
+            &#34;P0&#34;: filename_P0,
+            &#34;U&#34;: filename_U,
+            &#34;P&#34;: filename_P,
+            &#34;Uprev&#34;: filename_Uprev,
+            &#34;U_restart&#34;: filename_U_restart,
+            &#34;Uprev_restart&#34;: filename_Uprev_restart,
+            &#34;P_restart&#34;: filename_P_restart,
+            &#34;timeseries&#34;: filename_timeseries,
+            &#34;mesh&#34;: self.params_mesh.meshpath,
+        }
+
+    def _make_mesh(self) -&gt; dolfin.Mesh:
+        &#34;&#34;&#34;Read xdmf mesh from mesh file given in ParamMesh object.
+
+        Returns:
+            dolfin.Mesh: mesh read from file in ParamMesh.meshpath
+        &#34;&#34;&#34;
+
+        logger.info(f&#34;Mesh exists @: {self.params_mesh.meshpath}&#34;)
+
+        mesh = dolfin.Mesh(dolfin.MPI.comm_world)
+        with dolfin.XDMFFile(
+            dolfin.MPI.comm_world, str(self.params_mesh.meshpath)
+        ) as fm:
+            fm.read(mesh)
+
+        logger.info(f&#34;Mesh has: {mesh.num_cells()} cells&#34;)
+
+        return mesh
+
+    def _make_function_spaces(self) -&gt; tuple[dolfin.FunctionSpace, ...]:
+        &#34;&#34;&#34;Define function spaces for FEM formulation.
+
+        Default is Continuous-Galerkin (CG)
+        for each velocity component (order 2) and pressure (order 1).
+
+        Returns:
+            tuple[dolfin.FunctionSpace, ...]: all FunctionSpaces (V, P, W)
+        &#34;&#34;&#34;
+        Ve = dolfin.VectorElement(&#34;CG&#34;, self.mesh.ufl_cell(), 2)  # was &#39;P&#39;
+        Pe = dolfin.FiniteElement(&#34;CG&#34;, self.mesh.ufl_cell(), 1)  # was &#39;P&#39;
+        We = dolfin.MixedElement([Ve, Pe])
+        V = dolfin.FunctionSpace(self.mesh, Ve)
+        P = dolfin.FunctionSpace(self.mesh, Pe)
+        W = dolfin.FunctionSpace(self.mesh, We)
+
+        logger.debug(
+            f&#34;Function Space [V(CG2), P(CG1)] has: {P.dim()}+{V.dim()}={W.dim()} DOFs&#34;
+        )
+
+        return V, P, W
+
+    def _mark_boundaries(self) -&gt; None:
+        &#34;&#34;&#34;Mark boundaries automatically for numerical integration.&#34;&#34;&#34;
+        bnd_markers = dolfin.MeshFunction(
+            &#34;size_t&#34;, self.mesh, self.mesh.topology().dim() - 1
+        )
+        cell_markers = dolfin.MeshFunction(
+            &#34;size_t&#34;, self.mesh, self.mesh.topology().dim() - 1
+        )
+        boundaries_idx = range(len(self.boundaries))
+
+        for i, boundary_index in enumerate(boundaries_idx):
+            self.boundaries.iloc[i].subdomain.mark(bnd_markers, boundary_index)
+            self.boundaries.iloc[i].subdomain.mark(cell_markers, boundary_index)
+
+        self.dx = dolfin.Measure(&#34;dx&#34;, domain=self.mesh, subdomain_data=cell_markers)
+        self.ds = dolfin.Measure(&#34;ds&#34;, domain=self.mesh, subdomain_data=bnd_markers)
+        self.boundary_markers = bnd_markers
+        self.cell_markers = cell_markers
+        self.boundaries[&#34;idx&#34;] = list(boundaries_idx)
+
+    def initialize_time_stepping(
+        self, Tstart: float = 0.0, ic: dolfin.Function | None = None
+    ) -&gt; None:
+        &#34;&#34;&#34;Initialize the time-stepping process by reading or generating
+        initial conditions. Initialize the timeseries (pandas DataFrame)
+        containing simulation information.
+
+        Args:
+            Tstart (float, optional): if Tstart is not 0, restart simulation from Tstart
+                using files from a previous simulation provided in ParamRestart. Defaults to 0.0.
+            ic (dolfin.Function | None, optional): if Tstart is 0, use ic as (pert) initial condition.
+                Defaults to None.
+        &#34;&#34;&#34;
+
+        logger.info(
+            f&#34;Starting or restarting from time: {Tstart} &#34;
+            f&#34;with temporal scheme order: {self.params_restart.restart_order}&#34;
+        )
+
+        if Tstart == 0.0:
+            logger.debug(&#34;Starting simulation from zero with IC&#34;)
+            u_, p_, u_n, u_nn, p_n = self._initialize_with_ic(ic)
+        else:
+            logger.debug(&#34;Starting simulation from nonzero&#34;)
+            u_, p_, u_n, u_nn, p_n = self._initialize_at_time(Tstart)
+
+        self.fields.u_ = u_
+        self.fields.p_ = p_
+        self.fields.u_n = u_n
+        self.fields.u_nn = u_nn
+        self.fields.p_n = p_n
+
+        self.timeseries = self._initialize_timeseries()
+
+    def _initialize_with_ic(
+        self, ic: dolfin.Function | None
+    ) -&gt; tuple[dolfin.Function, ...]:
+        &#34;&#34;&#34;Initialize time-stepping with given initial condition (ic).
+        ic is give in perturbation form. ic can be set by user or defined
+        as None, in which case it is 0. A perturbation can be added onto the
+        ic given by the user, thanks to ParamSolver.ic_add_perturbation.
+
+        Args:
+            ic (dolfin.Function | None): perturbation initial condition.
+                ic is adjusted with ParamSolver.ic_add_perturbation.
+
+        Returns:
+            tuple[dolfin.Function, ...]: initial perturbation fields
+        &#34;&#34;&#34;
+        self.order = 1
+
+        if ic is None:  # then zero
+            logger.debug(&#34;ic is set internally to 0&#34;)
+            self.fields.ic = FlowField(up=dolfin.Function(self.W))
+        else:
+            logger.debug(&#34;ic is already set by user&#34;)
+            self.fields.ic = FlowField(up=ic)
+
+        # Add perturbation to IC
+        addpert = self.params_solver.ic_add_perturbation
+        if addpert:
+            logger.debug(&#34;Found ic perturbation: {0}&#34;.format(addpert))
+            udiv0 = flu2.get_div0_u(self, xloc=2, yloc=0, size=0.5)
+            pert0 = self.merge(u=udiv0, p=flu.projectm(self.fields.STEADY.p, self.P))
+            self.fields.ic.up.vector()[:] += addpert * pert0.vector()[:]
+        self.fields.ic.up.vector().apply(&#34;insert&#34;)
+        self.fields.ic = FlowField(self.fields.ic.up)
+
+        u_n = flu.projectm(v=self.fields.ic.u, V=self.V, bcs=self.bc[&#34;bcu&#34;])
+        u_nn = u_n.copy(deepcopy=True)
+        p_n = flu.projectm(self.fields.ic.p, self.P)
+        u_ = u_n.copy(deepcopy=True)
+        p_ = p_n.copy(deepcopy=True)
+
+        # Flush files and save ic as time_step 0
+        if self.params_save.save_every:
+            self._export_fields_xdmf(
+                u_n,
+                u_nn,
+                p_n,
+                time=0,
+                append=False,
+                write_mesh=True,
+                adjust_baseflow=+1,
+            )
+
+        return u_, p_, u_n, u_nn, p_n
+
+    def _initialize_at_time(self, Tstart: float) -&gt; tuple[dolfin.Function, ...]:
+        &#34;&#34;&#34;Initialize time-stepping from given time, by reading fields from files.
+
+        Args:
+            Tstart (float): starting time. It must correspond to saved time steps from
+                another simulation (to do so, set ParamRestart accordingly).
+
+        Returns:
+            tuple[dolfin.Function, ...]: initial perturbation fields
+        &#34;&#34;&#34;
+        self.order = self.params_restart.restart_order  # 2
+
+        idxstart = (Tstart - self.params_restart.Trestartfrom) / (
+            self.params_restart.dt_old * self.params_restart.save_every_old
+        )
+        idxstart = int(np.floor(idxstart))
+
+        U_ = dolfin.Function(self.V)
+        P_ = dolfin.Function(self.P)
+        U_n = dolfin.Function(self.V)
+        U_nn = dolfin.Function(self.V)
+        P_n = dolfin.Function(self.P)
+
+        flu.read_xdmf(self.paths[&#34;U&#34;], U_, &#34;U&#34;, counter=idxstart)
+        flu.read_xdmf(self.paths[&#34;P&#34;], P_, &#34;P&#34;, counter=idxstart)
+        flu.read_xdmf(self.paths[&#34;U&#34;], U_n, &#34;U&#34;, counter=idxstart)
+        flu.read_xdmf(self.paths[&#34;Uprev&#34;], U_nn, &#34;U_n&#34;, counter=idxstart)
+        flu.read_xdmf(self.paths[&#34;P&#34;], P_n, &#34;P&#34;, counter=idxstart)
+
+        # write in new file as first time step
+        if self.params_save.save_every:
+            self._export_fields_xdmf(
+                U_n,
+                U_nn,
+                P_n,
+                time=Tstart,
+                append=False,
+                write_mesh=True,
+                adjust_baseflow=0,
+            )
+
+        # remove base flow from loaded file
+        u_ = dolfin.Function(self.V)
+        p_ = dolfin.Function(self.P)
+        u_n = dolfin.Function(self.V)
+        u_nn = dolfin.Function(self.V)
+        p_n = dolfin.Function(self.P)
+        for u, U in zip([u_n, u_nn, u_], [U_n, U_nn, U_]):
+            u.vector()[:] = U.vector()[:] - self.fields.STEADY.u.vector()[:]
+            u.vector().apply(&#34;insert&#34;)
+        for p, P in zip([p_n, p_], [P_n, P_]):
+            p.vector()[:] = P.vector()[:] - self.fields.STEADY.p.vector()[:]
+            p.vector().apply(&#34;insert&#34;)
+
+        self.fields.ic = FlowField(up=self.merge(u=u_, p=p_))
+
+        return u_, p_, u_n, u_nn, p_n
+
+    def _initialize_timeseries(self) -&gt; pd.DataFrame:
+        &#34;&#34;&#34;Instantiante and initialize timeseries containing
+        flow information at each time step (e.g. time, measurements, energy...)
+
+        Returns:
+            pd.DataFrame: timeseries of flow information at each time step
+        &#34;&#34;&#34;
+        self.t = self.params_time.Tstart
+        self.iter = 0
+        self.y_meas = self.make_measurement(up=self.fields.ic.up)
+        y_meas_str = self._make_colname_df(&#34;y_meas&#34;, self.params_control.sensor_number)
+        u_meas_str = self._make_colname_df(
+            &#34;u_ctrl&#34;, self.params_control.actuator_number
+        )
+        colnames = [&#34;time&#34;] + u_meas_str + y_meas_str + [&#34;dE&#34;, &#34;runtime&#34;]
+        empty_data = np.zeros((self.params_time.num_steps + 1, len(colnames)))
+        timeseries = pd.DataFrame(columns=colnames, data=empty_data)
+        timeseries.loc[0, &#34;time&#34;] = self.params_time.Tstart
+        self._assign_to_df(df=timeseries, name=&#34;y_meas&#34;, value=self.y_meas, index=0)
+
+        dE0 = self.compute_energy()
+        timeseries.loc[0, &#34;dE&#34;] = dE0
+        return timeseries
+
+    def _make_solver(self, **kwargs) -&gt; Any:
+        &#34;&#34;&#34;Define solvers to be used for type-stepping. This method may
+        be overridden in order to use custom solvers.
+
+        Returns:
+            Any: dolfin.LUSolver or dolfin.KrylovSolver or anything that has a .solve() method
+        &#34;&#34;&#34;
+        # other possibilities: dolfin.KrylovSolver(&#34;bicgstab&#34;, &#34;jacobi&#34;)
+        # then solverparam = solver.paramters
+        # solverparam[&#34;&#34;]=...
+        return dolfin.LUSolver(&#34;mumps&#34;)
+
+    def _make_varf(self, order: int, **kwargs) -&gt; dolfin.Form:
+        &#34;&#34;&#34;Metamethod for defining variational formulations (varf) of order 1 and 2
+
+        Args:
+            order (int): order of varf to create (1 or 2)
+
+        Raises:
+            ValueError: order not 1 nor 2
+
+        Returns:
+            dolfin.Form: varf to integrate NS equations in time
+        &#34;&#34;&#34;
+        if order == 1:
+            F = self._make_varf_order1(**kwargs)
+        elif order == 2:
+            F = self._make_varf_order2(**kwargs)
+        else:
+            raise ValueError(&#34;Equation order not recognized&#34;)
+            # There will be more important problems than this exception
+        return F
+
+    def _make_varf_order1(
+        self,
+        up: tuple[dolfin.TrialFunction, dolfin.TrialFunction],
+        vq: tuple[dolfin.TestFunction, dolfin.TestFunction],
+        U0: dolfin.Function,
+        u_n: dolfin.Function,
+        shift: float,
+    ) -&gt; dolfin.Form:
+        &#34;&#34;&#34;Define variational formulation (varf) of order 1. Nonlinear term
+        is approximated with velocity fields at previous time.
+
+        Args:
+            up (tuple[dolfin.TrialFunction, dolfin.TrialFunction]): trial functions
+            vq (tuple[dolfin.TestFunction, dolfin.TestFunction]): test functions
+            U0 (dolfin.Function): base flow
+            u_n (dolfin.Function): previous velocity perturbation field
+            shift (float): shift equations
+
+        Returns:
+            dolfin.Form: 1st order varf for integrating NS
+        &#34;&#34;&#34;
+
+        (u, p) = up
+        (v, q) = vq
+        b0_1 = 1 if self.params_solver.is_eq_nonlinear else 0
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
+        dt = dolfin.Constant(self.params_time.dt)
+
+        f = self._gather_actuators_expressions()
+
+        F1 = (
+            dot((u - u_n) / dt, v) * dx
+            + dot(dot(U0, nabla_grad(u)), v) * dx
+            + dot(dot(u, nabla_grad(U0)), v) * dx
+            + invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            + dolfin.Constant(b0_1) * dot(dot(u_n, nabla_grad(u_n)), v) * dx
+            - p * div(v) * dx
+            - div(u) * q * dx
+            - dot(f, v) * dx
+            - shift * dot(u, v) * dx
+        )
+        return F1
+
+    def _make_varf_order2(
+        self,
+        up: tuple[dolfin.TrialFunction, dolfin.TrialFunction],
+        vq: tuple[dolfin.TestFunction, dolfin.TestFunction],
+        U0: dolfin.Function,
+        u_n: dolfin.Function,
+        u_nn: dolfin.Function,
+        shift: float,
+    ) -&gt; dolfin.Form:
+        &#34;&#34;&#34;Define variational formulation (varf) of order 2. Nonlinear term
+        is approximated with velocity fields at previous and previous^2 times.
+
+        Args:
+            up (tuple[dolfin.TrialFunction, dolfin.TrialFunction]): trial functions
+            vq (tuple[dolfin.TestFunction, dolfin.TestFunction]): test functions
+            U0 (dolfin.Function): base flow
+            u_n (dolfin.Function): previous velocity perturbation field
+            u_nn (dolfin.Function): previous^2 velocity perturbation field
+            shift (float): shift equations
+
+        Returns:
+            dolfin.Form: 2nd order varf for integrating NS
+        &#34;&#34;&#34;
+
+        (u, p) = up
+        (v, q) = vq
+        if self.params_solver.is_eq_nonlinear:
+            b0_2, b1_2 = 2, -1
+        else:
+            b0_2, b1_2 = 0, 0
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
+        dt = dolfin.Constant(self.params_time.dt)
+
+        f = self._gather_actuators_expressions()
+
+        F2 = (
+            dot((3 * u - 4 * u_n + u_nn) / (2 * dt), v) * dx
+            + dot(dot(U0, nabla_grad(u)), v) * dx
+            + dot(dot(u, nabla_grad(U0)), v) * dx
+            + invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            + dolfin.Constant(b0_2) * dot(dot(u_n, nabla_grad(u_n)), v) * dx
+            + dolfin.Constant(b1_2) * dot(dot(u_nn, nabla_grad(u_nn)), v) * dx
+            - p * div(v) * dx
+            - div(u) * q * dx
+            - dot(f, v) * dx
+            - shift * dot(u, v) * dx
+        )
+        return F2
+
+    def _gather_actuators_expressions(self) -&gt; dolfin.Expression | dolfin.Constant:
+        &#34;&#34;&#34;Gathers actuators that have type ACTUATOR_TYPE.FORCE
+        and sums their expressions, in order to integrate them in
+        the momentum equation.
+
+        Returns:
+            dolfin.Expression | dolfin.Constant: sum of all force
+                actuators expressions as dolfin.Expression, or (0,0) if none
+        &#34;&#34;&#34;
+        f = sum(
+            [
+                actuator.expression
+                for actuator in self.params_control.actuator_list
+                if actuator.actuator_type is ACTUATOR_TYPE.FORCE
+            ]
+        )
+        if f == 0:
+            f = dolfin.Constant((0, 0))
+
+        return f
+
+    def _prepare_systems(
+        self,
+        up: tuple[dolfin.TrialFunction, dolfin.TrialFunction],
+        vq: tuple[dolfin.TestFunction, dolfin.TestFunction],
+        u_n: dolfin.Function,
+        u_nn: dolfin.Function,
+    ) -&gt; int:
+        &#34;&#34;&#34;Define systems to be solved at each time step (assemble
+        LHS operator, preallocate RHS...).
+
+        Args:
+            up (tuple[dolfin.TrialFunction, dolfin.TrialFunction]): trial functions
+            vq (tuple[dolfin.TestFunction, dolfin.TestFunction]): test functions
+            u_n (dolfin.Function): previous velocity perturbation field
+            u_nn (dolfin.Function): previous^2 velocity perturbation field
+
+        Returns:
+            int: sanity check int (unused)
+        &#34;&#34;&#34;
+        shift = dolfin.Constant(self.params_solver.shift)
+        # 1st order integration
+        F1 = self._make_varf(
+            order=1,
+            up=up,
+            vq=vq,
+            U0=self.fields.STEADY.u,
+            u_n=u_n,
+            shift=shift,
+        )
+        # 2nd order integration
+        F2 = self._make_varf(
+            order=2,
+            up=up,
+            vq=vq,
+            U0=self.fields.STEADY.u,
+            u_n=u_n,
+            u_nn=u_nn,
+            shift=shift,
+        )
+
+        self.forms = {1: F1, 2: F2}
+        self.assemblers = dict()
+        self.solvers = dict()
+        self.rhs = dolfin.Vector()
+        for index, varf in enumerate([F1, F2]):
+            order = index + 1
+            a = dolfin.lhs(varf)
+            L = dolfin.rhs(varf)
+            systemAssembler = dolfin.SystemAssembler(a, L, self.bc[&#34;bcu&#34;])
+            solver = self._make_solver(order=order)
+            operatorA = dolfin.Matrix()
+            systemAssembler.assemble(operatorA)
+            solver.set_operator(operatorA)
+            self.assemblers[order] = systemAssembler
+            self.solvers[order] = solver
+
+        return 1
+
+    def step(self, u_ctrl: np.ndarray[int, float]) -&gt; np.ndarray[int, float]:
+        &#34;&#34;&#34;Simulate the system on one time-step: up(t)-&gt;up(t+dt).
+        The first time this method is run, it calls _prepare_systems.
+
+        Args:
+            u_ctrl (np.ndarray[int, float]): control input list
+
+        Raises:
+            RuntimeError: solver failed (a coordinate is inf or nan)
+            e: any other exception
+
+        Returns:
+            np.ndarray[int, float]: value of measurement y after step
+        &#34;&#34;&#34;
+        v, q = dolfin.TestFunctions(self.W)
+        up = dolfin.TrialFunction(self.W)
+        u, p = dolfin.split(up)
+
+        up_ = dolfin.Function(self.W)
+        u_, p_ = dolfin.split(up_)
+
+        u_nn = self.fields.u_nn
+        u_n = self.fields.u_n
+        p_n = self.fields.p_n
+
+        if self.first_step:
+            logger.debug(&#34;Perturbations forms DO NOT exist: create...&#34;)
+            self._prepare_systems((u, p), (v, q), u_n, u_nn)
+            self.first_step = False
+
+        # time
+        t0i = time.time()
+
+        # control
+        self._set_actuators_u_ctrl(u_ctrl)
+
+        try:
+            self.assemblers[self.order].assemble(self.rhs)
+            self.solvers[self.order].solve(up_.vector(), self.rhs)
+            u_, p_ = up_.split(deepcopy=True)
+            if self._solver_diverged(u_):
+                raise RuntimeError()
+        except RuntimeError:
+            logger.critical(&#34;*** Solver diverged, Inf found ***&#34;)
+            if not self.params_solver.throw_error:
+                logger.critical(&#34;*** Exiting step() ***&#34;)
+                return -1  # -1 is error code
+            else:
+                raise RuntimeError(&#34;Failed solving: Inf found in solution&#34;)
+        except Exception as e:
+            raise e
+
+        # Update time
+        self.iter += 1
+        self.t = self.params_time.Tstart + self.iter * self.params_time.dt
+        self.order = 2
+
+        # Assign
+        self.fields.u_ = u_
+        self.fields.p_ = p_
+        self.fields.up_ = up_
+        # Shift
+        self.fields.u_nn.assign(u_n)
+        self.fields.u_n.assign(u_)
+        self.fields.p_n.assign(p_)
+
+        ## Output
+        # Probe
+        self.y_meas = self.make_measurement(up=self.fields.up_)
+        # Runtime
+        runtime = time.time() - t0i
+        if self._niter_multiple_of(self.iter, self.verbose):
+            flu2.print_progress(self, runtime=runtime)
+        # Timeseries
+        self._log_timeseries(
+            u_ctrl=u_ctrl,
+            y_meas=self.y_meas,
+            dE=self.compute_energy(),
+            t=self.t,
+            runtime=runtime,
+        )
+
+        # Export xdmf &amp; csv
+        if self._niter_multiple_of(self.iter, self.params_save.save_every):
+            self._export_fields_xdmf(u_n, u_nn, p_n, self.t, adjust_baseflow=+1)
+            self.write_timeseries()
+
+        return self.y_meas
+
+    def _solver_diverged(self, field: dolfin.Function) -&gt; bool:
+        &#34;&#34;&#34;Check whether the solver has diverged
+
+        Args:
+            field (dolfin.Function): field to probe for solver sanity check
+
+        Returns:
+            bool: True if solver failed, False else
+        &#34;&#34;&#34;
+
+        return not np.isfinite(field.vector().get_local()[0])
+
+    def _niter_multiple_of(self, iter: int, divider: int) -&gt; bool:
+        &#34;&#34;&#34;Check multiplicity for outputting verbose information
+
+        Args:
+            iter (int): iteration number
+            divider (int): usually ParamSave.save_every
+
+        Returns:
+            bool: True if iteration is suitable for exporting/verbing, False else
+        &#34;&#34;&#34;
+        return divider and not iter % divider
+
+    def merge(self, u: dolfin.Function, p: dolfin.Function) -&gt; dolfin.Function:
+        &#34;&#34;&#34;Merge two fields: (u, p) in (V, P) -&gt; (up) in (W).
+
+        For the inverse operation, use: u, p = up.dolfin.split(deepcopy: bool).
+
+        Args:
+            u (dolfin.Function): velocity field (pert or full) in self.V
+            p (dolfin.Function): pressure field (pert or full) in self.P
+
+        Returns:
+            dolfin.Function: mixed field (pert or full) in self.W
+        &#34;&#34;&#34;
+        fa = dolfin.FunctionAssigner(self.W, [self.V, self.P])
+        up = dolfin.Function(self.W)
+        fa.assign(up, [u, p])
+        return up
+
+    def _set_actuators_u_ctrl(self, u_ctrl: Iterable) -&gt; None:
+        &#34;&#34;&#34;Set control amplitudes for each actuator from iterable u_ctrl
+
+        Args:
+            u_ctrl (list): iterable of control values to assign to each actuator
+        &#34;&#34;&#34;
+        for ii, actuator in enumerate(self.params_control.actuator_list):
+            actuator.expression.u_ctrl = u_ctrl[ii]
+
+    def _flush_actuators_u_ctrl(self) -&gt; None:
+        &#34;&#34;&#34;Set control amplitudes for each actuator to zero.&#34;&#34;&#34;
+        self._set_actuators_u_ctrl([0] * self.params_control.actuator_number)
+
+    def _export_fields_xdmf(
+        self,
+        u_n: dolfin.Function,
+        u_nn: dolfin.Function,
+        p_n: dolfin.Function,
+        time: float,
+        append: bool = True,
+        write_mesh: bool = False,
+        adjust_baseflow: float = 0,
+    ) -&gt; None:
+        &#34;&#34;&#34;Export perturbation fields to xdmf. The exported flow can be
+        adjusted by the base flow times a given float adjust_base_flow.
+
+        Example: to export perturbation fields, adjust_baseflow=0. To export
+        full fields, adjust_baseflow=1.
+
+        Args:
+            u_n (dolfin.Function): (previous) velocity field to export
+            u_nn (dolfin.Function): (previous^2) velocity field to export
+            p_n (dolfin.Function): (previous) pressure field to export
+            time (float): time index (important in xdmf file)
+            append (bool, optional): append to xdmf or replace contents. Defaults to True.
+            write_mesh (bool, optional): write mesh in xdmf or not. Not working in dolfin. Defaults to False.
+            adjust_baseflow (float, optional): adjust fields with base flow (e.g. add or subtract). Defaults to 0.
+        &#34;&#34;&#34;
+
+        if not (hasattr(self.fields, &#34;Psave_n&#34;)):
+            self.fields.Usave = dolfin.Function(self.V)
+            self.fields.Usave_n = dolfin.Function(self.V)
+            self.fields.Psave = dolfin.Function(self.P)
+
+        # Reconstruct full field
+        pmbf = adjust_baseflow
+        self.fields.Usave.vector()[:] = (
+            u_n.vector()[:] + pmbf * self.fields.STEADY.u.vector()[:]
+        )
+        self.fields.Usave_n.vector()[:] = (
+            u_nn.vector()[:] + pmbf * self.fields.STEADY.u.vector()[:]
+        )
+        self.fields.Psave.vector()[:] = (
+            p_n.vector()[:] + pmbf * self.fields.STEADY.p.vector()[:]
+        )
+        for vec in [self.fields.Usave, self.fields.Usave_n, self.fields.Psave]:
+            vec.vector().apply(&#34;insert&#34;)
+
+        logger.debug(f&#34;saving to files {self.params_save.path_out}&#34;)
+
+        flu.write_xdmf(
+            filename=self.paths[&#34;U_restart&#34;],
+            func=self.fields.Usave,
+            name=&#34;U&#34;,
+            time_step=time,
+            append=append,
+            write_mesh=write_mesh,
+        )
+        flu.write_xdmf(
+            filename=self.paths[&#34;Uprev_restart&#34;],
+            func=self.fields.Usave_n,
+            name=&#34;U_n&#34;,
+            time_step=time,
+            append=append,
+            write_mesh=write_mesh,
+        )
+        flu.write_xdmf(
+            filename=self.paths[&#34;P_restart&#34;],
+            func=self.fields.Psave,
+            name=&#34;P&#34;,
+            time_step=time,
+            append=append,
+            write_mesh=write_mesh,
+        )
+
+    # Steady state
+    def _assign_steady_state(self, U0: dolfin.Function, P0: dolfin.Function) -&gt; None:
+        &#34;&#34;&#34;Assign steady state (U0, P0) to FlowSolver object for easy access.
+
+        Args:
+            U0 (dolfin.Function): full steady velocity field
+            P0 (dolfin.Function): full steady pressure field
+        &#34;&#34;&#34;
+        UP0 = self.merge(u=U0, p=P0)
+        self.fields.STEADY = FlowField(UP0)
+        self.fields.U0 = self.fields.STEADY.u
+        self.fields.P0 = self.fields.STEADY.p
+        self.fields.UP0 = self.fields.STEADY.up
+        self.E0 = 1 / 2 * dolfin.norm(U0, norm_type=&#34;L2&#34;, mesh=self.mesh) ** 2
+
+    def load_steady_state(self) -&gt; None:
+        &#34;&#34;&#34;Load steady state from file (from ParamSave.path_out)&#34;&#34;&#34;
+        U0 = dolfin.Function(self.V)
+        P0 = dolfin.Function(self.P)
+        flu.read_xdmf(self.paths[&#34;U0&#34;], U0, &#34;U0&#34;)
+        flu.read_xdmf(self.paths[&#34;P0&#34;], P0, &#34;P0&#34;)
+        self._assign_steady_state(U0=U0, P0=P0)
+
+    def compute_steady_state(
+        self, u_ctrl: list, method: str = &#34;newton&#34;, **kwargs
+    ) -&gt; None:
+        &#34;&#34;&#34;Compute flow steady state with given method and constant input u_ctrl.
+        Two methods are available: Picard method (see _compute_steady_state_picard)
+        and Newton method (_compute_steady_state_newton). This method is intended
+        to be used directly, contrary to _compute_steady_state_*() methods.
+
+        Args:
+            method (str, optional): method to be used (picard or newton). Defaults to &#34;newton&#34;.
+            u_ctrl (float, optional): constant input to take into account. Defaults to 0.0.
+        &#34;&#34;&#34;
+        self._set_actuators_u_ctrl(u_ctrl)
+
+        if method == &#34;newton&#34;:
+            UP0 = self._compute_steady_state_newton(**kwargs)
+        else:
+            UP0 = self._compute_steady_state_picard(**kwargs)
+
+        U0, P0 = UP0.split(deepcopy=True)
+        U0 = flu.projectm(U0, self.V)
+        P0 = flu.projectm(P0, self.P)
+
+        if self.params_save.save_every:
+            flu.write_xdmf(
+                self.paths[&#34;U0&#34;],
+                U0,
+                &#34;U0&#34;,
+                time_step=0.0,
+                append=False,
+                write_mesh=True,
+            )
+            flu.write_xdmf(
+                self.paths[&#34;P0&#34;],
+                P0,
+                &#34;P0&#34;,
+                time_step=0.0,
+                append=False,
+                write_mesh=True,
+            )
+
+        logger.debug(f&#34;Stored base flow in: {self.params_save.path_out}&#34;)
+
+        self._assign_steady_state(U0=U0, P0=P0)
+
+    def _compute_steady_state_newton(
+        self, max_iter: int = 10, initial_guess: dolfin.Function | None = None
+    ) -&gt; dolfin.Function:
+        &#34;&#34;&#34;Compute steady state with built-in nonlinear solver (Newton method).
+        initial_guess is a mixed field (up). This method should not be used directly
+        (see compute_steady_state())
+
+        Args:
+            max_iter (int, optional): maximum number of iterations. Defaults to 10.
+            initial_guess (dolfin.Function | None, optional): initial guess to use for mixed field UP. Defaults to None.
+
+        Returns:
+            dolfin.Function: estimation of steady state UP0
+        &#34;&#34;&#34;
+        F0, UP0 = self._make_varf_steady(initial_guess=initial_guess)
+        BC = self._make_BCs()
+
+        if initial_guess is None:
+            logger.info(&#34;Newton solver --- without initial guess&#34;)
+
+        nl_solver_param = {
+            &#34;newton_solver&#34;: {
+                &#34;linear_solver&#34;: &#34;mumps&#34;,
+                &#34;preconditioner&#34;: &#34;default&#34;,
+                &#34;maximum_iterations&#34;: max_iter,
+                &#34;report&#34;: bool(self.verbose),
+            }
+        }
+        dolfin.solve(F0 == 0, UP0, BC[&#34;bcu&#34;], solver_parameters=nl_solver_param)
+        # Return
+        return UP0
+
+    def _compute_steady_state_picard(
+        self, max_iter: int = 10, tol: float = 1e-14
+    ) -&gt; dolfin.Function:
+        &#34;&#34;&#34;Compute steady state with fixed-point Picard iteration.
+        This method should have a larger convergence radius than Newton method,
+        but convergence is slower. The field computed by this method may be used as
+        an initial guess for Newton method. This method should not be used directly
+        (see compute_steady_state())
+
+        Args:
+            max_iter (int, optional): maximum number of iterations. Defaults to 10.
+            tol (float, optional): precision tolerance. Defaults to 1e-14.
+
+        Returns:
+            dolfin.Function: estimation of steady state UP0
+        &#34;&#34;&#34;
+        BC = self._make_BCs()
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
+
+        UP0 = dolfin.Function(self.W)
+        UP1 = dolfin.Function(self.W)
+
+        u, p = dolfin.TrialFunctions(self.W)
+        v, q = dolfin.TestFunctions(self.W)
+
+        class initial_condition(dolfin.UserExpression):
+            def eval(self, value, x):
+                value[0] = 1.0
+                value[1] = 0.0
+                value[2] = 0.0
+
+            def value_shape(self):
+                return (3,)
+
+        UP0.interpolate(initial_condition())
+        U0 = dolfin.as_vector((UP0[0], UP0[1]))
+
+        ap = (
+            dot(dot(U0, nabla_grad(u)), v) * dx
+            + invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            - p * div(v) * dx
+            - q * div(u) * dx
+        )  # steady dolfin.lhs
+        Lp = (
+            dolfin.Constant(0) * inner(U0, v) * dx + dolfin.Constant(0) * q * dx
+        )  # zero dolfin.rhs
+        bp = dolfin.assemble(Lp)
+
+        solverp = dolfin.LUSolver(&#34;mumps&#34;)
+
+        for iter in range(max_iter):
+            Ap = dolfin.assemble(ap)
+            [bc.apply(Ap, bp) for bc in BC[&#34;bcu&#34;]]
+            solverp.solve(Ap, UP1.vector(), bp)
+
+            UP0.assign(UP1)
+            u, p = UP1.split()
+
+            # Residual computation
+            res = dolfin.assemble(dolfin.action(ap, UP1))
+            [bc.apply(res) for bc in self.bc[&#34;bcu&#34;]]
+            res_norm = dolfin.norm(res) / dolfin.sqrt(self.W.dim())
+            logger.info(
+                f&#34;Picard iteration: {iter + 1}/{max_iter}, residual: {res_norm}&#34;
+            )
+            if res_norm &lt; tol:
+                logger.info(f&#34;Residual norm lower than tolerance {tol}&#34;)
+                break
+
+        return UP1
+
+    def _make_varf_steady(
+        self, initial_guess: dolfin.Function | None = None
+    ) -&gt; tuple[dolfin.Form, dolfin.Function]:
+        &#34;&#34;&#34;Make nonlinear forms for steady state computation, in mixed element space W.
+
+        Args:
+            initial_guess (dolfin.Function | None, optional): field UP0 around which varf is computed.
+                Defaults to None. If None, use zero dolfin.Function(self.W).
+
+        Returns:
+            tuple[dolfin.Form, dolfin.Function]: varf and field UP0
+        &#34;&#34;&#34;
+        v, q = dolfin.TestFunctions(self.W)
+        if initial_guess is None:
+            UP0 = dolfin.Function(self.W)
+        else:
+            UP0 = initial_guess
+        U0, P0 = dolfin.split(UP0)  # not deep copy, need the link only
+        invRe = dolfin.Constant(1 / self.params_flow.Re)
+
+        # f = self._gather?
+
+        # Problem
+        F0 = (
+            dot(dot(U0, nabla_grad(U0)), v) * dx
+            + invRe * inner(nabla_grad(U0), nabla_grad(v)) * dx
+            - P0 * div(v) * dx
+            - q * div(U0) * dx
+            #    - dot(f, v) * dx
+        )
+        return F0, UP0
+
+    def _make_BCs(self) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;Define boundary conditions for the full field (i.e. not perturbation
+        field). By default, the perturbation bcs are replicated and the inlet
+        boundary condition is replaced with uniform profile with amplitude (u,v)=(uinf, 0).
+        Note: the inlet boundary condition in _make_bcs() should always be first.
+        For more complex inlet profiles, override this method.
+
+        Returns:
+            dict[str, Any]: boundary conditions for full field
+        &#34;&#34;&#34;
+        bcu_inlet = dolfin.DirichletBC(
+            self.W.sub(0),
+            dolfin.Constant((self.params_flow.uinf, 0)),
+            self.boundaries.loc[&#34;inlet&#34;].subdomain,
+        )
+        bcs = self._make_bcs()
+        BC = {&#34;bcu&#34;: [bcu_inlet] + bcs[&#34;bcu&#34;][1:], &#34;bcp&#34;: []}
+
+        return BC
+
+    # Dataframe utility
+    def _make_colname_df(self, name, column_nr: int) -&gt; list[str]:
+        &#34;&#34;&#34;Return future column names for sensor measurements or control input in DataFrame.
+
+        Args:
+            name (str): usually y_meas or u_ctrl
+            column_nr (int): number of columns to generate
+
+        Returns:
+            list[str]: [name_1, name_2, ...]
+        &#34;&#34;&#34;
+
+        return [name + &#34;_&#34; + str(i + 1) for i in range(column_nr)]
+
+    def _assign_to_df(self, df: pd.DataFrame, name, value: float, index: int) -&gt; None:
+        &#34;&#34;&#34;Assign measurement array to timeseries at given index.&#34;&#34;&#34;
+        df.loc[index, self._make_colname_df(name, len(value))] = value
+
+    def write_timeseries(self) -&gt; None:
+        &#34;&#34;&#34;Write timeseries (pandas DataFrame) to file.&#34;&#34;&#34;
+        if flu.MpiUtils.get_rank() == 0:  # TODO async?
+            # zipfile = &#39;.zip&#39; if self.compress_csv else &#39;&#39;
+            self.timeseries.to_csv(self.paths[&#34;timeseries&#34;], sep=&#34;,&#34;, index=False)
+
+    def _log_timeseries(
+        self, u_ctrl: float, y_meas: float, dE: float, t: float, runtime: float
+    ) -&gt; None:
+        &#34;&#34;&#34;Fill timeseries with simulation data at given index.&#34;&#34;&#34;
+        self._assign_to_df(
+            df=self.timeseries, name=&#34;u_ctrl&#34;, value=u_ctrl, index=self.iter - 1
+        )
+        self._assign_to_df(
+            df=self.timeseries, name=&#34;y_meas&#34;, value=y_meas, index=self.iter
+        )
+        self.timeseries.loc[self.iter, &#34;dE&#34;] = dE
+        self.timeseries.loc[self.iter, &#34;time&#34;] = t
+        self.timeseries.loc[self.iter, &#34;runtime&#34;] = runtime
+
+    # General utility
+    def compute_energy(self) -&gt; float:
+        &#34;&#34;&#34;Compute perturbation kinetic energy (PKE) of flow.
+
+        Returns:
+            float: PKE
+        &#34;&#34;&#34;
+        dE = 1 / 2 * dolfin.norm(self.fields.u_, norm_type=&#34;L2&#34;, mesh=self.mesh) ** 2
+        return dE
+
+    def compute_energy_field(
+        self, export: bool = False, filename: str = None
+    ) -&gt; dolfin.Function:
+        &#34;&#34;&#34;Compute perturbation field dot(u, u) of spatial location of PKE.
+
+        Args:
+            export (bool, optional): if export then write xdmf file. Defaults to False.
+            filename (str, optional): if export then write xdmf file at filename. Defaults to None.
+
+        Returns:
+            dolfin.Function: spatialization of PKE
+        &#34;&#34;&#34;
+        Efield = dot(self.fields.u_, self.fields.u_)
+        # Note: E = 1/2 * assemble(Efield * fs.dx)
+        Efield = flu.projectm(Efield, self.P)  # project to deg 1
+        if export:
+            flu.write_xdmf(filename, Efield, &#34;E&#34;)
+        return Efield
+
+    def _load_actuators(self) -&gt; None:
+        &#34;&#34;&#34;Load expressions from actuators in actuator_list&#34;&#34;&#34;
+        for actuator in self.params_control.actuator_list:
+            actuator.load_expression(self)
+
+    def _load_sensors(self) -&gt; None:
+        &#34;&#34;&#34;Load sensors, in particular SensorIntegral&#34;&#34;&#34;
+        for sensor in self.params_control.sensor_list:
+            if sensor.require_loading:
+                sensor._load(self)
+
+    def make_measurement(
+        self,
+        up: dolfin.Function,
+    ) -&gt; np.ndarray:
+        &#34;&#34;&#34;Define procedure for extracting a measurement from a given
+        mixed field (u,v,p).&#34;&#34;&#34;
+        y_meas = np.zeros((self.params_control.sensor_number,))
+
+        for ii, sensor_i in enumerate(self.params_control.sensor_list):
+            y_meas[ii] = sensor_i.eval(up=up)
+
+        return y_meas
+
+    # Abstract methods
+    @abstractmethod
+    def _make_boundaries(self) -&gt; pd.DataFrame:
+        &#34;&#34;&#34;Define boundaries of the mesh (geometry only)
+        as dolfin.Subdomain or dolfin.CompiledSubDomain.
+        This method should return a pandas DataFrame
+        containing each boundary and its associated name.
+
+        Returns:
+            pd.DataFrame: boundaries of mesh with column &#34;subdomain&#34; and boundaries names as index
+        &#34;&#34;&#34;
+        pass
+
+    @abstractmethod
+    def _make_bcs(self) -&gt; dict[str, Any]:
+        &#34;&#34;&#34;Define boundary conditions on previously defined boundaries.
+        This method should return a dictionary containing two lists:
+        boundary conditions for (u,v) and boundary conditions for (p).
+
+        Returns:
+            dict[str, Any]: boundary conditions for perturbation field as dict:{&#34;bcu&#34;: list(), &#34;bcp&#34;: list()}
+        &#34;&#34;&#34;
+        pass</code></pre>
+</details>
+<div class="desc"><p>Abstract base class for defining flow simulations and control problems.
+This class implements utility functions but does not correspond to a flow problem.
+It implements: defining file paths, reading mesh, defining function spaces,
+trial and test functions, variational formulations, boundaries (geometry) and
+boundary conditions and time-stepping utility.</p>
+<p>Abstract methods:
+_make_boundaries(self) -&gt; pd.DataFrame
+_make_bcs(self) -&gt; dict[str, Any]</p>
+<p>Initialize FlowSolver object with Parameters objects and
+setup FlowSolver object.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>params_flow</code></strong> :&ensp;<code>flowsolverparameters.ParamControl</code></dt>
+<dd>see flowsolverparameters</dd>
+<dt><strong><code>params_time</code></strong> :&ensp;<code>flowsolverparameters.ParamTime</code></dt>
+<dd>see flowsolverparameters</dd>
+<dt><strong><code>params_save</code></strong> :&ensp;<code>flowsolverparameters.ParamSave</code></dt>
+<dd>see flowsolverparameters</dd>
+<dt><strong><code>params_solver</code></strong> :&ensp;<code>flowsolverparameters.ParamSolver</code></dt>
+<dd>see flowsolverparameters</dd>
+<dt><strong><code>params_mesh</code></strong> :&ensp;<code>flowsolverparameters.ParamMesh</code></dt>
+<dd>see flowsolverparameters</dd>
+<dt><strong><code>params_restart</code></strong> :&ensp;<code>flowsolverparameters.ParamRestart</code></dt>
+<dd>see flowsolverparameters</dd>
+<dt><strong><code>params_control</code></strong> :&ensp;<code>flowsolverparameters.ParamControl</code></dt>
+<dd>see flowsolverparameters</dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>int</code>, optional</dt>
+<dd>print every <em>verbose</em> iteration. Defaults to 1.</dd>
+</dl></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>abc.ABC</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.compute_energy"><code class="name flex">
+<span>def <span class="ident">compute_energy</span></span>(<span>self) ‑> float</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def compute_energy(self) -&gt; float:
+    &#34;&#34;&#34;Compute perturbation kinetic energy (PKE) of flow.
+
+    Returns:
+        float: PKE
+    &#34;&#34;&#34;
+    dE = 1 / 2 * dolfin.norm(self.fields.u_, norm_type=&#34;L2&#34;, mesh=self.mesh) ** 2
+    return dE</code></pre>
+</details>
+<div class="desc"><p>Compute perturbation kinetic energy (PKE) of flow.</p>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>float</code></dt>
+<dd>PKE</dd>
+</dl></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.compute_energy_field"><code class="name flex">
+<span>def <span class="ident">compute_energy_field</span></span>(<span>self, export: bool = False, filename: str = None) ‑> dolfin.function.function.Function</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def compute_energy_field(
+    self, export: bool = False, filename: str = None
+) -&gt; dolfin.Function:
+    &#34;&#34;&#34;Compute perturbation field dot(u, u) of spatial location of PKE.
+
+    Args:
+        export (bool, optional): if export then write xdmf file. Defaults to False.
+        filename (str, optional): if export then write xdmf file at filename. Defaults to None.
+
+    Returns:
+        dolfin.Function: spatialization of PKE
+    &#34;&#34;&#34;
+    Efield = dot(self.fields.u_, self.fields.u_)
+    # Note: E = 1/2 * assemble(Efield * fs.dx)
+    Efield = flu.projectm(Efield, self.P)  # project to deg 1
+    if export:
+        flu.write_xdmf(filename, Efield, &#34;E&#34;)
+    return Efield</code></pre>
+</details>
+<div class="desc"><p>Compute perturbation field dot(u, u) of spatial location of PKE.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>export</code></strong> :&ensp;<code>bool</code>, optional</dt>
+<dd>if export then write xdmf file. Defaults to False.</dd>
+<dt><strong><code>filename</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>if export then write xdmf file at filename. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dolfin.Function</code></dt>
+<dd>spatialization of PKE</dd>
+</dl></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.compute_steady_state"><code class="name flex">
+<span>def <span class="ident">compute_steady_state</span></span>(<span>self, u_ctrl: list, method: str = 'newton', **kwargs) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def compute_steady_state(
+    self, u_ctrl: list, method: str = &#34;newton&#34;, **kwargs
+) -&gt; None:
+    &#34;&#34;&#34;Compute flow steady state with given method and constant input u_ctrl.
+    Two methods are available: Picard method (see _compute_steady_state_picard)
+    and Newton method (_compute_steady_state_newton). This method is intended
+    to be used directly, contrary to _compute_steady_state_*() methods.
+
+    Args:
+        method (str, optional): method to be used (picard or newton). Defaults to &#34;newton&#34;.
+        u_ctrl (float, optional): constant input to take into account. Defaults to 0.0.
+    &#34;&#34;&#34;
+    self._set_actuators_u_ctrl(u_ctrl)
+
+    if method == &#34;newton&#34;:
+        UP0 = self._compute_steady_state_newton(**kwargs)
+    else:
+        UP0 = self._compute_steady_state_picard(**kwargs)
+
+    U0, P0 = UP0.split(deepcopy=True)
+    U0 = flu.projectm(U0, self.V)
+    P0 = flu.projectm(P0, self.P)
+
+    if self.params_save.save_every:
+        flu.write_xdmf(
+            self.paths[&#34;U0&#34;],
+            U0,
+            &#34;U0&#34;,
+            time_step=0.0,
+            append=False,
+            write_mesh=True,
+        )
+        flu.write_xdmf(
+            self.paths[&#34;P0&#34;],
+            P0,
+            &#34;P0&#34;,
+            time_step=0.0,
+            append=False,
+            write_mesh=True,
+        )
+
+    logger.debug(f&#34;Stored base flow in: {self.params_save.path_out}&#34;)
+
+    self._assign_steady_state(U0=U0, P0=P0)</code></pre>
+</details>
+<div class="desc"><p>Compute flow steady state with given method and constant input u_ctrl.
+Two methods are available: Picard method (see <em>compute_steady_state_picard)
+and Newton method (_compute_steady_state_newton). This method is intended
+to be used directly, contrary to _compute_steady_state</em>*() methods.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>method</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>method to be used (picard or newton). Defaults to "newton".</dd>
+<dt><strong><code>u_ctrl</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>constant input to take into account. Defaults to 0.0.</dd>
+</dl></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.initialize_time_stepping"><code class="name flex">
+<span>def <span class="ident">initialize_time_stepping</span></span>(<span>self, Tstart: float = 0.0, ic: dolfin.function.function.Function | None = None) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def initialize_time_stepping(
+    self, Tstart: float = 0.0, ic: dolfin.Function | None = None
+) -&gt; None:
+    &#34;&#34;&#34;Initialize the time-stepping process by reading or generating
+    initial conditions. Initialize the timeseries (pandas DataFrame)
+    containing simulation information.
+
+    Args:
+        Tstart (float, optional): if Tstart is not 0, restart simulation from Tstart
+            using files from a previous simulation provided in ParamRestart. Defaults to 0.0.
+        ic (dolfin.Function | None, optional): if Tstart is 0, use ic as (pert) initial condition.
+            Defaults to None.
+    &#34;&#34;&#34;
+
+    logger.info(
+        f&#34;Starting or restarting from time: {Tstart} &#34;
+        f&#34;with temporal scheme order: {self.params_restart.restart_order}&#34;
+    )
+
+    if Tstart == 0.0:
+        logger.debug(&#34;Starting simulation from zero with IC&#34;)
+        u_, p_, u_n, u_nn, p_n = self._initialize_with_ic(ic)
+    else:
+        logger.debug(&#34;Starting simulation from nonzero&#34;)
+        u_, p_, u_n, u_nn, p_n = self._initialize_at_time(Tstart)
+
+    self.fields.u_ = u_
+    self.fields.p_ = p_
+    self.fields.u_n = u_n
+    self.fields.u_nn = u_nn
+    self.fields.p_n = p_n
+
+    self.timeseries = self._initialize_timeseries()</code></pre>
+</details>
+<div class="desc"><p>Initialize the time-stepping process by reading or generating
+initial conditions. Initialize the timeseries (pandas DataFrame)
+containing simulation information.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>Tstart</code></strong> :&ensp;<code>float</code>, optional</dt>
+<dd>if Tstart is not 0, restart simulation from Tstart
+using files from a previous simulation provided in ParamRestart. Defaults to 0.0.</dd>
+<dt><strong><code>ic</code></strong> :&ensp;<code>dolfin.Function | None</code>, optional</dt>
+<dd>if Tstart is 0, use ic as (pert) initial condition.
+Defaults to None.</dd>
+</dl></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.load_steady_state"><code class="name flex">
+<span>def <span class="ident">load_steady_state</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_steady_state(self) -&gt; None:
+    &#34;&#34;&#34;Load steady state from file (from ParamSave.path_out)&#34;&#34;&#34;
+    U0 = dolfin.Function(self.V)
+    P0 = dolfin.Function(self.P)
+    flu.read_xdmf(self.paths[&#34;U0&#34;], U0, &#34;U0&#34;)
+    flu.read_xdmf(self.paths[&#34;P0&#34;], P0, &#34;P0&#34;)
+    self._assign_steady_state(U0=U0, P0=P0)</code></pre>
+</details>
+<div class="desc"><p>Load steady state from file (from ParamSave.path_out)</p></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.make_measurement"><code class="name flex">
+<span>def <span class="ident">make_measurement</span></span>(<span>self, up: dolfin.function.function.Function) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def make_measurement(
+    self,
+    up: dolfin.Function,
+) -&gt; np.ndarray:
+    &#34;&#34;&#34;Define procedure for extracting a measurement from a given
+    mixed field (u,v,p).&#34;&#34;&#34;
+    y_meas = np.zeros((self.params_control.sensor_number,))
+
+    for ii, sensor_i in enumerate(self.params_control.sensor_list):
+        y_meas[ii] = sensor_i.eval(up=up)
+
+    return y_meas</code></pre>
+</details>
+<div class="desc"><p>Define procedure for extracting a measurement from a given
+mixed field (u,v,p).</p></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.merge"><code class="name flex">
+<span>def <span class="ident">merge</span></span>(<span>self,<br>u: dolfin.function.function.Function,<br>p: dolfin.function.function.Function) ‑> dolfin.function.function.Function</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def merge(self, u: dolfin.Function, p: dolfin.Function) -&gt; dolfin.Function:
+    &#34;&#34;&#34;Merge two fields: (u, p) in (V, P) -&gt; (up) in (W).
+
+    For the inverse operation, use: u, p = up.dolfin.split(deepcopy: bool).
+
+    Args:
+        u (dolfin.Function): velocity field (pert or full) in self.V
+        p (dolfin.Function): pressure field (pert or full) in self.P
+
+    Returns:
+        dolfin.Function: mixed field (pert or full) in self.W
+    &#34;&#34;&#34;
+    fa = dolfin.FunctionAssigner(self.W, [self.V, self.P])
+    up = dolfin.Function(self.W)
+    fa.assign(up, [u, p])
+    return up</code></pre>
+</details>
+<div class="desc"><p>Merge two fields: (u, p) in (V, P) -&gt; (up) in (W).</p>
+<p>For the inverse operation, use: u, p = up.dolfin.split(deepcopy: bool).</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>u</code></strong> :&ensp;<code>dolfin.Function</code></dt>
+<dd>velocity field (pert or full) in self.V</dd>
+<dt><strong><code>p</code></strong> :&ensp;<code>dolfin.Function</code></dt>
+<dd>pressure field (pert or full) in self.P</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dolfin.Function</code></dt>
+<dd>mixed field (pert or full) in self.W</dd>
+</dl></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.step"><code class="name flex">
+<span>def <span class="ident">step</span></span>(<span>self, u_ctrl: numpy.ndarray[int, float]) ‑> numpy.ndarray[int, float]</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def step(self, u_ctrl: np.ndarray[int, float]) -&gt; np.ndarray[int, float]:
+    &#34;&#34;&#34;Simulate the system on one time-step: up(t)-&gt;up(t+dt).
+    The first time this method is run, it calls _prepare_systems.
+
+    Args:
+        u_ctrl (np.ndarray[int, float]): control input list
+
+    Raises:
+        RuntimeError: solver failed (a coordinate is inf or nan)
+        e: any other exception
+
+    Returns:
+        np.ndarray[int, float]: value of measurement y after step
+    &#34;&#34;&#34;
+    v, q = dolfin.TestFunctions(self.W)
+    up = dolfin.TrialFunction(self.W)
+    u, p = dolfin.split(up)
+
+    up_ = dolfin.Function(self.W)
+    u_, p_ = dolfin.split(up_)
+
+    u_nn = self.fields.u_nn
+    u_n = self.fields.u_n
+    p_n = self.fields.p_n
+
+    if self.first_step:
+        logger.debug(&#34;Perturbations forms DO NOT exist: create...&#34;)
+        self._prepare_systems((u, p), (v, q), u_n, u_nn)
+        self.first_step = False
+
+    # time
+    t0i = time.time()
+
+    # control
+    self._set_actuators_u_ctrl(u_ctrl)
+
+    try:
+        self.assemblers[self.order].assemble(self.rhs)
+        self.solvers[self.order].solve(up_.vector(), self.rhs)
+        u_, p_ = up_.split(deepcopy=True)
+        if self._solver_diverged(u_):
+            raise RuntimeError()
+    except RuntimeError:
+        logger.critical(&#34;*** Solver diverged, Inf found ***&#34;)
+        if not self.params_solver.throw_error:
+            logger.critical(&#34;*** Exiting step() ***&#34;)
+            return -1  # -1 is error code
+        else:
+            raise RuntimeError(&#34;Failed solving: Inf found in solution&#34;)
+    except Exception as e:
+        raise e
+
+    # Update time
+    self.iter += 1
+    self.t = self.params_time.Tstart + self.iter * self.params_time.dt
+    self.order = 2
+
+    # Assign
+    self.fields.u_ = u_
+    self.fields.p_ = p_
+    self.fields.up_ = up_
+    # Shift
+    self.fields.u_nn.assign(u_n)
+    self.fields.u_n.assign(u_)
+    self.fields.p_n.assign(p_)
+
+    ## Output
+    # Probe
+    self.y_meas = self.make_measurement(up=self.fields.up_)
+    # Runtime
+    runtime = time.time() - t0i
+    if self._niter_multiple_of(self.iter, self.verbose):
+        flu2.print_progress(self, runtime=runtime)
+    # Timeseries
+    self._log_timeseries(
+        u_ctrl=u_ctrl,
+        y_meas=self.y_meas,
+        dE=self.compute_energy(),
+        t=self.t,
+        runtime=runtime,
+    )
+
+    # Export xdmf &amp; csv
+    if self._niter_multiple_of(self.iter, self.params_save.save_every):
+        self._export_fields_xdmf(u_n, u_nn, p_n, self.t, adjust_baseflow=+1)
+        self.write_timeseries()
+
+    return self.y_meas</code></pre>
+</details>
+<div class="desc"><p>Simulate the system on one time-step: up(t)-&gt;up(t+dt).
+The first time this method is run, it calls _prepare_systems.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>u_ctrl</code></strong> :&ensp;<code>np.ndarray[int, float]</code></dt>
+<dd>control input list</dd>
+</dl>
+<h2 id="raises">Raises</h2>
+<dl>
+<dt><code>RuntimeError</code></dt>
+<dd>solver failed (a coordinate is inf or nan)</dd>
+<dt><code>e</code></dt>
+<dd>any other exception</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray[int, float]</code></dt>
+<dd>value of measurement y after step</dd>
+</dl></div>
+</dd>
+<dt id="Toolbox.flowcontrol.flowsolver.FlowSolver.write_timeseries"><code class="name flex">
+<span>def <span class="ident">write_timeseries</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write_timeseries(self) -&gt; None:
+    &#34;&#34;&#34;Write timeseries (pandas DataFrame) to file.&#34;&#34;&#34;
+    if flu.MpiUtils.get_rank() == 0:  # TODO async?
+        # zipfile = &#39;.zip&#39; if self.compress_csv else &#39;&#39;
+        self.timeseries.to_csv(self.paths[&#34;timeseries&#34;], sep=&#34;,&#34;, index=False)</code></pre>
+</details>
+<div class="desc"><p>Write timeseries (pandas DataFrame) to file.</p></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="Toolbox.flowcontrol" href="index.html">Toolbox.flowcontrol</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver" href="#Toolbox.flowcontrol.flowsolver.FlowSolver">FlowSolver</a></code></h4>
+<ul class="">
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.compute_energy" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.compute_energy">compute_energy</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.compute_energy_field" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.compute_energy_field">compute_energy_field</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.compute_steady_state" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.compute_steady_state">compute_steady_state</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.initialize_time_stepping" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.initialize_time_stepping">initialize_time_stepping</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.load_steady_state" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.load_steady_state">load_steady_state</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.make_measurement" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.make_measurement">make_measurement</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.merge" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.merge">merge</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.step" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.step">step</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.flowsolver.FlowSolver.write_timeseries" href="#Toolbox.flowcontrol.flowsolver.FlowSolver.write_timeseries">write_timeseries</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.5</a>.</p>
+</footer>
+</body>
+</html>

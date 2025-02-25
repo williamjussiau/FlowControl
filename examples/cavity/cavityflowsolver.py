@@ -91,7 +91,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         )
 
         # Open cavity
-        if 0:  # not compiled - kept for information
+        if 0:  # not-compiled syntax (kept for information)
             # cavity left
             class bnd_cavity_left(dolfin.SubDomain):
                 """Left wall of cavity"""

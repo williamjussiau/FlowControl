@@ -1,0 +1,50 @@
+<html>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+      <div class="mermaid">
+    
+        classDiagram
+          class ABC {
+          }
+          class ACTUATOR_TYPE {
+            name
+          }
+          class Actuator {
+            actuator_type
+            expression : Optional[dolfin.Expression | None]
+            load_expression(flowsolver)* dolfin.Expression
+          }
+          class ActuatorBCParabolicV {
+            actuator_type
+            angular_size_deg : float
+            expression
+            load_expression(flowsolver)
+          }
+          class ActuatorForceGaussianV {
+            actuator_type
+            expression
+            position : ndarray
+            sigma : float
+            load_expression(flowsolver)
+          }
+          class Enum {
+            name()
+            value()
+          }
+          class IntEnum {
+          }
+          class ReprEnum {
+          }
+          ACTUATOR_TYPE --|> IntEnum
+          Actuator --|> ABC
+          ActuatorBCParabolicV --|> Actuator
+          ActuatorForceGaussianV --|> Actuator
+          IntEnum --|> ReprEnum
+          ReprEnum --|> Enum
+          ACTUATOR_TYPE --* Actuator : actuator_type
+          ACTUATOR_TYPE --* ActuatorBCParabolicV : actuator_type
+          ACTUATOR_TYPE --* ActuatorForceGaussianV : actuator_type
+  
+       </div>
+  </body>
+</html>

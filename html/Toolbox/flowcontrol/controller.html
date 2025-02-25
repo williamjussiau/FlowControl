@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+<meta name="generator" content="pdoc3 0.11.5">
+<title>Toolbox.flowcontrol.controller API documentation</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => {
+hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
+hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
+})</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>Toolbox.flowcontrol.controller</code></h1>
+</header>
+<section id="section-intro">
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="Toolbox.flowcontrol.controller.Controller"><code class="flex name class">
+<span>class <span class="ident">Controller</span></span>
+<span>(</span><span>A: np.ndarray,<br>B: np.ndarray,<br>C: np.ndarray,<br>D: np.ndarray,<br>file: Path = None,<br>x0: np.ndarray | None = None)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Controller(control.StateSpace):
+    &#34;&#34;&#34;Continuous-time linear state-space system, intended to be used as a controller.
+
+    This class inherits from control.StateSpace and provides two additional
+    attributes:
+      * the _file_ from which a Controller was read,
+      * the Controller internal state _x_.
+    &#34;&#34;&#34;
+
+    x: np.ndarray
+    file: Path = None
+
+    def __init__(
+        self,
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+        file: Path = None,
+        x0: np.ndarray | None = None,
+    ):
+        &#34;&#34;&#34;Initialize Controller with either (A,B,C,D) matrices
+        or file, and initialize its state x. This method allows
+        the construction of two static initializers.
+
+        Args:
+            A (np.ndarray): System evolution matrix.
+            B (np.ndarray): System input matrix.
+            C (np.ndarray): System output matrix.
+            D (np.ndarray): System feedthrough.
+            file (Path, optional): File from which the Controller is read. Defaults to None.
+            x0 (np.ndarray | None, optional): Internal state. Defaults to None.
+        &#34;&#34;&#34;
+        super().__init__(A, B, C, D)
+        self.file = file
+        self.x = x0
+        if x0 is None:
+            self.x = np.zeros((self.nstates,))
+
+    @classmethod
+    def from_file(cls, file: Path = None, x0: np.ndarray | None = None) -&gt; Controller:
+        &#34;&#34;&#34;Initialize Controller from file only, with given inital state x0.
+
+        Args:
+            file (Path, optional): File from which the Controller is read. Defaults to None.
+            x0 (np.ndarray | None, optional): Internal state. Defaults to None.
+
+        Returns:
+            Controller
+        &#34;&#34;&#34;
+        stateSpaceMatrices = flu.read_matfile(file)
+        return cls(
+            stateSpaceMatrices[&#34;A&#34;],
+            stateSpaceMatrices[&#34;B&#34;],
+            stateSpaceMatrices[&#34;C&#34;],
+            stateSpaceMatrices[&#34;D&#34;],
+            x0=x0,
+            file=file,
+        )
+
+    @classmethod
+    def from_matrices(
+        cls,
+        A: np.ndarray,
+        B: np.ndarray,
+        C: np.ndarray,
+        D: np.ndarray,
+        file: Path = None,
+        x0: np.ndarray | None = None,
+    ) -&gt; Controller:
+        &#34;&#34;&#34;Initialize Controller from matrices (A,B,C,D), with given initial state x0.
+
+        Args:
+            A (np.ndarray): System evolution matrix.
+            B (np.ndarray): System input matrix.
+            C (np.ndarray): System output matrix.
+            D (np.ndarray): System feedthrough.
+            file (Path, optional): File from which the Controller is read. Defaults to None.
+            x0 (np.ndarray | None, optional): Internal state. Defaults to None.
+
+        Returns:
+            Controller
+        &#34;&#34;&#34;
+        return cls(A, B, C, D, x0=x0, file=file)
+
+    def step(self, y: float, dt: float) -&gt; np.ndarray:
+        &#34;&#34;&#34;Simulate Controller from its current state self.x on the
+        time interval [0, dt] with input y, to produce a control
+        output u. MIMO-compatible.
+
+        Args:
+            y (np.ndarray): Controller input (e.g. Plant output).
+            dt (float): Time interval for simulation.
+
+        Returns:
+            np.ndarray: control output u.
+        &#34;&#34;&#34;
+        y_rep = np.repeat(np.atleast_2d(y), repeats=2, axis=0).T
+        Tsim = [0, dt]
+        _, yout, xout = control.forced_response(
+            self, U=y_rep, T=Tsim, X0=self.x, interpolate=False, return_x=True
+        )
+        u = np.atleast_2d(yout)[:, 0]
+        self.x = xout[:, 1]
+        return u
+
+    def __add__(self, other: Controller) -&gt; Controller:
+        return self._overload(other, super().__add__)
+
+    def __radd__(self, other: Controller) -&gt; Controller:
+        return self._overload(other, super().__radd__)
+
+    def __mul__(self, other: Controller) -&gt; Controller:
+        return self._overload(other, super().__mul__)
+
+    def __rmul__(self, other: Controller) -&gt; Controller:
+        return self._overload(other, super().__rmul__)
+
+    def inv(self: Controller) -&gt; Controller:
+        &#34;&#34;&#34;Attempt to invert Controller provided that self.D not 0.
+        Args:
+            self (Controller): Controller to invert.
+
+        Returns:
+            Controller
+        &#34;&#34;&#34;
+        invK = yu.ss_inv(self)
+        return Controller(invK.A, invK.B, invK.C, invK.D)
+
+    def _concatenate_states_with(self, other: Controller) -&gt; np.ndarray:
+        &#34;&#34;&#34;Return a concatenatation of states from two Controller instances.
+
+        Args:
+            other (Controller): other Controller to concatenate states with.
+
+        Returns:
+            np.ndarray: concatenated internal states.
+        &#34;&#34;&#34;
+        return np.concatenate((self.x, other.x), axis=0)
+
+    def _overload(self, other: Controller, super_operator) -&gt; Controller:
+        &#34;&#34;&#34;Shortcut for overriding all binary operations
+        between Controller instances: use the super() operation
+        and adapt the internal state and the file accordingly.
+
+        Args:
+            other (Controller): other StateSpace or Controller for binary op
+            super_operator (_type_): binary operation to override
+
+        Returns:
+            Controller
+        &#34;&#34;&#34;
+        K = super_operator(other)
+        # Cast as Controller instead of StateSpace
+        K = Controller(A=K.A, B=K.B, C=K.C, D=K.D)
+        if isinstance(other, Controller):
+            K.x = self._concatenate_states_with(other)
+            K.file = self.file if (self.file == other.file) else None
+        return K</code></pre>
+</details>
+<div class="desc"><p>Continuous-time linear state-space system, intended to be used as a controller.</p>
+<p>This class inherits from control.StateSpace and provides two additional
+attributes:
+* the <em>file</em> from which a Controller was read,
+* the Controller internal state <em>x</em>.</p>
+<p>Initialize Controller with either (A,B,C,D) matrices
+or file, and initialize its state x. This method allows
+the construction of two static initializers.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>A</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System evolution matrix.</dd>
+<dt><strong><code>B</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System input matrix.</dd>
+<dt><strong><code>C</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System output matrix.</dd>
+<dt><strong><code>D</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System feedthrough.</dd>
+<dt><strong><code>file</code></strong> :&ensp;<code>Path</code>, optional</dt>
+<dd>File from which the Controller is read. Defaults to None.</dd>
+<dt><strong><code>x0</code></strong> :&ensp;<code>np.ndarray | None</code>, optional</dt>
+<dd>Internal state. Defaults to None.</dd>
+</dl></div>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>control.statesp.StateSpace</li>
+<li>control.nlsys.NonlinearIOSystem</li>
+<li>control.lti.LTI</li>
+<li>control.iosys.InputOutputSystem</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="Toolbox.flowcontrol.controller.Controller.file"><code class="name">var <span class="ident">file</span> : pathlib.Path</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="Toolbox.flowcontrol.controller.Controller.x"><code class="name">var <span class="ident">x</span> : numpy.ndarray</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Static methods</h3>
+<dl>
+<dt id="Toolbox.flowcontrol.controller.Controller.from_file"><code class="name flex">
+<span>def <span class="ident">from_file</span></span>(<span>file: Path = None, x0: np.ndarray | None = None) ‑> <a title="Toolbox.flowcontrol.controller.Controller" href="#Toolbox.flowcontrol.controller.Controller">Controller</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Initialize Controller from file only, with given inital state x0.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>file</code></strong> :&ensp;<code>Path</code>, optional</dt>
+<dd>File from which the Controller is read. Defaults to None.</dd>
+<dt><strong><code>x0</code></strong> :&ensp;<code>np.ndarray | None</code>, optional</dt>
+<dd>Internal state. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Controller</p></div>
+</dd>
+<dt id="Toolbox.flowcontrol.controller.Controller.from_matrices"><code class="name flex">
+<span>def <span class="ident">from_matrices</span></span>(<span>A: np.ndarray,<br>B: np.ndarray,<br>C: np.ndarray,<br>D: np.ndarray,<br>file: Path = None,<br>x0: np.ndarray | None = None) ‑> <a title="Toolbox.flowcontrol.controller.Controller" href="#Toolbox.flowcontrol.controller.Controller">Controller</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Initialize Controller from matrices (A,B,C,D), with given initial state x0.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>A</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System evolution matrix.</dd>
+<dt><strong><code>B</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System input matrix.</dd>
+<dt><strong><code>C</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System output matrix.</dd>
+<dt><strong><code>D</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>System feedthrough.</dd>
+<dt><strong><code>file</code></strong> :&ensp;<code>Path</code>, optional</dt>
+<dd>File from which the Controller is read. Defaults to None.</dd>
+<dt><strong><code>x0</code></strong> :&ensp;<code>np.ndarray | None</code>, optional</dt>
+<dd>Internal state. Defaults to None.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Controller</p></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="Toolbox.flowcontrol.controller.Controller.inv"><code class="name flex">
+<span>def <span class="ident">inv</span></span>(<span>self: <a title="Toolbox.flowcontrol.controller.Controller" href="#Toolbox.flowcontrol.controller.Controller">Controller</a>) ‑> <a title="Toolbox.flowcontrol.controller.Controller" href="#Toolbox.flowcontrol.controller.Controller">Controller</a></span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def inv(self: Controller) -&gt; Controller:
+    &#34;&#34;&#34;Attempt to invert Controller provided that self.D not 0.
+    Args:
+        self (Controller): Controller to invert.
+
+    Returns:
+        Controller
+    &#34;&#34;&#34;
+    invK = yu.ss_inv(self)
+    return Controller(invK.A, invK.B, invK.C, invK.D)</code></pre>
+</details>
+<div class="desc"><p>Attempt to invert Controller provided that self.D not 0.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>self</code></strong> :&ensp;<code><a title="Toolbox.flowcontrol.controller.Controller" href="#Toolbox.flowcontrol.controller.Controller">Controller</a></code></dt>
+<dd>Controller to invert.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Controller</p></div>
+</dd>
+<dt id="Toolbox.flowcontrol.controller.Controller.step"><code class="name flex">
+<span>def <span class="ident">step</span></span>(<span>self, y: float, dt: float) ‑> numpy.ndarray</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def step(self, y: float, dt: float) -&gt; np.ndarray:
+    &#34;&#34;&#34;Simulate Controller from its current state self.x on the
+    time interval [0, dt] with input y, to produce a control
+    output u. MIMO-compatible.
+
+    Args:
+        y (np.ndarray): Controller input (e.g. Plant output).
+        dt (float): Time interval for simulation.
+
+    Returns:
+        np.ndarray: control output u.
+    &#34;&#34;&#34;
+    y_rep = np.repeat(np.atleast_2d(y), repeats=2, axis=0).T
+    Tsim = [0, dt]
+    _, yout, xout = control.forced_response(
+        self, U=y_rep, T=Tsim, X0=self.x, interpolate=False, return_x=True
+    )
+    u = np.atleast_2d(yout)[:, 0]
+    self.x = xout[:, 1]
+    return u</code></pre>
+</details>
+<div class="desc"><p>Simulate Controller from its current state self.x on the
+time interval [0, dt] with input y, to produce a control
+output u. MIMO-compatible.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>y</code></strong> :&ensp;<code>np.ndarray</code></dt>
+<dd>Controller input (e.g. Plant output).</dd>
+<dt><strong><code>dt</code></strong> :&ensp;<code>float</code></dt>
+<dd>Time interval for simulation.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>np.ndarray</code></dt>
+<dd>control output u.</dd>
+</dl></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="Toolbox.flowcontrol" href="index.html">Toolbox.flowcontrol</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="Toolbox.flowcontrol.controller.Controller" href="#Toolbox.flowcontrol.controller.Controller">Controller</a></code></h4>
+<ul class="two-column">
+<li><code><a title="Toolbox.flowcontrol.controller.Controller.file" href="#Toolbox.flowcontrol.controller.Controller.file">file</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.controller.Controller.from_file" href="#Toolbox.flowcontrol.controller.Controller.from_file">from_file</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.controller.Controller.from_matrices" href="#Toolbox.flowcontrol.controller.Controller.from_matrices">from_matrices</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.controller.Controller.inv" href="#Toolbox.flowcontrol.controller.Controller.inv">inv</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.controller.Controller.step" href="#Toolbox.flowcontrol.controller.Controller.step">step</a></code></li>
+<li><code><a title="Toolbox.flowcontrol.controller.Controller.x" href="#Toolbox.flowcontrol.controller.Controller.x">x</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.5</a>.</p>
+</footer>
+</body>
+</html>
