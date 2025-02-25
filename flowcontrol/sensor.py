@@ -70,7 +70,7 @@ class SensorPoint(Sensor):
 @dataclass(kw_only=True)
 class SensorIntegral(Sensor):
     """Abstract base class for sensors performing integration on a subdomain,
-     providing the abstract method _load. A SensorIntegral always require loading,
+     providing the abstract method _load_. A SensorIntegral always require loading,
      which corresponds to initializing a _dolfin.SubDomain_ and a _dolfin.Measure_.
 
     Args:
@@ -87,7 +87,7 @@ class SensorIntegral(Sensor):
     require_loading: bool = True
 
     @abstractmethod
-    def _load(self):
+    def load(self) -> None:
         """Defne and mark subdomain, define integration element ds."""
         pass
 
@@ -110,7 +110,7 @@ class SensorHorizontalWallShear(SensorIntegral):
     def eval(self, up):
         return dolfin.assemble(up.dx(1)[0] * self.ds(int(self.sensor_index)))
 
-    def _load(self, flowsolver):
+    def load(self, flowsolver):
         sensor_subdm = dolfin.CompiledSubDomain(
             "on_boundary && near(x[1], y_sensor, MESH_TOL) && x[0]>=x_sensor_left && x[0]<=x_sensor_right",
             MESH_TOL=dolfin.DOLFIN_EPS,

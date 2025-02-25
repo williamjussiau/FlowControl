@@ -2,7 +2,7 @@ from __future__ import print_function
 from typing import Any, Iterable
 from actuator import ACTUATOR_TYPE
 import flowsolverparameters
-from flowfield import FlowField, FlowFieldCollection
+from flowfield import FlowField, FlowFieldCollection, BoundaryConditions
 import dolfin
 from dolfin import dot, nabla_grad, dx, inner, div
 import numpy as np
@@ -72,6 +72,18 @@ class FlowSolver(ABC):
         self.params_ic = params_ic
         self.verbose = verbose
 
+        for param in [
+            params_flow,
+            params_time,
+            params_save,
+            params_solver,
+            params_mesh,
+            params_restart,
+            params_control,
+            params_ic,
+        ]:
+            logger.debug(param)
+
         self._setup()
 
     def _setup(self):
@@ -84,7 +96,6 @@ class FlowSolver(ABC):
         self.V, self.P, self.W = self._make_function_spaces()
         self.boundaries = self._make_boundaries()  # @abstract
         self._mark_boundaries()
-        # self.actuator_expression =
         self._load_actuators()
         self._load_sensors()
         self.bc = self._make_bcs()  # @abstract
@@ -184,7 +195,7 @@ class FlowSolver(ABC):
         return V, P, W
 
     def _mark_boundaries(self) -> None:
-        """Mark boundaries automatically for numerical integration."""
+        """Mark boundaries automatically (used for numerical integration)."""
         bnd_markers = dolfin.MeshFunction(
             "size_t", self.mesh, self.mesh.topology().dim() - 1
         )
@@ -275,7 +286,7 @@ class FlowSolver(ABC):
         self.fields.ic.up.vector().apply("insert")
         self.fields.ic = FlowField(self.fields.ic.up)
 
-        u_n = flu.projectm(v=self.fields.ic.u, V=self.V, bcs=self.bc["bcu"])
+        u_n = flu.projectm(v=self.fields.ic.u, V=self.V, bcs=self.bc.bcu)
         u_nn = u_n.copy(deepcopy=True)
         p_n = flu.projectm(self.fields.ic.p, self.P)
         u_ = u_n.copy(deepcopy=True)
@@ -571,7 +582,7 @@ class FlowSolver(ABC):
             order = index + 1
             a = dolfin.lhs(varf)
             L = dolfin.rhs(varf)
-            systemAssembler = dolfin.SystemAssembler(a, L, self.bc["bcu"])
+            systemAssembler = dolfin.SystemAssembler(a, L, self.bc.bcu)
             solver = self._make_solver(order=order)
             operatorA = dolfin.Matrix()
             systemAssembler.assemble(operatorA)
@@ -893,7 +904,7 @@ class FlowSolver(ABC):
                 "report": bool(self.verbose),
             }
         }
-        dolfin.solve(F0 == 0, UP0, BC["bcu"], solver_parameters=nl_solver_param)
+        dolfin.solve(F0 == 0, UP0, BC.bcu, solver_parameters=nl_solver_param)
         # Return
         return UP0
 
@@ -940,7 +951,7 @@ class FlowSolver(ABC):
 
         for iter in range(max_iter):
             Ap = dolfin.assemble(ap)
-            [bc.apply(Ap, bp) for bc in BC["bcu"]]
+            [bc.apply(Ap, bp) for bc in BC.bcu]
             solverp.solve(Ap, UP1.vector(), bp)
 
             UP0.assign(UP1)
@@ -948,7 +959,7 @@ class FlowSolver(ABC):
 
             # Residual computation
             res = dolfin.assemble(dolfin.action(ap, UP1))
-            [bc.apply(res) for bc in self.bc["bcu"]]
+            [bc.apply(res) for bc in self.bc.bcu]
             res_norm = dolfin.norm(res) / dolfin.sqrt(self.W.dim())
             logger.info(
                 f"Picard iteration: {iter + 1}/{max_iter}, residual: {res_norm}"
@@ -991,7 +1002,7 @@ class FlowSolver(ABC):
         )
         return F0, UP0
 
-    def _make_BCs(self) -> dict[str, Any]:
+    def _make_BCs(self) -> BoundaryConditions:
         """Define boundary conditions for the full field (i.e. not perturbation
         field). By default, the perturbation bcs are replicated and the inlet
         boundary condition is replaced with uniform profile with amplitude (u,v)=(uinf, 0).
@@ -999,7 +1010,7 @@ class FlowSolver(ABC):
         For more complex inlet profiles, override this method.
 
         Returns:
-            dict[str, Any]: boundary conditions for full field
+            BoundaryConditions: boundary conditions for full field
         """
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
@@ -1007,7 +1018,7 @@ class FlowSolver(ABC):
             self.boundaries.loc["inlet"].subdomain,
         )
         bcs = self._make_bcs()
-        BC = {"bcu": [bcu_inlet] + bcs["bcu"][1:], "bcp": []}
+        BC = BoundaryConditions(bcu=[bcu_inlet] + bcs.bcu[1:], bcp=[])
 
         return BC
 
@@ -1078,6 +1089,9 @@ class FlowSolver(ABC):
             flu.write_xdmf(filename, Efield, "E")
         return Efield
 
+    def get_subdomain(self, name):
+        return self.boundaries.loc[name].subdomain
+
     def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
         """Default initial guess for computing steady state. The method may
         be overriden to propose an initial guess deemed closer to the steady state."""
@@ -1111,7 +1125,7 @@ class FlowSolver(ABC):
         """Load sensors, in particular SensorIntegral"""
         for sensor in self.params_control.sensor_list:
             if sensor.require_loading:
-                sensor._load(self)
+                sensor.load(self)
 
     def make_measurement(
         self,
@@ -1140,12 +1154,12 @@ class FlowSolver(ABC):
         pass
 
     @abstractmethod
-    def _make_bcs(self) -> dict[str, Any]:
+    def _make_bcs(self) -> BoundaryConditions:
         """Define boundary conditions on previously defined boundaries.
         This method should return a dictionary containing two lists:
         boundary conditions for (u,v) and boundary conditions for (p).
 
         Returns:
-            dict[str, Any]: boundary conditions for perturbation field as dict:{"bcu": list(), "bcp": list()}
+            BoundaryConditions: boundary conditions for perturbation field as dataclass object
         """
         pass

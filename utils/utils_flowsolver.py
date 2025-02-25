@@ -49,9 +49,9 @@ def write_xdmf(filename, func, name, time_step=0.0, append=False, write_mesh=Tru
     """Shortcut to write XDMF file with options & context manager"""
     with dolfin.XDMFFile(dolfin.MPI.comm_world, str(filename)) as ff:
         ff.parameters["rewrite_function_mesh"] = write_mesh
-        ff.parameters[
-            "functions_share_mesh"
-        ] = not write_mesh  # does not work in FEniCS yet
+        ff.parameters["functions_share_mesh"] = (
+            not write_mesh
+        )  # does not work in FEniCS yet
         ff.write_checkpoint(
             func,
             name,
@@ -162,6 +162,30 @@ class MpiUtils:
         """Broadcast y to MPI (shortcut but longer)"""
         y = dolfin.MPI.comm_world.bcast(x, root=0)
         return y
+
+
+###############################################################################
+
+
+# Write CPP utils (for boundaries) ############################################
+def near_cpp(x: str, xnear: str, tol: str = "MESH_TOL"):
+    return f"near({x}, {xnear}, {tol})"
+
+
+def between_cpp(x: str, xmin: str, xmax: str, tol: str = "0.0"):
+    return f"{x}>={xmin}-{tol} && {x}<={xmax}+{tol}"
+
+
+def or_cpp():
+    return " || "
+
+
+def and_cpp():
+    return " && "
+
+
+def on_boundary_cpp():
+    return "on_boundary"
 
 
 ###############################################################################
