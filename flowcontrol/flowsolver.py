@@ -195,7 +195,7 @@ class FlowSolver(ABC):
         return V, P, W
 
     def _mark_boundaries(self) -> None:
-        """Mark boundaries automatically for numerical integration."""
+        """Mark boundaries automatically (used for numerical integration)."""
         bnd_markers = dolfin.MeshFunction(
             "size_t", self.mesh, self.mesh.topology().dim() - 1
         )
@@ -1125,7 +1125,7 @@ class FlowSolver(ABC):
         """Load sensors, in particular SensorIntegral"""
         for sensor in self.params_control.sensor_list:
             if sensor.require_loading:
-                sensor._load(self)
+                sensor.load(self)
 
     def make_measurement(
         self,
