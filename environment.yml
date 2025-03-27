@@ -4,11 +4,10 @@ channels:
   - https://repo.anaconda.com/pkgs/main
   - https://repo.anaconda.com/pkgs/r
 dependencies:
-  - python
-  - fenics
-  - meshio
-  - mshr
-  - scipy
-  - pandas
-  - control
+  - python=3.12.8
+  - fenics=2019.1.0
+  - meshio=5.3.5
+  - scipy=1.14.1
+  - pandas=2.2.3
+  - control=0.10.1
 prefix: /usr/local/anaconda3/envs/fenics
