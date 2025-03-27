@@ -83,7 +83,7 @@ class SensorIntegral(Sensor):
 
     ds: dolfin.Measure | None = None
     subdomain: dolfin.SubDomain | None = None
-    sensor_index: int | None = None
+    sensor_index: int = SENSOR_INDEX_DEFAULT
     require_loading: bool = True
 
     @abstractmethod
