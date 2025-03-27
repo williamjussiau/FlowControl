@@ -1,8 +1,7 @@
 name: fenics
 channels:
   - conda-forge
-  - https://repo.anaconda.com/pkgs/main
-  - https://repo.anaconda.com/pkgs/r
+  - defaults
 dependencies:
   - python=3.12.8
   - fenics=2019.1.0
@@ -10,4 +9,3 @@ dependencies:
   - scipy=1.14.1
   - pandas=2.2.3
   - control=0.10.1
-prefix: /usr/local/anaconda3/envs/fenics
