@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from enum import IntEnum
 from dataclasses import dataclass
+from enum import IntEnum
+
 import dolfin
 import numpy as np
 

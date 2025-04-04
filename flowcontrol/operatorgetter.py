@@ -1,14 +1,15 @@
 """Class dedicated to operator computation on flows
 For now: not working, just copied-pasted operator getters from FlowSolver to make room"""
 
-import dolfin
-from dolfin import dot, div, nabla_grad, dx, inner
-import utils_flowsolver as flu
 import logging
 import time
-import numpy as np
 from abc import ABC, abstractmethod
+
+import dolfin
 import flowsolver
+import numpy as np
+import utils_flowsolver as flu
+from dolfin import div, dot, dx, inner, nabla_grad
 
 logger = logging.getLogger(__name__)
 FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
@@ -419,4 +420,5 @@ class CavityOperatorGetter(OperatorGetter):
         if timeit:
             print("Elapsed time: ", time.time() - t0)
 
+        return C
         return C
