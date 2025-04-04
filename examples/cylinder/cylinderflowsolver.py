@@ -7,24 +7,21 @@ Equations were made non-dimensional
 ----------------------------------------------------------------------
 """
 
-import flowsolver
-import dolfin
-import numpy as np
-import pandas
-import time
-import flowsolverparameters
-from flowfield import BoundaryConditions
-from sensor import SensorPoint, SENSOR_TYPE
-from actuator import ActuatorBCParabolicV
-from controller import Controller
-
 import logging
-
+import time
 from pathlib import Path
 
-import utils_flowsolver as flu
+import dolfin
+import flowsolver
+import flowsolverparameters
+import numpy as np
+import pandas
 import utils_extract as flu2
-
+import utils_flowsolver as flu
+from actuator import ActuatorBCParabolicV
+from controller import Controller
+from flowfield import BoundaryConditions
+from sensor import SENSOR_TYPE, SensorPoint
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
@@ -148,17 +145,17 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         bcu_cylinder = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
-            self.get_subdomain["cylinder"],
+            self.get_subdomain("cylinder"),
         )
         bcu_actuation_up = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[0].expression,
-            self.get_subdomain["actuator_up"],
+            self.get_subdomain("actuator_up"),
         )
         bcu_actuation_lo = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[1].expression,
-            self.get_subdomain["actuator_lo"],
+            self.get_subdomain("actuator_lo"),
         )
         bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
 
@@ -368,5 +365,3 @@ if __name__ == "__main__":
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
 ## ---------------------------------------------------------------------------------
-# if __name__ == "__main__":
-#     main()
