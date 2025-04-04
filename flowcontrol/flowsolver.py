@@ -1,21 +1,20 @@
 from __future__ import print_function
-from typing import Any, Iterable
-from actuator import ACTUATOR_TYPE
-import flowsolverparameters
-from flowfield import FlowField, FlowFieldCollection, BoundaryConditions
-import dolfin
-from dolfin import dot, nabla_grad, dx, inner, div
-import numpy as np
-import pandas as pd
+
+import logging
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any, Iterable
 
-import logging
-
-import utils_flowsolver as flu
+import dolfin
+import flowsolverparameters
+import numpy as np
+import pandas as pd
 import utils_extract as flu2
-
+import utils_flowsolver as flu
+from actuator import ACTUATOR_TYPE
+from dolfin import div, dot, dx, inner, nabla_grad
+from flowfield import BoundaryConditions, FlowField, FlowFieldCollection
 
 logger = logging.getLogger(__name__)
 FORMAT = (

@@ -1,7 +1,9 @@
 from __future__ import annotations
+
+from pathlib import Path
+
 import control
 import numpy as np
-from pathlib import Path
 import utils_flowsolver as flu
 import youla_utils as yu
 
@@ -217,5 +219,7 @@ if __name__ == "__main__":
     for _ in range(num_steps):
         print("---")
         uu = Kmimo.step(yy, dt)
+        print(f"output {uu}")
+        print(f"states {Kmimo.x}")
         print(f"output {uu}")
         print(f"states {Kmimo.x}")
