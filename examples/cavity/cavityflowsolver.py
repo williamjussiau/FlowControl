@@ -7,23 +7,22 @@ Equations were made non-dimensional
 ----------------------------------------------------------------------
 """
 
-import flowsolver
-import dolfin
-import numpy as np
+import logging
 import time
-import pandas
+from pathlib import Path
+
+import dolfin
+import flowsolver
 import flowsolverparameters
-from flowfield import BoundaryConditions
-from sensor import SensorHorizontalWallShear, SENSOR_TYPE, SensorPoint
+import numpy as np
+import pandas
+import utils_flowsolver as flu
 from actuator import ActuatorForceGaussianV
+from flowfield import BoundaryConditions
+from sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
 # from controller import Controller
 
-import logging
-
-from pathlib import Path
-
-import utils_flowsolver as flu
 
 # import utils_extract as flu2
 
