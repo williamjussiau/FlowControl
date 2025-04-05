@@ -1,5 +1,5 @@
 # :cyclone: FlowControl 
-The FlowControl toolbox is an open-source toolbox addressing the simulation and control of 2D incompressible flows. It aims at providing a user-friendly way to simulate flows with actuators and sensors, a possibility to readily define new use-cases and support for operators & frequency responses computations.
+The FlowControl toolbox is an open-source toolbox addressing the simulation and control of 2D incompressible flows at low Reynolds number. It aims at providing a user-friendly way to simulate flows with actuators and sensors, a possibility to readily define new use-cases and support for operators & frequency responses computations.
 
 This page contains introductory information about the toolbox. For more in-depth content, feel free to consult [the Wiki](https://github.com/williamjussiau/FlowControl/wiki).
 
