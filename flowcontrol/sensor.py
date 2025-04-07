@@ -4,6 +4,7 @@ from enum import IntEnum
 
 import dolfin
 import numpy as np
+import utils_flowsolver as flu
 
 SENSOR_INDEX_DEFAULT = 100
 
@@ -64,8 +65,8 @@ class SensorPoint(Sensor):
 
     def eval(self, up):
         # warning: might need to be compatible with parallel
-        # flu.MpiUtils.peval(up, position)
-        return up(self.position[0], self.position[1])[self.sensor_type]
+        return flu.MpiUtils.peval(up, dolfin.Point(self.position[0], self.position[1]))[self.sensor_type]
+        # return up(self.position[0], self.position[1])[self.sensor_type]
 
 
 @dataclass(kw_only=True)
