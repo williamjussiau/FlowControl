@@ -72,5 +72,3 @@ class FlowFieldCollection:
 class BoundaryConditions:
     bcu: list[dolfin.DirichletBC]
     bcp: list[dolfin.DirichletBC]
-    bcu: list[dolfin.DirichletBC]
-    bcp: list[dolfin.DirichletBC]
