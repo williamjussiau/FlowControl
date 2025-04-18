@@ -3,36 +3,213 @@ For now: not working, just copied-pasted operator getters from FlowSolver to mak
 
 import logging
 import time
-from abc import ABC, abstractmethod
 
 import dolfin
 import flowsolver
 import numpy as np
 import utils_flowsolver as flu
+from actuator import ACTUATOR_TYPE
 from dolfin import div, dot, dx, inner, nabla_grad
+from sensor import SensorIntegral, SensorPoint
 
 logger = logging.getLogger(__name__)
 FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
-class OperatorGetter(ABC):
+class OperatorGetter:
     def __init__(self, flowsolver: flowsolver.FlowSolver):
-        self.flowsolver.flowsolver = flowsolver
+        self.flowsolver = flowsolver
 
-    @abstractmethod
-    def get_A(self):
-        pass
+    def get_A(self, UP0=None, auto=True, u_ctrl=None) -> dolfin.PETScMatrix:
+        """Get state-space dynamic matrix A linearized around some field UP0
+        with constant input u_ctrl"""
+        logger.info("Computing jacobian A...")
 
-    @abstractmethod
-    def get_B(self):
-        pass
+        # Prealloc
+        Jac = dolfin.PETScMatrix()
 
-    @abstractmethod
-    def get_C(self):
-        pass
+        if UP0 is None:
+            UP0 = self.flowsolver.fields.UP0
+
+        if auto:
+            # dolfin.derivative/ufl.derivative
+            F0, UP0 = self.flowsolver._make_varf_steady(initial_guess=UP0)
+            du = dolfin.TrialFunction(self.flowsolver.W)
+            dF0 = dolfin.derivative(-1 * F0, u=UP0, du=du)
+        else:
+            # linearize by hand - somehow dot(f,v) not working
+            U0, _ = UP0.split()
+            u, p = dolfin.TrialFunctions(self.flowsolver.W)
+            v, q = dolfin.TestFunctions(self.flowsolver.W)
+            iRe = dolfin.Constant(1 / self.flowsolver.params_flow.Re)
+            # f = self.flowsolver._gather_actuators_expressions()
+            dF0 = (
+                -dot(dot(U0, nabla_grad(u)), v) * dx
+                - dot(dot(u, nabla_grad(U0)), v) * dx
+                - iRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+                + p * div(v) * dx
+                + div(u) * q * dx
+                # + dot(f, v) * dx
+            )
+
+        if u_ctrl is None:
+            self.flowsolver.flush_actuators_u_ctrl()
+        else:
+            self.flowsolver.set_actuators_u_ctrl(u_ctrl)
+
+        dolfin.assemble(dF0, tensor=Jac)
+        [bc.apply(Jac) for bc in self.flowsolver.bc.bcu]
+
+        return Jac
+
+    def get_mass_matrix(self) -> dolfin.PETScMatrix:
+        """Get mass matrix associated to spatial discretization"""
+        logger.info("Computing mass matrix E...")
+        up = dolfin.TrialFunction(self.flowsolver.W)
+        vq = dolfin.TestFunction(self.flowsolver.W)
+
+        E = dolfin.PETScMatrix()
+
+        mf = sum([up[i] * vq[i] for i in range(2)]) * self.flowsolver.dx  # sum u, v but not p
+        dolfin.assemble(mf, tensor=E)
+
+        return E
+
+    def get_B(self):  # TODO keep here
+        """Get actuation matrix B"""
+        logger.info("Computing actuation matrix B...")
+
+        # Save amplitude
+        u_ctrl_old = self.flowsolver.get_actuators_u_ctrl()
+        self.flowsolver.set_actuators_u_ctrl(self.flowsolver.params_control.actuator_number * [1.0])
+
+        # Embed actuators in W (originally in V) + restrict spatially to boundary
+        actuators_expressions = []
+        for actuator in self.flowsolver.params_control.actuator_list:
+            expr = ExpandFunctionSpace(actuator.expression)
+            if actuator.actuator_type is ACTUATOR_TYPE.BC:
+                expr = RestrictFunctionToBoundary(actuator.boundary, expr)
+            actuators_expressions.append(expr)
+
+        # Project expressions
+        B = np.zeros((self.flowsolver.W.dim(), self.flowsolver.params_control.actuator_number))
+        for ii, actuator_expression in enumerate(actuators_expressions):
+            # Bproj = dolfin.interpolate(actuator_expression, self.flowsolver.W)
+            Bproj = flu.projectm(actuator_expression, self.flowsolver.W)
+            B[:, ii] = Bproj.vector().get_local()
+
+        # Remove very small values (should be 0 but are not)
+        B = flu.dense_to_sparse(B, eliminate_zeros=True, eliminate_under=1e-14)
+        B = B.toarray()
+
+        # Retrieve amplitude
+        self.flowsolver.set_actuators_u_ctrl(u_ctrl_old)
+
+        return B
+
+    def get_C(self, check=False, fast=True):
+        """Get measurement matrix C"""
+        logger.info("Computing measurement matrix C...")
+
+        W = self.flowsolver.W
+        dofmap = W.dofmap()
+        dofs = dofmap.dofs()
+
+        if fast:
+            # check that all sensors are SensorPoint or SensorIntegral for optimization
+            all_sensors_are_compatible = np.all(
+                [
+                    isinstance(sensor, SensorPoint) or isinstance(sensor, SensorIntegral)
+                    for sensor in self.flowsolver.params_control.sensor_list
+                ]
+            )
+
+            if not all_sensors_are_compatible:
+                logger.warning("Not all sensors compatible with fast implementation. Aborting.")
+                return -1
+
+            # Define union of boxes to eval: encompas all locations + subdomains
+            dofmap_xy = W.tabulate_dof_coordinates()
+            XYMARGIN = 0.1
+            dofs_in_box = set()
+            dofs_in_subdomain = set()
+
+            for sensor in self.flowsolver.params_control.sensor_list:
+                # SensorPoint
+                if isinstance(sensor, SensorPoint):
+                    sensor_position = sensor.position
+                    xymin = (sensor_position - XYMARGIN).reshape(1, -1)
+                    xymax = (sensor_position + XYMARGIN).reshape(1, -1)
+                    # keep dofs with coordinates inside box
+                    dofs_in_box_mask = (np.greater_equal(dofmap_xy, xymin) * np.less_equal(dofmap_xy, xymax)).all(
+                        axis=1
+                    )
+                    # add to set (checks uniqueness)
+                    dofs_in_box = dofs_in_box.union(np.asarray(dofs)[dofs_in_box_mask])
+
+                # SensorIntegral
+                if isinstance(sensor, SensorIntegral):
+                    sensor_subdomain = sensor.subdomain
+                    mesh = self.flowsolver.mesh
+                    # mesh.entities(0) = vertices
+                    # mesh.entities(1) = edges
+                    # mesh.entities(2) = cells
+                    dofs_in_subdomain = set()
+
+                    # mark boundaries (=edges) in subdomain
+                    bnd_markers = dolfin.MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
+                    bnd_markers.set_all(0)
+                    SUBDOMAIN_INDEX = 200
+                    sensor_subdomain.mark(bnd_markers, SUBDOMAIN_INDEX)
+                    edges_in_subdomain = bnd_markers.where_equal(SUBDOMAIN_INDEX)
+
+                    vertices_idx_to_keep = set()
+
+                    # for edges in subdomain, save vertices
+                    # output: vertices in subdomain
+                    for edge in dolfin.edges(mesh):
+                        if edge.index() in edges_in_subdomain:
+                            vertices_idx_to_keep.update(edge.entities(0))
+
+                    # for all cells, if cell contains vertex in subdomain
+                    # then save cell-dofs to dofs in subdomain
+                    for cell in dolfin.cells(mesh):
+                        if len(vertices_idx_to_keep.intersection(cell.entities(0))):
+                            dofs_in_subdomain.update(dofmap.cell_dofs(cell.index()))
+
+            # Union of dofs if mixed BC/force actuators
+            dofs_to_parse = dofs_in_box.union(dofs_in_subdomain)
+
+        else:  # no fast = parse all dofs
+            dofs_to_parse = dofs
+
+        # Fill matrix C
+        uvp = dolfin.Function(W)
+        uvp_vec = uvp.vector()
+        C = np.zeros((self.flowsolver.params_control.sensor_number, W.dim()))
+        idof_old = 0
+        # Iteratively put each DOF at 1 and evaluate measurement on said DOF
+        for idof in dofs_to_parse:
+            uvp_vec[idof] = 1
+            if idof_old > 0:
+                uvp_vec[idof_old] = 0
+            idof_old = idof
+            C[:, idof] = self.flowsolver.make_measurement(uvp)
+
+        # check:
+        if check:
+            for i in range(self.flowsolver.params_control.sensor_number):
+                logger.debug(f"with fun: {self.flowsolver.make_measurement(self.flowsolver.fields.UP0)}")
+                logger.debug(f"with C@x: {C[i, :] @ self.flowsolver.fields.UP0.vector().get_local()}")
+
+        return C
 
 
+####################################################################################
+####################################################################################
+####################################################################################
+####################################################################################
 class CylinderOperatorGetter(OperatorGetter):
     # Matrix computations
     def get_A(
@@ -45,8 +222,8 @@ class CylinderOperatorGetter(OperatorGetter):
             t0 = time.time()
 
         Jac = dolfin.PETScMatrix()
-        v, q = dolfin.TestFunctions(self.flowsolver.flowsolver.W)
-        iRe = dolfin.Constant(1 / self.flowsolver.flowsolver.params_flow.Re)
+        v, q = dolfin.TestFunctions(self.flowsolver.W)
+        iRe = dolfin.Constant(1 / self.flowsolver.params_flow.Re)
         shift = dolfin.Constant(shift)
 
         if UP0 is None:
@@ -135,18 +312,18 @@ class CylinderOperatorGetter(OperatorGetter):
         if timeit:
             t0 = time.time()
 
-        # for an exponential actuator -> just evaluate actuator_exp on every coordinate, kinda?
+        # for an exponential actuator -> just evaluate actuator_exp on every coordinate?
         # for a boundary actuator -> evaluate actuator on boundary
         actuator_ampl_old = self.flowsolver.actuator_expression.ampl
         self.flowsolver.actuator_expression.ampl = 1.0
 
         # Method 1
         # restriction of actuation of boundary
-        class RestrictFunction(dolfin.UserExpression):
+        class RestrictFunctionToBoundary(dolfin.UserExpression):
             def __init__(self, boundary, fun, **kwargs):
                 self.boundary = boundary
                 self.fun = fun
-                super(RestrictFunction, self).__init__(**kwargs)
+                super(RestrictFunctionToBoundary, self).__init__(**kwargs)
 
             def eval(self, values, x):
                 values[0] = 0
@@ -162,7 +339,7 @@ class CylinderOperatorGetter(OperatorGetter):
 
         Bi = []
         for actuator_name in ["actuator_up", "actuator_lo"]:
-            actuator_restricted = RestrictFunction(
+            actuator_restricted = RestrictFunctionToBoundary(
                 boundary=self.flowsolver.boundaries.loc[actuator_name].subdomain,
                 fun=self.flowsolver.actuator_expression,
             )
@@ -421,4 +598,39 @@ class CavityOperatorGetter(OperatorGetter):
             print("Elapsed time: ", time.time() - t0)
 
         return C
-        return C
+
+
+class ExpandFunctionSpace(dolfin.UserExpression):
+    """Expand function from space [V1, V2] to [V1, V2, P]"""
+
+    def __init__(self, fun, **kwargs):
+        self.fun = fun
+        super(ExpandFunctionSpace, self).__init__(**kwargs)
+
+    def eval(self, values, x):
+        evalval = self.fun(x)
+        values[0] = evalval[0]
+        values[1] = evalval[1]
+        values[2] = 0
+
+    def value_shape(self):
+        return (3,)
+
+
+class RestrictFunctionToBoundary(dolfin.UserExpression):
+    def __init__(self, boundary, fun, **kwargs):
+        self.boundary = boundary
+        self.fun = fun
+        super(RestrictFunctionToBoundary, self).__init__(**kwargs)
+
+    def eval(self, values, x):
+        values[0] = 0
+        values[1] = 0
+        values[2] = 0
+        if self.boundary.inside(x, True):
+            evalval = self.fun(x)
+            values[0] = evalval[0]
+            values[1] = evalval[1]
+
+    def value_shape(self):
+        return (3,)

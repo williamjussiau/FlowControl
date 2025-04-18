@@ -131,7 +131,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         return boundaries_df
 
     def _make_bcs(self):
-        # create zeroBC for perturbation formulation
+        # Free boundaries
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((0, 0)),
@@ -147,16 +147,22 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             dolfin.Constant((0, 0)),
             self.get_subdomain("cylinder"),
         )
+
+        # Actuated boundaries
         bcu_actuation_up = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[0].expression,
             self.get_subdomain("actuator_up"),
         )
+        self.params_control.actuator_list[0].boundary = self.get_subdomain("actuator_up")
+
         bcu_actuation_lo = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[1].expression,
             self.get_subdomain("actuator_lo"),
         )
+        self.params_control.actuator_list[1].boundary = self.get_subdomain("actuator_lo")
+
         bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
 
         return BoundaryConditions(bcu=bcu, bcp=[])
