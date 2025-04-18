@@ -43,9 +43,19 @@ class Actuator(ABC):
         """
         pass
 
+@dataclass(kw_only=True)
+class ActuatorBC(Actuator):
+    """_summary_
+
+    Args:
+        Actuator (_type_): _description_
+    """
+
+    boundary: None | dolfin.Expression = None
+
 
 @dataclass(kw_only=True)
-class ActuatorBCParabolicV(Actuator):
+class ActuatorBCParabolicV(ActuatorBC):
     """Cylinder actuator: parabolic profile depending on first spatial
     coordinate only, located at the poles of the cylinder.
     This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
