@@ -1,17 +1,11 @@
 ## Short-term
-# Docker/venv/pip
+# Docker/venv/pip??
 
 # standardize initial_guess of Picard & Newton
-
-# in Controller.inv -> replicate self.x0 as well?
 
 
 ## Mid-term
 # sort (& check & rm) utility funs (_flowsolver, _extract, _debug)
-
-# get A, B, C -> general form
-
-# (why not reimplement cylinder with volume force)
 
 
 ## Long-term
