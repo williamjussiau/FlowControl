@@ -9,5 +9,5 @@ jitfailure*
 movies
 _legacy
 .vscode
-examples/*/data_output/*
+examples/**/data_output/*
 figs
