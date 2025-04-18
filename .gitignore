@@ -10,3 +10,4 @@ movies
 _legacy
 .vscode
 examples/*/data_output/*
+figs
