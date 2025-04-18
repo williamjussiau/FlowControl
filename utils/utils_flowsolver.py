@@ -2,32 +2,30 @@
 Utilitary functions for FlowSolver
 """
 
-import time
-
-import numpy as np
-import scipy.signal as ss
-import scipy.io as sio
-import scipy.linalg as la
-import scipy.sparse as spr
-import scipy.sparse.linalg as spr_la
-import control
-import petsc4py
-from petsc4py import PETSc
-from slepc4py import SLEPc
-
-import os
-
-import dolfin
-from dolfin import dot, inner
-
 import functools
-from mpi4py import MPI as mpi
-import matplotlib.pyplot as plt
-from matplotlib import cm
 
 # import pdb
 import logging
+import os
+import time
 import warnings
+from pathlib import Path
+
+import control
+import dolfin
+import matplotlib.pyplot as plt
+import numpy as np
+import petsc4py
+import scipy.io as sio
+import scipy.linalg as la
+import scipy.signal as ss
+import scipy.sparse as spr
+import scipy.sparse.linalg as spr_la
+from dolfin import dot, inner
+from matplotlib import cm
+from mpi4py import MPI as mpi
+from petsc4py import PETSc
+from slepc4py import SLEPc
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -49,9 +47,7 @@ def write_xdmf(filename, func, name, time_step=0.0, append=False, write_mesh=Tru
     """Shortcut to write XDMF file with options & context manager"""
     with dolfin.XDMFFile(dolfin.MPI.comm_world, str(filename)) as ff:
         ff.parameters["rewrite_function_mesh"] = write_mesh
-        ff.parameters["functions_share_mesh"] = (
-            not write_mesh
-        )  # does not work in FEniCS yet
+        ff.parameters["functions_share_mesh"] = not write_mesh  # does not work in FEniCS yet
         ff.write_checkpoint(
             func,
             name,
@@ -126,9 +122,7 @@ class MpiUtils:
             return f(*x)
         # Find whether the point lies on the partition of the mesh local
         # to this process, and evaluate u(x)
-        cell, distance = mesh.bounding_box_tree().compute_closest_entity(
-            dolfin.Point(*x)
-        )
+        cell, distance = mesh.bounding_box_tree().compute_closest_entity(dolfin.Point(*x))
         f_eval = f(*x) if distance < dolfin.DOLFIN_EPS else None
         # Gather the results on process 0
         comm = mesh.mpi_comm()
@@ -136,9 +130,7 @@ class MpiUtils:
         # Verify the results on process 0 to ensure we see the same value
         # on a process boundary
         if comm.rank == 0:
-            global_f_evals = np.array(
-                [y for y in computed_f if y is not None], dtype=np.double
-            )
+            global_f_evals = np.array([y for y in computed_f if y is not None], dtype=np.double)
             assert np.all(np.abs(global_f_evals[0] - global_f_evals) < 1e-9)
             computed_f = global_f_evals[0]
         else:
@@ -401,10 +393,7 @@ def get_mat_vp_slepc(
         vecp_im[istart_r:iend_i, i] = vi.array
 
         if verbose:
-            logger.info(
-                "Eigenvalue %2d is: %f+i %f"
-                % (i + 1, np.real(valp[i]), np.imag(valp[i]))
-            )
+            logger.info("Eigenvalue %2d is: %f+i %f" % (i + 1, np.real(valp[i]), np.imag(valp[i])))
 
     vecp = vecp_re + 1j * vecp_im
 
@@ -415,9 +404,7 @@ def get_mat_vp_slepc(
     return eigz
 
 
-def make_mat_to_test_slepc(
-    view=False, singular=False, neigpairs=3, density_B=1.0, rand=False
-):
+def make_mat_to_test_slepc(view=False, singular=False, neigpairs=3, density_B=1.0, rand=False):
     sz = 2 * neigpairs
     if neigpairs == 3:
         # known problem
@@ -516,9 +503,7 @@ def geig_singular(A, B, n=2, DEBUG=False, target=None, solve_dense=False):
         Asb = Asb.tocsc()
         LU = spr_la.splu(Asb)
         OPinv = spr_la.LinearOperator(matvec=lambda x: LU.solve(x), shape=Asb.shape)
-        OPinv = spr_la.LinearOperator(
-            matvec=lambda x: spr_la.minres(Asb, x, tol=1e-5)[0], shape=Asb.shape
-        )
+        OPinv = spr_la.LinearOperator(matvec=lambda x: spr_la.minres(Asb, x, tol=1e-5)[0], shape=Asb.shape)
         Dt, Vt = spr_la.eigs(A=At, k=n, M=Bt, tol=0, sigma=target, OPinv=OPinv)
         logger.info("Embedded sparse eig: %f", Dt)
 
@@ -581,9 +566,7 @@ def get_mat_vp(A, B=None, n=3, DEBUG=False):
 
     for i in range(nconv):
         valp[i], c[i], vecp[:, i], cx[:, i] = eigensolver.get_eigenpair(i)
-        logger.info(
-            "Eigenvalue %d is: %f+i %f" % (i + 1, np.real(valp[i]), np.imag(valp[i]))
-        )
+        logger.info("Eigenvalue %d is: %f+i %f" % (i + 1, np.real(valp[i]), np.imag(valp[i])))
 
     if DEBUG:
         return (valp, vecp), eigensolver
@@ -600,12 +583,12 @@ def export_field(cfields, W, V, P, save_dir=None, time_steps=None):
     Usage: export_field(cfields, fs.W, fs.V, fs.P, ...)"""
     if save_dir is None:
         save_dir = "/stck/wjussiau/fenics-python/ns/data/export/vec_"
-    vec_v_file = save_dir + "_v"
-    vec_p_file = save_dir + "_p"
+    vec_v_file = Path(str(save_dir) + "_v")
+    vec_p_file = Path(str(save_dir) + "_p")
     xdmf = ".xdmf"
 
     def mkfilename(filename, part):
-        return filename + "_" + part + xdmf
+        return Path(str(filename) + "_" + part + xdmf)
 
     ww = dolfin.Function(W)
     vv = dolfin.Function(V)

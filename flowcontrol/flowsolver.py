@@ -37,7 +37,7 @@ class FlowSolver(ABC):
 
     def __init__(
         self,
-        params_flow: flowsolverparameters.ParamControl,
+        params_flow: flowsolverparameters.ParamFlow,
         params_time: flowsolverparameters.ParamTime,
         params_save: flowsolverparameters.ParamSave,
         params_solver: flowsolverparameters.ParamSolver,
@@ -198,9 +198,7 @@ class FlowSolver(ABC):
         bnd_markers = dolfin.MeshFunction(
             "size_t", self.mesh, self.mesh.topology().dim() - 1
         )
-        cell_markers = dolfin.MeshFunction(
-            "size_t", self.mesh, self.mesh.topology().dim() - 1
-        )
+        cell_markers = dolfin.MeshFunction("size_t", self.mesh, self.mesh.topology().dim())
         boundaries_idx = range(len(self.boundaries))
 
         for i, boundary_index in enumerate(boundaries_idx):
@@ -528,7 +526,8 @@ class FlowSolver(ABC):
                 if actuator.actuator_type is ACTUATOR_TYPE.FORCE
             ]
         )
-        if f == 0:
+
+        if f == 0:  # > sum of empty list = no force actuator
             f = dolfin.Constant((0, 0))
 
         return f
@@ -626,7 +625,7 @@ class FlowSolver(ABC):
         t0i = time.time()
 
         # control
-        self._set_actuators_u_ctrl(u_ctrl)
+        self.set_actuators_u_ctrl(u_ctrl)
 
         try:
             self.assemblers[self.order].assemble(self.rhs)
@@ -722,7 +721,7 @@ class FlowSolver(ABC):
         fa.assign(up, [u, p])
         return up
 
-    def _set_actuators_u_ctrl(self, u_ctrl: Iterable) -> None:
+    def set_actuators_u_ctrl(self, u_ctrl: Iterable) -> None:
         """Set control amplitudes for each actuator from iterable u_ctrl
 
         Args:
@@ -731,9 +730,16 @@ class FlowSolver(ABC):
         for ii, actuator in enumerate(self.params_control.actuator_list):
             actuator.expression.u_ctrl = u_ctrl[ii]
 
-    def _flush_actuators_u_ctrl(self) -> None:
+    def flush_actuators_u_ctrl(self) -> None:
         """Set control amplitudes for each actuator to zero."""
-        self._set_actuators_u_ctrl([0] * self.params_control.actuator_number)
+        self.set_actuators_u_ctrl([0] * self.params_control.actuator_number)
+
+    def get_actuators_u_ctrl(self) -> Iterable:
+        """Get amplitude of each actuator"""
+        u_ctrl = []
+        for ii, actuator in enumerate(self.params_control.actuator_list):
+            u_ctrl.append(actuator.expression.u_ctrl)
+        return u_ctrl
 
     def _export_fields_xdmf(
         self,
@@ -842,7 +848,7 @@ class FlowSolver(ABC):
             method (str, optional): method to be used (picard or newton). Defaults to "newton".
             u_ctrl (float, optional): constant input to take into account. Defaults to 0.0.
         """
-        self._set_actuators_u_ctrl(u_ctrl)
+        self.set_actuators_u_ctrl(u_ctrl)
 
         if method == "newton":
             UP0 = self._compute_steady_state_newton(**kwargs)
@@ -989,7 +995,7 @@ class FlowSolver(ABC):
         U0, P0 = dolfin.split(UP0)  # not deep copy, need the link only
         invRe = dolfin.Constant(1 / self.params_flow.Re)
 
-        # f = self._gather?
+        f = self._gather_actuators_expressions()
 
         # Problem
         F0 = (
@@ -997,7 +1003,7 @@ class FlowSolver(ABC):
             + invRe * inner(nabla_grad(U0), nabla_grad(v)) * dx
             - P0 * div(v) * dx
             - q * div(U0) * dx
-            #    - dot(f, v) * dx
+            - dot(f, v) * dx
         )
         return F0, UP0
 
@@ -1088,7 +1094,7 @@ class FlowSolver(ABC):
             flu.write_xdmf(filename, Efield, "E")
         return Efield
 
-    def get_subdomain(self, name):
+    def get_subdomain(self, name) -> dolfin.SubDomain | dolfin.CompiledSubDomain:
         return self.boundaries.loc[name].subdomain
 
     def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:

@@ -90,7 +90,7 @@ class SensorIntegral(Sensor):
 
     @abstractmethod
     def load(self) -> None:
-        """Defne and mark subdomain, define integration element ds."""
+        """Define and mark subdomain, define integration element ds or dx."""
         pass
 
 
@@ -113,7 +113,7 @@ class SensorHorizontalWallShear(SensorIntegral):
         return dolfin.assemble(up.dx(1)[0] * self.ds(int(self.sensor_index)))
 
     def load(self, flowsolver):
-        sensor_subdm = dolfin.CompiledSubDomain(
+        sensor_subdomain = dolfin.CompiledSubDomain(
             "on_boundary && near(x[1], y_sensor, MESH_TOL) && x[0]>=x_sensor_left && x[0]<=x_sensor_right",
             MESH_TOL=dolfin.DOLFIN_EPS,
             x_sensor_left=self.x_sensor_left,
@@ -124,10 +124,12 @@ class SensorHorizontalWallShear(SensorIntegral):
         sensor_mark = dolfin.MeshFunction(
             "size_t", flowsolver.mesh, flowsolver.mesh.topology().dim() - 1
         )
+
         if self.sensor_index is None:
             self.sensor_index = SENSOR_INDEX_DEFAULT
 
-        sensor_subdm.mark(sensor_mark, self.sensor_index)
+        sensor_subdomain.mark(sensor_mark, self.sensor_index)
+        self.subdomain = sensor_subdomain
         self.ds = dolfin.Measure(
             "ds", domain=flowsolver.mesh, subdomain_data=sensor_mark
         )
