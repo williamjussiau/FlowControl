@@ -128,14 +128,12 @@ class ParamSolver(ParamFlowSolver):
     Args:
         throw_error (bool): if False, does not catch error when solver fails.
             This may be useful when using FlowSolver as a backend for an optimization tool.
-        ic_add_perturbation (float): amplitude of perturbation added to given initial condition.
         shift (float): shift equations by -_shift_*int(u * v * dx)
         is_eq_nonlinear (bool): if False, simulate equations linearized around base flow (i.e. the
             nonlinear term for the perturbation: (u.div)u, is neglected)
     """
 
     throw_error: bool = True
-    ic_add_perturbation: float = 0.0
     shift: float = 0.0
     is_eq_nonlinear: bool = True
 
