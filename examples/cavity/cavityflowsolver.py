@@ -423,9 +423,7 @@ if __name__ == "__main__":
         save_every=5, path_out=cwd / "data_output"
     )
 
-    params_solver = flowsolverparameters.ParamSolver(
-        throw_error=True, is_eq_nonlinear=True, ic_add_perturbation=1.0, shift=0.0
-    )
+    params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
 
     params_mesh = flowsolverparameters.ParamMesh(
         meshpath=cwd / "data_input" / "cavity_coarse.xdmf"
