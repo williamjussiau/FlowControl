@@ -2,13 +2,15 @@ import logging
 import time
 from pathlib import Path
 
+import dolfin
 import flowsolverparameters
 import numpy as np
 import utils_flowsolver as flu
 from actuator import ActuatorBCParabolicV, ActuatorForceGaussianV
 from cavity.cavityflowsolver import CavityFlowSolver
 from cylinder.cylinderflowsolver import CylinderFlowSolver
-from operatorgetter import OperatorGetter
+from dolfin import MPI
+from operatorgetter import OperatorGetter, get_C_dummy
 from sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
 # Set logger
@@ -17,85 +19,85 @@ FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 # Get Cylinder operators
-cwd = Path(__file__).parent
+# cwd = Path(__file__).parent
 
-params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
-params_flow.user_data["D"] = 1.0
+# params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
+# params_flow.user_data["D"] = 1.0
 
-params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
+# params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
-params_save = flowsolverparameters.ParamSave(save_every=5, path_out=cwd / "cylinder" / "data_output")
+# params_save = flowsolverparameters.ParamSave(save_every=5, path_out=cwd / "cylinder" / "data_output")
 
-params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+# params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
 
-params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd.parent / "cylinder" / "data_input" / "o1.xdmf")
-params_mesh.user_data["xinf"] = 20
-params_mesh.user_data["xinfa"] = -10
-params_mesh.user_data["yinf"] = 10
+# params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd.parent / "cylinder" / "data_input" / "o1.xdmf")
+# params_mesh.user_data["xinf"] = 20
+# params_mesh.user_data["xinfa"] = -10
+# params_mesh.user_data["yinf"] = 10
 
-params_restart = flowsolverparameters.ParamRestart()
+# params_restart = flowsolverparameters.ParamRestart()
 
-# duplicate actuators (1 top, 1 bottom) but assign same control input to each
-actuator_bc_1 = ActuatorBCParabolicV(angular_size_deg=10)
-actuator_bc_2 = ActuatorBCParabolicV(angular_size_deg=10)
-sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
-sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
-sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1]))
-params_control = flowsolverparameters.ParamControl(
-    sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
-    actuator_list=[actuator_bc_1, actuator_bc_2],
-)
+# # duplicate actuators (1 top, 1 bottom) but assign same control input to each
+# actuator_bc_1 = ActuatorBCParabolicV(angular_size_deg=10)
+# actuator_bc_2 = ActuatorBCParabolicV(angular_size_deg=10)
+# sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
+# sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
+# sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1]))
+# params_control = flowsolverparameters.ParamControl(
+#     sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
+#     actuator_list=[actuator_bc_1, actuator_bc_2],
+# )
 
-params_ic = flowsolverparameters.ParamIC(xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0)
+# params_ic = flowsolverparameters.ParamIC(xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0)
 
-fscyl = CylinderFlowSolver(
-    params_flow=params_flow,
-    params_time=params_time,
-    params_save=params_save,
-    params_solver=params_solver,
-    params_mesh=params_mesh,
-    params_restart=params_restart,
-    params_control=params_control,
-    params_ic=params_ic,
-    verbose=5,
-)
+# fscyl = CylinderFlowSolver(
+#     params_flow=params_flow,
+#     params_time=params_time,
+#     params_save=params_save,
+#     params_solver=params_solver,
+#     params_mesh=params_mesh,
+#     params_restart=params_restart,
+#     params_control=params_control,
+#     params_ic=params_ic,
+#     verbose=5,
+# )
 
-logger.info("__init__(): successful!")
-logger.info("Compute steady state...")
-uctrl0 = [0.0, 0.0]
-# fscyl.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
-# fscyl.compute_steady_state(method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fscyl.fields.UP0)
-fscyl.load_steady_state()
+# logger.info("__init__(): successful!")
+# logger.info("Compute steady state...")
+# uctrl0 = [0.0, 0.0]
+# # fscyl.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
+# # fscyl.compute_steady_state(method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fscyl.fields.UP0)
+# fscyl.load_steady_state()
 
-# Compute operator: A
-logger.info("Now computing operators...")
-opget = OperatorGetter(fscyl)
-# A0 = opget.get_A(UP0=fscyl.fields.UP0, auto=True)
-# # A1 = opget.get_A(UP0=fscyl.fields.UP0, auto=False)
+# # Compute operator: A
+# logger.info("Now computing operators...")
+# opget = OperatorGetter(fscyl)
+# A0 = opget.get_A(UP0=fscyl.fields.UP0, autodiff=True)
+# # A1 = opget.get_A(UP0=fscyl.fields.UP0, autodiff=False)
 # # # flu.export_sparse_matrix(A0, cwd / "cylinder" / "data_output" / "A.png")
 
-# # for A in [A0, A1]:
-# #     logger.info(A.getrow(3)[1][:4])
+# # # for A in [A0, A1]:
+# # #     logger.info(A.getrow(3)[1][:4])
 
 # # Compute operator: B
 # B = opget.get_B()
 # # flu.export_field(B, fscyl.W, fscyl.V, fscyl.P, save_dir=cwd / "cylinder" / "data_output" / "B")
 
-# # Compute operator: C
-# # import time
-# # t0 = time.time()
-# C = opget.get_C(check=False, fast=True)
-# # dt1 = time.time() - t0
-# # logger.info(dt1)
-# # C = opget.get_C(check=False, fast=False)
-# # dt2 = time.time() - (t0 + dt1)
-# # logger.info(dt2)
-# # logger.info(f"Error in optimization: {np.linalg.norm(C - C_opt)}")
-# # flu.export_field(C, fscyl.W, fscyl.V, fscyl.P, save_dir=cwd / "cylinder" / "data_output" / "C")
+# # # Compute operator: C
+# # # import time
+# # # t0 = time.time()
+# # C = opget.get_C(check=False, fast=True)
+# # # dt1 = time.time() - t0
+# # # logger.info(dt1)
+# # # C = opget.get_C(check=False, fast=False)
+# # # dt2 = time.time() - (t0 + dt1)
+# # # logger.info(dt2)
+# # # logger.info(f"Error in optimization: {np.linalg.norm(C - C_opt)}")
+# # # flu.export_field(C, fscyl.W, fscyl.V, fscyl.P, save_dir=cwd / "cylinder" / "data_output" / "C")
 
-# # Compute operator: E
-# E = opget.get_mass_matrix()
-# # flu.export_sparse_matrix(A0, cwd / "cylinder" / "data_output" / "A.png")
+# # # Compute operator: E
+# # E = opget.get_mass_matrix()
+# # # flu.export_sparse_matrix(A0, cwd / "cylinder" / "data_output" / "A.png")
 
 logger.info("Cylinder -- Finished properly.")
 logger.info("*" * 50)
@@ -161,32 +163,51 @@ fscav.load_steady_state()
 # Compute operator: A
 logger.info("Now computing operators...")
 opget = OperatorGetter(fscav)
-# A0 = opget.get_A(UP0=fscav.fields.UP0, auto=True)
-# A1 = opget.get_A(UP0=fscav.fields.UP0, auto=False)
-# # # flu.export_sparse_matrix(A0, cwd / "cavity" / "data_output" / "A.png")
 
-# for A in [A0, A1]:
-#     logger.info(A.getrow(3)[1][:4])
+# t0 = time.time()
+# A0 = opget.get_A(UP0=fscav.fields.UP0, autodiff=True)
+# dt1 = time.time() - t0
+# logger.info(dt1)
+# # A1 = opget.get_A(UP0=fscav.fields.UP0, autodiff=False)
+# # for A in [A0, A1]:
+# #     logger.info(A.getrow(3)[1][:4])
 
-# Compute operator: B
-# B = opget.get_B()
-# flu.export_field(B, fscav.W, fscav.V, fscav.P, save_dir=cwd / "cavity" / "data_output" / "B")
+# # Compute operator: B
+# t0 = time.time()
+# B = opget.get_B(as_function_list=False, interpolate=True)
+# dt1 = time.time() - t0
+# logger.info(dt1)
 
 # Compute operator: C
 t0 = time.time()
-C_opt = opget.get_C(check=True, fast=True)
+C = opget.get_C(check=True, fast=True)
 dt1 = time.time() - t0
+for jj in range(C.shape[0]):
+    print(f"max of Cj is: {max(C[jj, :])}")  # 3.038870378001052  # 0.9999999999994703
+# C_dummy = get_C_dummy(W=fscav.W)
+# logger.info(f"Process {MPI.comm_world.Get_rank()} - computed dummy C: \n {C_dummy}")
+
+dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.wall])
 logger.info(dt1)
-# C = opget.get_C(check=False, fast=False)
-# dt2 = time.time() - (t0 + dt1)
-# logger.info(dt2)
-# logger.info(f"Error in optimization: {np.linalg.norm(C - C_opt)}")
 
-# np.savetxt(cwd / "cavity" / "data_output" / "C.txt", C)
-# np.savetxt(cwd / "cavity" / "data_output" / "C_opt.txt", C_opt)
-
-# Compute operator: E
+# # Compute operator: E
+# t0 = time.time()
 # E = opget.get_mass_matrix()
-# flu.export_sparse_matrix(A0, cwd / "cavity" / "data_output" / "A.png")
+# dt1 = time.time() - t0
+# logger.info(dt1)
+
+export = False
+if export:
+    pass
+    # A
+    # flu.export_sparse_matrix(A0, cwd / "cavity" / "data_output" / "A.png")
+    # # B
+    # flu.write_xdmf()
+    # # C
+    # flu.write_xdmf(cwd / "cavity" / "data_output" / "C.txt", C)
+    # export C.T as field just to see
+    # # E
+    # flu.export_sparse_matrix(E, cwd / "cavity" / "data_output" / "E.png")
+
 
 logger.info("Cavity -- Finished properly.")
