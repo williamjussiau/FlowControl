@@ -64,8 +64,9 @@ class SensorPoint(Sensor):
     require_loading: bool = False
 
     def eval(self, up):
-        # warning: might need to be compatible with parallel
-        return flu.MpiUtils.peval(up, dolfin.Point(self.position[0], self.position[1]))[self.sensor_type]
+        # warning: need to be compatible with parallel
+        return flu.MpiUtils.peval(up, dolfin.Point(self.position))[self.sensor_type]
+        # for example, do not:
         # return up(self.position[0], self.position[1])[self.sensor_type]
 
 

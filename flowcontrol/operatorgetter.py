@@ -263,16 +263,6 @@ class ExpandFunctionSpace(dolfin.UserExpression):
         return (3,)
 
 
-# def extend_to_mixed(expr: dolfin.Expression) -> dolfin.Expression:
-#     """Extend a 2D vector Expression (u, v) to (u, v, 0) for use in a mixed space."""
-#     assert isinstance(expr, dolfin.Expression)
-#     assert len(expr._cppcode) == 2, "Only works for 2D vector fields."
-
-#     extended_code = f"({expr._cppcode[0]},{expr._cppcode[1]},0.0)"
-#     or use 2D Expression class?
-#     return dolfin.Expression(extended_code, degree=expr.degree())
-
-
 class RestrictFunctionToBoundary(dolfin.UserExpression):
     def __init__(self, boundary, fun, **kwargs):
         self.boundary = boundary
@@ -282,10 +272,7 @@ class RestrictFunctionToBoundary(dolfin.UserExpression):
     def eval(self, values, x):
         values[:] = 0.0
         if self.boundary.inside(x, True):
-            fun_x = self.fun(x)
-            if len(fun_x) != 2:
-                raise ValueError(f"Expected 2D vector from fun(x), got: {fun_x}")
-            values[:2] = fun_x
+            values[:2] = self.fun(x)[:2]
 
     def value_shape(self):
         return (3,)
@@ -412,8 +399,10 @@ def get_C_dummy(W):
 
     return C_local
 
+
 def my_fun(f, sensor_number):
     return np.ones(sensor_number) * f.vector().norm("l2")
+
 
 ####################################################################################
 ####################################################################################
