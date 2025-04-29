@@ -2,12 +2,14 @@ import logging
 import time
 from pathlib import Path
 
+import dolfin
 import flowsolverparameters
 import numpy as np
 import utils_flowsolver as flu
 from actuator import ActuatorBCParabolicV, ActuatorForceGaussianV
 from cavity.cavityflowsolver import CavityFlowSolver
 from cylinder.cylinderflowsolver import CylinderFlowSolver
+from dolfin import MPI
 from operatorgetter import OperatorGetter
 from sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
@@ -70,35 +72,36 @@ fscyl.load_steady_state()
 # Compute operator: A
 logger.info("Now computing operators...")
 opget = OperatorGetter(fscyl)
-# A0 = opget.get_A(UP0=fscyl.fields.UP0, auto=True)
-# # A1 = opget.get_A(UP0=fscyl.fields.UP0, auto=False)
-# # # flu.export_sparse_matrix(A0, cwd / "cylinder" / "data_output" / "A.png")
+A0 = opget.get_A(UP0=fscyl.fields.UP0, autodiff=True)
 
-# # for A in [A0, A1]:
-# #     logger.info(A.getrow(3)[1][:4])
+# Compute operator: B
+B = opget.get_B(as_function_list=False, interpolate=True)
 
-# # Compute operator: B
-# B = opget.get_B()
-# # flu.export_field(B, fscyl.W, fscyl.V, fscyl.P, save_dir=cwd / "cylinder" / "data_output" / "B")
+# Compute operator: C
+# import time
+# t0 = time.time()
+C = opget.get_C(check=False, fast=True)
+# dt1 = time.time() - t0
+# logger.info(dt1)
+# C = opget.get_C(check=False, fast=False)
+# dt2 = time.time() - (t0 + dt1)
+# logger.info(dt2)
+# logger.info(f"Error in optimization: {np.linalg.norm(C - C_opt)}")
 
-# # Compute operator: C
-# # import time
-# # t0 = time.time()
-# C = opget.get_C(check=False, fast=True)
-# # dt1 = time.time() - t0
-# # logger.info(dt1)
-# # C = opget.get_C(check=False, fast=False)
-# # dt2 = time.time() - (t0 + dt1)
-# # logger.info(dt2)
-# # logger.info(f"Error in optimization: {np.linalg.norm(C - C_opt)}")
-# # flu.export_field(C, fscyl.W, fscyl.V, fscyl.P, save_dir=cwd / "cylinder" / "data_output" / "C")
+# Compute operator: E
+E = opget.get_mass_matrix()
 
-# # Compute operator: E
-# E = opget.get_mass_matrix()
-# # flu.export_sparse_matrix(A0, cwd / "cylinder" / "data_output" / "A.png")
+export = True
+if export:
+    path_out = cwd / "cylinder" / "data_output"
+    flu.export_sparse_matrix(A0, path_out / "A.png")
+    flu.export_field(B, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "B")
+    flu.export_field(C.T, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "C")
+    flu.export_sparse_matrix(E, path_out / "E.png")
 
 logger.info("Cylinder -- Finished properly.")
 logger.info("*" * 50)
+
 
 # Get Cavity operators
 cwd = Path(__file__).parent
@@ -161,32 +164,43 @@ fscav.load_steady_state()
 # Compute operator: A
 logger.info("Now computing operators...")
 opget = OperatorGetter(fscav)
-# A0 = opget.get_A(UP0=fscav.fields.UP0, auto=True)
-# A1 = opget.get_A(UP0=fscav.fields.UP0, auto=False)
-# # # flu.export_sparse_matrix(A0, cwd / "cavity" / "data_output" / "A.png")
 
-# for A in [A0, A1]:
-#     logger.info(A.getrow(3)[1][:4])
+t0 = time.time()
+A0 = opget.get_A(UP0=fscav.fields.UP0, autodiff=True)
+dt1 = time.time() - t0
+logger.info(dt1)
 
 # Compute operator: B
-# B = opget.get_B()
-# flu.export_field(B, fscav.W, fscav.V, fscav.P, save_dir=cwd / "cavity" / "data_output" / "B")
+t0 = time.time()
+B = opget.get_B(as_function_list=False, interpolate=True)
+dt1 = time.time() - t0
+logger.info(dt1)
 
 # Compute operator: C
 t0 = time.time()
-C_opt = opget.get_C(check=True, fast=True)
+C = opget.get_C(check=True, fast=True)
 dt1 = time.time() - t0
+for jj in range(C.shape[0]):
+    print(f"max of Cj is: {max(C[jj, :])}")
+# max of Cj is: 3.038870378001052
+# max of Cj is: 0.9999999999994703
+# result is somewhat different in parallel, nice!
+# dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.wall])
 logger.info(dt1)
-# C = opget.get_C(check=False, fast=False)
-# dt2 = time.time() - (t0 + dt1)
-# logger.info(dt2)
-# logger.info(f"Error in optimization: {np.linalg.norm(C - C_opt)}")
-
-# np.savetxt(cwd / "cavity" / "data_output" / "C.txt", C)
-# np.savetxt(cwd / "cavity" / "data_output" / "C_opt.txt", C_opt)
 
 # Compute operator: E
-# E = opget.get_mass_matrix()
-# flu.export_sparse_matrix(A0, cwd / "cavity" / "data_output" / "A.png")
+t0 = time.time()
+E = opget.get_mass_matrix()
+dt1 = time.time() - t0
+logger.info(dt1)
+
+export = True
+if export:
+    path_out = cwd / "cavity" / "data_output"
+    flu.export_sparse_matrix(A0, path_out / "A.png")
+    flu.export_field(B, fscav.W, fscav.V, fscav.P, save_dir=path_out / "B")
+    flu.export_field(C.T, fscav.W, fscav.V, fscav.P, save_dir=path_out / "C")
+    flu.export_sparse_matrix(E, path_out / "E.png")
+
 
 logger.info("Cavity -- Finished properly.")

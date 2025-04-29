@@ -108,6 +108,18 @@ class MpiUtils:
             yloc = f(x)
         except RuntimeError:
             yloc = np.inf * np.ones(f.value_shape())
+        comm = dolfin.MPI.comm_world  # MpiUtils.mpi4py_comm(f.function_space().mesh().mpi_comm())
+        yglob = np.zeros_like(yloc)
+        comm.Allreduce(yloc, yglob, op=mpi.MIN)
+        return yglob
+
+    @staticmethod
+    def peval1(f, x):
+        """Parallel synced eval"""
+        try:
+            yloc = f(x)
+        except RuntimeError:
+            yloc = np.inf * np.ones(f.value_shape())
         comm = MpiUtils.mpi4py_comm(f.function_space().mesh().mpi_comm())
         yglob = np.zeros_like(yloc)
         comm.Allreduce(yloc, yglob, op=mpi.MIN)
