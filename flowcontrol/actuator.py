@@ -97,6 +97,10 @@ class ActuatorForceGaussianV(Actuator):
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
 
     def load_expression(self, flowsolver):
+        # expr_u = "0"
+        # expr_v = "u_ctrl * eta*exp(-0.5*((x[0]-x10)*(x[0]-x10)+(x[1]-x20)*(x[1]-x20))/(sig*sig))"
+        # user_parameters = {"sigma": self.sigma, "x10": self.position[0], "x20": self.position[1]}
+        # expression = VectorExpression2D(expr_u, expr_v, degree=2, user_parameters=user_parameters, u_ctrl=1.0)
         expression = dolfin.Expression(
             [
                 "0",
@@ -114,6 +118,16 @@ class ActuatorForceGaussianV(Actuator):
         expression.eta = 1 / BtB
         expression.u_ctrl = 0.0
         self.expression = expression
+
+
+# class VectorExpression2D:
+#     def __init__(self, expr_u: str, expr_v: str, degree: int = 2, user_parameters: dict = None):
+#         self.expr_u = expr_u
+#         self.expr_v = expr_v
+#         self.degree = degree
+#         self.user_parameters = user_parameters or {}
+
+#         self.expr = dolfin.Expression((expr_u, expr_v), degree=degree, **self.user_parameters)
 
 
 if __name__ == "__main__":
