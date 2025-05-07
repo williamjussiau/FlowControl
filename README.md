@@ -25,7 +25,7 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 ### conda
 The ```conda```  environment required to run the code can be extracted from the file `environment.yml`. 
 
-The folders `flowcontrol` and `utils` in the root folder should be appended to the Python system path. To do that, either use `conda develop` or create a `conda.pth` file in `<YOUR_ENV_PATH>/lib/python3.12/site-packages` containing the absolute paths to the `flowcontrol` and `utils` folders.
+The folders `flowcontrol` and `utils` in the root folder should be appended to the Python system path. To do that, either use `conda develop` or create a `conda.pth` file in `<YOUR_ENV_PATH>/lib/python3.12/site-packages/` containing the absolute paths to the `flowcontrol` and `utils` folders.
 
 Additional path tweaking is sometines required for FEniCS to be found through the `dolfin` module.
 
