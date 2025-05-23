@@ -185,6 +185,7 @@ for jj in range(C.shape[0]):
 # max of Cj is: 3.038870378001052
 # max of Cj is: 0.9999999999994703
 # result is somewhat different in parallel, nice!
+# ---> check matrices in Paraview
 # dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.wall])
 logger.info(dt1)
 
