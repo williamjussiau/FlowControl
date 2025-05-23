@@ -2,7 +2,10 @@
 # Docker/venv/pip??
 
 # standardize initial_guess of Picard & Newton
-
+# Frequency response computation
+# Format operatorgetter (-> subfunctions, doc)
+#   get_B -> B = QB for force
+#   get_C -> check parallel result
 
 ## Mid-term
 # sort (& check & rm) utility funs (_flowsolver, _extract, _debug)
@@ -10,7 +13,6 @@
 
 ## Long-term
 # unit tests
-# test parallel -> peval Sensor, broadcast measurement
 # write_timeseries -> async?
 
 
