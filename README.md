@@ -27,7 +27,7 @@ The ```conda```  environment required to run the code can be extracted from the 
 
 The folders `flowcontrol` and `utils` in the root folder should be appended to the Python system path. To do that, either use `conda develop` or create a `conda.pth` file in `<YOUR_ENV_PATH>/lib/python3.12/site-packages/` containing the absolute paths to the `flowcontrol` and `utils` folders.
 
-Additional path tweaking is sometines required for FEniCS to be found through the `dolfin` module (see e.g. [this problem with PKG_CONFIG]([https://fenicsproject.org/](https://fenicsproject.discourse.group/t/problem-with-fenics-and-macos-catalina/2106)))
+Additional path tweaking is sometines required for FEniCS to be found through the `dolfin` module (see e.g. [this problem with PKG_CONFIG](https://fenicsproject.org/](https://fenicsproject.discourse.group/t/problem-with-fenics-and-macos-catalina/2106)))
 
 ### Docker :whale:
 [coming soon]
