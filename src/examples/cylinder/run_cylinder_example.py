@@ -3,13 +3,22 @@ import time
 from pathlib import Path
 
 import dolfin
-import flowsolverparameters
 import numpy as np
-import utils_flowsolver as flu
-from actuator import ActuatorBCParabolicV
-from controller import Controller
-from cylinderflowsolver import CylinderFlowSolver
-from sensor import SENSOR_TYPE, SensorPoint
+
+import flowcontrol.flowsolverparameters as flowsolverparameters
+import utils.utils_flowsolver as flu
+from flowcontrol.actuator import ActuatorBCParabolicV
+from flowcontrol.controller import Controller
+from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
+
+from .cylinderflowsolver import CylinderFlowSolver
+
+# import utils_flowsolver as flu
+# from actuator import ActuatorBCParabolicV
+# from controller import Controller
+# from cylinderflowsolver import CylinderFlowSolver
+# from sensor import SENSOR_TYPE, SensorPoint
+
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
