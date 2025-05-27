@@ -2,20 +2,16 @@
 For now: not working, just copied-pasted operator getters from FlowSolver to make room"""
 
 import logging
-import time
 from typing import Union
 
 import dolfin
-import flowsolver
-import line_profiler
 import numpy as np
-import utils_flowsolver as flu
-from actuator import ACTUATOR_TYPE
 from dolfin import div, dot, dx, inner, nabla_grad
-from mpi4py import MPI
-from sensor import Sensor, SensorIntegral, SensorPoint
 
-profile = line_profiler.LineProfiler()
+import utils.utils_flowsolver as flu
+from flowcontrol import flowsolver
+from flowcontrol.actuator import ACTUATOR_TYPE
+from flowcontrol.sensor import Sensor, SensorIntegral, SensorPoint
 
 logger = logging.getLogger(__name__)
 FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
@@ -87,7 +83,9 @@ class OperatorGetter:
 
         # Save amplitude
         u_ctrl_old = self.flowsolver.get_actuators_u_ctrl()
-        self.flowsolver.set_actuators_u_ctrl(self.flowsolver.params_control.actuator_number * [1.0])
+        self.flowsolver.set_actuators_u_ctrl(
+            self.flowsolver.params_control.actuator_number * [1.0]
+        )
 
         try:
             # Embed actuators in W (originally in V) + restrict spatially to boundary
@@ -104,7 +102,10 @@ class OperatorGetter:
             if as_function_list:
                 B = []
             else:
-                B = np.zeros((mpi_local_size, self.flowsolver.params_control.actuator_number), dtype=float)
+                B = np.zeros(
+                    (mpi_local_size, self.flowsolver.params_control.actuator_number),
+                    dtype=float,
+                )
 
             # Project expressions
             for ii, actuator_expression in enumerate(actuators_expressions):
@@ -138,13 +139,19 @@ class OperatorGetter:
         sensor_list = self.flowsolver.params_control.sensor_list
 
         if fast:
-            sensors_are_compatible = [sensor_is_compatible(sensor) for sensor in sensor_list]
+            sensors_are_compatible = [
+                sensor_is_compatible(sensor) for sensor in sensor_list
+            ]
 
             if not np.all(sensors_are_compatible):
-                logger.warning("Not all sensors compatible with fast implementation. Aborting.")
+                logger.warning(
+                    "Not all sensors compatible with fast implementation. Aborting."
+                )
                 return -1
 
-            dofs_to_parse = optimize_parsed_dofs(dofmap, dofmap_xy, self.flowsolver.mesh, sensor_list)
+            dofs_to_parse = optimize_parsed_dofs(
+                dofmap, dofmap_xy, self.flowsolver.mesh, sensor_list
+            )
         else:  # no fast = parse all dofs
             dofs_to_parse = dofs
 
@@ -173,7 +180,9 @@ class OperatorGetter:
             if ii == 200:
                 break
 
-        logger.info(f"Process {mpi_rank} - dofs GLOBAL has size: {len(dofs_to_parse_global)}")
+        logger.info(
+            f"Process {mpi_rank} - dofs GLOBAL has size: {len(dofs_to_parse_global)}"
+        )
 
         T1 = dolfin.Timer("Custom/Set vector to 0")
         T21 = dolfin.Timer("Custom/Check ownership")
@@ -303,7 +312,12 @@ def cell_owns_at_least_a_vertex(cell, vertices_idx):
     return len(vertices_idx.intersection(cell.entities(0)))
 
 
-def optimize_parsed_dofs(dofmap: dolfin.DofMap, dofmap_xy: np.ndarray, mesh: dolfin.Mesh, sensor_list: list[Sensor]):
+def optimize_parsed_dofs(
+    dofmap: dolfin.DofMap,
+    dofmap_xy: np.ndarray,
+    mesh: dolfin.Mesh,
+    sensor_list: list[Sensor],
+):
     # Define union of boxes to eval: encompas all locations + subdomains
     # dofmap_xy = W.tabulate_dof_coordinates()
     XYMARGIN = 0.05
@@ -319,7 +333,9 @@ def optimize_parsed_dofs(dofmap: dolfin.DofMap, dofmap_xy: np.ndarray, mesh: dol
             xymin = (sensor_position - XYMARGIN).reshape(1, -1)
             xymax = (sensor_position + XYMARGIN).reshape(1, -1)
             # keep dofs with coordinates inside box
-            dofs_in_box_mask = (np.greater_equal(dofmap_xy, xymin) * np.less_equal(dofmap_xy, xymax)).all(axis=1)
+            dofs_in_box_mask = (
+                np.greater_equal(dofmap_xy, xymin) * np.less_equal(dofmap_xy, xymax)
+            ).all(axis=1)
             # add to set (checks uniqueness)
             dofs_in_box.update(np.asarray(dofs)[dofs_in_box_mask])
 
@@ -337,7 +353,9 @@ def optimize_parsed_dofs(dofmap: dolfin.DofMap, dofmap_xy: np.ndarray, mesh: dol
             edges_idx_in_subdomain = boundary_markers.where_equal(SUBDOMAIN_INDEX)
 
             # find vertices
-            vertices_idx_in_subdomain = find_vertices_from_edges(mesh, edges_idx_in_subdomain)
+            vertices_idx_in_subdomain = find_vertices_from_edges(
+                mesh, edges_idx_in_subdomain
+            )
 
             # find cells owning vertices
             cells_idx_near_subdomain = set()
@@ -352,7 +370,9 @@ def optimize_parsed_dofs(dofmap: dolfin.DofMap, dofmap_xy: np.ndarray, mesh: dol
 
     # Union of dofs if mixed BC/force actuators
     logger.info(f"Optimized DOFs in box (SensorPoint): {len(dofs_in_box)}")
-    logger.info(f"Optimized DOFs in subdomain (SensorIntegral): {len(dofs_in_subdomain)}")
+    logger.info(
+        f"Optimized DOFs in subdomain (SensorIntegral): {len(dofs_in_subdomain)}"
+    )
     dofs_to_parse = dofs_in_box.union(dofs_in_subdomain)
     return dofs_to_parse
 
