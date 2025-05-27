@@ -9,7 +9,7 @@ jitfailure*
 movies
 _legacy
 .vscode
-examples/**/data_output/*
+src/examples/**/data_output/*
 figs
 flowcontrol.egg-info/
 *.vtu
