@@ -11,3 +11,4 @@ _legacy
 .vscode
 examples/**/data_output/*
 figs
+*.egg-inf
