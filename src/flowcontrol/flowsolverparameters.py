@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from actuator import Actuator
-from sensor import Sensor
+from flowcontrol.actuator import Actuator
+from flowcontrol.sensor import Sensor
 
 
 @dataclass(kw_only=True)

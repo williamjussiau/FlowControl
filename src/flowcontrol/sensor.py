@@ -4,7 +4,8 @@ from enum import IntEnum
 
 import dolfin
 import numpy as np
-import utils_flowsolver as flu
+
+import utils.utils_flowsolver as flu
 
 SENSOR_INDEX_DEFAULT = 100
 

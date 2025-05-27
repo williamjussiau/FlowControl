@@ -7,18 +7,10 @@ import numpy as np
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
+from examples.cylinder.cylinderflowsolver import CylinderFlowSolver
 from flowcontrol.actuator import ActuatorBCParabolicV
 from flowcontrol.controller import Controller
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
-
-from .cylinderflowsolver import CylinderFlowSolver
-
-# import utils_flowsolver as flu
-# from actuator import ActuatorBCParabolicV
-# from controller import Controller
-# from cylinderflowsolver import CylinderFlowSolver
-# from sensor import SENSOR_TYPE, SensorPoint
-
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
@@ -156,7 +148,7 @@ assert np.isclose(u_max, u_max_ref)
 assert np.isclose(u_mean, u_mean_ref)
 
 logger.info(
-    "Last line should be: 10  0.100  0.000000  0.131695  0.009738  0.009810  0.122620  0.222280"
+    "Last line should be: 10  0.100  0.000000  0.131695  0.009738  0.009810  0.122620  xxxxxxxx"
 )
 
 logger.info("End with success")

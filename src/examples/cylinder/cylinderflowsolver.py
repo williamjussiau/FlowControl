@@ -12,16 +12,17 @@ import time
 from pathlib import Path
 
 import dolfin
-import flowsolver
-import flowsolverparameters
 import numpy as np
 import pandas
-import utils_extract as flu2
-import utils_flowsolver as flu
-from actuator import ActuatorBCParabolicV
-from controller import Controller
-from flowfield import BoundaryConditions
-from sensor import SENSOR_TYPE, SensorPoint
+
+import flowcontrol.flowsolver as flowsolver
+import flowcontrol.flowsolverparameters as flowsolverparameters
+import utils.utils_extract as flu2
+import utils.utils_flowsolver as flu
+from flowcontrol.actuator import ActuatorBCParabolicV
+from flowcontrol.controller import Controller
+from flowcontrol.flowfield import BoundaryConditions
+from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
@@ -154,14 +155,18 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             self.params_control.actuator_list[0].expression,
             self.get_subdomain("actuator_up"),
         )
-        self.params_control.actuator_list[0].boundary = self.get_subdomain("actuator_up")
+        self.params_control.actuator_list[0].boundary = self.get_subdomain(
+            "actuator_up"
+        )
 
         bcu_actuation_lo = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[1].expression,
             self.get_subdomain("actuator_lo"),
         )
-        self.params_control.actuator_list[1].boundary = self.get_subdomain("actuator_lo")
+        self.params_control.actuator_list[1].boundary = self.get_subdomain(
+            "actuator_lo"
+        )
 
         bcu = [bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo]
 
@@ -245,7 +250,9 @@ if __name__ == "__main__":
         throw_error=True, is_eq_nonlinear=True, shift=0.0
     )
 
-    params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "O1.xdmf")
+    params_mesh = flowsolverparameters.ParamMesh(
+        meshpath=cwd / "data_input" / "O1.xdmf"
+    )
     params_mesh.user_data["xinf"] = 20
     params_mesh.user_data["xinfa"] = -10
     params_mesh.user_data["yinf"] = 10
