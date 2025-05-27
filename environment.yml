@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.12.8
+  - python>=3.10,<3.11
   - fenics=2019.1.0
   - meshio=5.3.5
   - scipy=1.14.1
