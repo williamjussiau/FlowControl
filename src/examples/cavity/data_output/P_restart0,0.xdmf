@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<Xdmf Version="3.0">
+  <Domain>
+    <Grid GridType="Collection" CollectionType="Temporal" Name="P">
+      <Grid Name="P_0" GridType="Uniform">
+        <Topology NumberOfElements="51883" TopologyType="Triangle" NodesPerElement="3">
+          <DataItem Dimensions="51883 3" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_0/mesh/topology</DataItem>
+        </Topology>
+        <Geometry GeometryType="XY">
+          <DataItem Dimensions="26322 2" Format="HDF">P_restart0,0.h5:P/P_0/mesh/geometry</DataItem>
+        </Geometry>
+        <Time Value="0.000000" />
+        <Attribute ItemType="FiniteElementFunction" ElementFamily="CG" ElementDegree="1" ElementCell="triangle" Name="P" Center="Other" AttributeType="Scalar">
+          <DataItem Dimensions="155649 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_0/cell_dofs</DataItem>
+          <DataItem Dimensions="26322 1" NumberType="Float" Format="HDF">P_restart0,0.h5:P/P_0/vector</DataItem>
+          <DataItem Dimensions="51884 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_0/x_cell_dofs</DataItem>
+          <DataItem Dimensions="51883 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_0/cells</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="P_1" GridType="Uniform">
+        <Topology NumberOfElements="51883" TopologyType="Triangle" NodesPerElement="3">
+          <DataItem Dimensions="51883 3" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_1/mesh/topology</DataItem>
+        </Topology>
+        <Geometry GeometryType="XY">
+          <DataItem Dimensions="26322 2" Format="HDF">P_restart0,0.h5:P/P_1/mesh/geometry</DataItem>
+        </Geometry>
+        <Time Value="0.002000" />
+        <Attribute ItemType="FiniteElementFunction" ElementFamily="CG" ElementDegree="1" ElementCell="triangle" Name="P" Center="Other" AttributeType="Scalar">
+          <DataItem Dimensions="155649 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_1/cell_dofs</DataItem>
+          <DataItem Dimensions="26322 1" NumberType="Float" Format="HDF">P_restart0,0.h5:P/P_1/vector</DataItem>
+          <DataItem Dimensions="51884 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_1/x_cell_dofs</DataItem>
+          <DataItem Dimensions="51883 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_1/cells</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="P_2" GridType="Uniform">
+        <Topology NumberOfElements="51883" TopologyType="Triangle" NodesPerElement="3">
+          <DataItem Dimensions="51883 3" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_2/mesh/topology</DataItem>
+        </Topology>
+        <Geometry GeometryType="XY">
+          <DataItem Dimensions="26322 2" Format="HDF">P_restart0,0.h5:P/P_2/mesh/geometry</DataItem>
+        </Geometry>
+        <Time Value="0.004000" />
+        <Attribute ItemType="FiniteElementFunction" ElementFamily="CG" ElementDegree="1" ElementCell="triangle" Name="P" Center="Other" AttributeType="Scalar">
+          <DataItem Dimensions="155649 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_2/cell_dofs</DataItem>
+          <DataItem Dimensions="26322 1" NumberType="Float" Format="HDF">P_restart0,0.h5:P/P_2/vector</DataItem>
+          <DataItem Dimensions="51884 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_2/x_cell_dofs</DataItem>
+          <DataItem Dimensions="51883 1" NumberType="UInt" Format="HDF">P_restart0,0.h5:P/P_2/cells</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+  </Domain>
+</Xdmf>

@@ -11,3 +11,6 @@ _legacy
 .vscode
 examples/**/data_output/*
 figs
+flowcontrol.egg-info/
+*.vtu
+*.pvd
