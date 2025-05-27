@@ -23,11 +23,16 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 
 ## Installation 🛠️
 ### conda
-The ```conda```  environment required to run the code can be extracted from the file `environment.yml`. 
+The ```conda```  environment required to run the code can be extracted from the file `environment.yml`. The proposed installation pipeline is:
+```py
+conda env create -n fenics --file environment.yml
+conda-develop src
+```
 
-The folder `src` in the root folder should be appended to the Python system path. To do that, either use `conda-develop src` from the root, or (manually) create a `conda.pth` file in `<YOUR_ENV_PATH>/lib/python3.12/site-packages/` containing the absolute paths to the `src` folder.
+The folder `src` in the root folder should be appended to the Python system path. To do that, either use `conda-develop src` from the root, or (manually) create a `conda.pth` file in `<YOUR_ENV_PATH>/lib/python3.xx/site-packages/` containing the absolute paths to the `src` folder.
 
 Additional path tweaking is sometines required for FEniCS to be found through the `dolfin` module (see e.g. [this problem with PKG_CONFIG](https://fenicsproject.discourse.group/t/problem-with-fenics-and-macos-catalina/2106))
+
 
 ### Docker :whale:
 [coming soon]
