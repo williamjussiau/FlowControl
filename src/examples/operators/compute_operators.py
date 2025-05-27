@@ -2,16 +2,15 @@ import logging
 import time
 from pathlib import Path
 
-import dolfin
-import flowsolverparameters
 import numpy as np
-import utils_flowsolver as flu
-from actuator import ActuatorBCParabolicV, ActuatorForceGaussianV
-from cavity.cavityflowsolver import CavityFlowSolver
-from cylinder.cylinderflowsolver import CylinderFlowSolver
-from dolfin import MPI
-from operatorgetter import OperatorGetter
-from sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
+
+import flowcontrol.flowsolverparameters as flowsolverparameters
+import utils.utils_flowsolver as flu
+from examples.cavity.cavityflowsolver import CavityFlowSolver
+from examples.cylinder.cylinderflowsolver import CylinderFlowSolver
+from flowcontrol.actuator import ActuatorBCParabolicV, ActuatorForceGaussianV
+from flowcontrol.operatorgetter import OperatorGetter
+from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
 # Set logger
 logger = logging.getLogger(__name__)
@@ -26,11 +25,17 @@ params_flow.user_data["D"] = 1.0
 
 params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
-params_save = flowsolverparameters.ParamSave(save_every=5, path_out=cwd / "cylinder" / "data_output")
+params_save = flowsolverparameters.ParamSave(
+    save_every=5, path_out=cwd / "cylinder" / "data_output"
+)
 
-params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+params_solver = flowsolverparameters.ParamSolver(
+    throw_error=True, is_eq_nonlinear=True, shift=0.0
+)
 
-params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd.parent / "cylinder" / "data_input" / "o1.xdmf")
+params_mesh = flowsolverparameters.ParamMesh(
+    meshpath=cwd.parent / "cylinder" / "data_input" / "o1.xdmf"
+)
 params_mesh.user_data["xinf"] = 20
 params_mesh.user_data["xinfa"] = -10
 params_mesh.user_data["yinf"] = 10
@@ -65,9 +70,11 @@ fscyl = CylinderFlowSolver(
 logger.info("__init__(): successful!")
 logger.info("Compute steady state...")
 uctrl0 = [0.0, 0.0]
-# fscyl.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
-# fscyl.compute_steady_state(method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fscyl.fields.UP0)
-fscyl.load_steady_state()
+fscyl.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
+fscyl.compute_steady_state(
+    method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fscyl.fields.UP0
+)
+# fscyl.load_steady_state()
 
 # Compute operator: A
 logger.info("Now computing operators...")
@@ -112,11 +119,17 @@ params_flow.user_data["D"] = 1.0
 
 params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.0004, Tstart=0.0)
 
-params_save = flowsolverparameters.ParamSave(save_every=5, path_out=cwd / "cavity" / "data_output")
+params_save = flowsolverparameters.ParamSave(
+    save_every=5, path_out=cwd / "cavity" / "data_output"
+)
 
-params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+params_solver = flowsolverparameters.ParamSolver(
+    throw_error=True, is_eq_nonlinear=True, shift=0.0
+)
 
-params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd.parent / "cavity" / "data_input" / "cavity_coarse.xdmf")
+params_mesh = flowsolverparameters.ParamMesh(
+    meshpath=cwd.parent / "cavity" / "data_input" / "cavity_coarse.xdmf"
+)
 params_mesh.user_data["xinf"] = 2.5
 params_mesh.user_data["xinfa"] = -1.2
 params_mesh.user_data["yinf"] = 0.5
@@ -156,9 +169,11 @@ fscav = CavityFlowSolver(
 logger.info("__init__(): successful!")
 logger.info("Compute steady state...")
 uctrl0 = [0.0]
-# fscav.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
-# fscav.compute_steady_state(method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fscav.fields.UP0)
-fscav.load_steady_state()
+fscav.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
+fscav.compute_steady_state(
+    method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fscav.fields.UP0
+)
+# fscav.load_steady_state()
 
 
 # Compute operator: A
