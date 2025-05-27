@@ -29,8 +29,6 @@ conda env create -n fenics --file environment.yml
 conda-develop src
 ```
 
-The folder `src` in the root folder should be appended to the Python system path. To do that, either use `conda-develop src` from the root, or (manually) create a `conda.pth` file in `<YOUR_ENV_PATH>/lib/python3.xx/site-packages/` containing the absolute paths to the `src` folder.
-
 Additional path tweaking is sometines required for FEniCS to be found through the `dolfin` module (see e.g. [this problem with PKG_CONFIG](https://fenicsproject.discourse.group/t/problem-with-fenics-and-macos-catalina/2106))
 
 
