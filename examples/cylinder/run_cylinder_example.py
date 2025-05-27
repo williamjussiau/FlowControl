@@ -30,9 +30,11 @@ params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
 params_save = flowsolverparameters.ParamSave(save_every=5, path_out=cwd / "data_output")
 
-params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+params_solver = flowsolverparameters.ParamSolver(
+    throw_error=True, is_eq_nonlinear=True, shift=0.0
+)
 
-params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "o1.xdmf")
+params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "O1.xdmf")
 params_mesh.user_data["xinf"] = 20
 params_mesh.user_data["xinfa"] = -10
 params_mesh.user_data["yinf"] = 10
@@ -67,13 +69,17 @@ fs = CylinderFlowSolver(
 logger.info("__init__(): successful!")
 
 logger.info("Exporting subdomains...")
-flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf")
+flu.export_subdomains(
+    fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
+)
 
 logger.info("Compute steady state...")
 uctrl0 = [0.0, 0.0]
 fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
 
-fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0)
+fs.compute_steady_state(
+    method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+)
 
 logger.info("Init time-stepping")
 fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
@@ -94,7 +100,9 @@ fs.write_timeseries()
 
 ################################################################################################
 ## Demonstrate restart
-params_time_restart = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.05)
+params_time_restart = flowsolverparameters.ParamTime(
+    num_steps=10, dt=0.005, Tstart=0.05
+)
 params_restart = flowsolverparameters.ParamRestart(
     save_every_old=5,
     restart_order=2,
@@ -138,6 +146,8 @@ logger.info(f"umean: {u_mean} (found) // (ref) {u_mean_ref}")
 assert np.isclose(u_max, u_max_ref)
 assert np.isclose(u_mean, u_mean_ref)
 
-logger.info("Last line should be: 10  0.100  0.000000  0.131695  0.009738  0.009810  0.122620  0.222280")
+logger.info(
+    "Last line should be: 10  0.100  0.000000  0.131695  0.009738  0.009810  0.122620  0.222280"
+)
 
 logger.info("End with success")
