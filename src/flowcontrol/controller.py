@@ -4,8 +4,9 @@ from pathlib import Path
 
 import control
 import numpy as np
-import utils_flowsolver as flu
-import youla_utils as yu
+
+import utils.utils_flowsolver as flu
+import utils.youla_utils as yu
 
 
 class Controller(control.StateSpace):

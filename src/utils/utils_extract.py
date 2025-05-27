@@ -1,13 +1,13 @@
-import dolfin
-from dolfin import inner, div, curl, sym, grad
-import utils_flowsolver as flu
+import logging
 
+import dolfin
 import numpy as np
 
 # import scipy.sparse as spr
 import sympy as sp
+from dolfin import curl, div, grad, inner, sym
 
-import logging
+import utils.utils_flowsolver as flu
 
 logger = logging.getLogger(__name__)
 

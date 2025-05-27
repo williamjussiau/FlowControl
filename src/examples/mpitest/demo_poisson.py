@@ -76,6 +76,8 @@
 #
 # First, the :py:mod:`dolfin` module is imported: ::
 
+import pathlib
+
 import dolfin
 import matplotlib.pyplot as plt
 
@@ -153,7 +155,9 @@ bc = dolfin.DirichletBC(V, u0, boundary)
 # Define variational problem
 u = dolfin.TrialFunction(V)
 v = dolfin.TestFunction(V)
-f = dolfin.Expression("10*exp(-(pow(x[0] - 0.5, 2) + pow(x[1] - 0.5, 2)) / 0.02)", degree=2)
+f = dolfin.Expression(
+    "10*exp(-(pow(x[0] - 0.5, 2) + pow(x[1] - 0.5, 2)) / 0.02)", degree=2
+)
 g = dolfin.Expression("sin(5*x[0])", degree=2)
 a = dolfin.inner(dolfin.grad(u), dolfin.grad(v)) * dolfin.dx
 L = f * v * dolfin.dx + g * v * dolfin.ds
@@ -184,7 +188,8 @@ dolfin.solve(a == L, u, bc)
 # the :py:func:`plot <dolfin.common.plot.plot>` command: ::
 
 # Save solution in VTK format
-file = dolfin.File("examples/mpitest/poisson.pvd")
+
+file = dolfin.File(str(pathlib.Path(__file__).parent / "poisson.pvd"))
 file << u
 
 # Plot solution
