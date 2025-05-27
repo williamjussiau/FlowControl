@@ -1,12 +1,14 @@
-import dolfin
-from dolfin import dot
-#import utils_flowsolver as flu
-
-import numpy as np
-#i#mport scipy.sparse as spr
-#import sympy as sp
-
 import logging
+
+import dolfin
+import numpy as np
+from dolfin import dot
+
+# import utils_flowsolver as flu
+
+# i#mport scipy.sparse as spr
+# import sympy as sp
+
 
 logger = logging.getLogger(__name__)
 

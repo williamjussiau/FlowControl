@@ -3,12 +3,13 @@ import time
 from pathlib import Path
 
 import dolfin
-import flowsolverparameters
 import numpy as np
-import utils_flowsolver as flu
-from actuator import ActuatorForceGaussianV
-from cavityflowsolver import CavityFlowSolver
-from sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
+
+import flowcontrol.flowsolverparameters as flowsolverparameters
+import utils.utils_flowsolver as flu
+from examples.cavity.cavityflowsolver import CavityFlowSolver
+from flowcontrol.actuator import ActuatorForceGaussianV
+from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
@@ -34,7 +35,9 @@ params_solver = flowsolverparameters.ParamSolver(
     throw_error=True, is_eq_nonlinear=True, shift=0.0
 )
 
-params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "cavity_coarse.xdmf")
+params_mesh = flowsolverparameters.ParamMesh(
+    meshpath=cwd / "data_input" / "cavity_coarse.xdmf"
+)
 params_mesh.user_data["xinf"] = 2.5
 params_mesh.user_data["xinfa"] = -1.2
 params_mesh.user_data["yinf"] = 0.5
@@ -74,12 +77,16 @@ fs = CavityFlowSolver(
 logger.info("__init__(): successful!")
 
 logger.info("Exporting subdomains...")
-flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf")
+flu.export_subdomains(
+    fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
+)
 
 logger.info("Compute steady state...")
 uctrl0 = [0.0]
 fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
-fs.compute_steady_state(method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0)
+fs.compute_steady_state(
+    method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+)
 
 logger.info("Init time-stepping")
 fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)

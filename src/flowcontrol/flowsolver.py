@@ -7,14 +7,15 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import dolfin
-import flowsolverparameters
 import numpy as np
 import pandas as pd
-import utils_extract as flu2
-import utils_flowsolver as flu
-from actuator import ACTUATOR_TYPE
 from dolfin import div, dot, dx, inner, nabla_grad
-from flowfield import BoundaryConditions, FlowField, FlowFieldCollection
+
+import flowcontrol.flowsolverparameters as flowsolverparameters
+import utils.utils_extract as flu2
+import utils.utils_flowsolver as flu
+from flowcontrol.actuator import ACTUATOR_TYPE
+from flowcontrol.flowfield import BoundaryConditions, FlowField, FlowFieldCollection
 
 logger = logging.getLogger(__name__)
 FORMAT = (
@@ -198,7 +199,9 @@ class FlowSolver(ABC):
         bnd_markers = dolfin.MeshFunction(
             "size_t", self.mesh, self.mesh.topology().dim() - 1
         )
-        cell_markers = dolfin.MeshFunction("size_t", self.mesh, self.mesh.topology().dim())
+        cell_markers = dolfin.MeshFunction(
+            "size_t", self.mesh, self.mesh.topology().dim()
+        )
         boundaries_idx = range(len(self.boundaries))
 
         for i, boundary_index in enumerate(boundaries_idx):

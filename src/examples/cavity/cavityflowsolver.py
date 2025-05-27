@@ -12,14 +12,15 @@ import time
 from pathlib import Path
 
 import dolfin
-import flowsolver
-import flowsolverparameters
 import numpy as np
 import pandas
-import utils_flowsolver as flu
-from actuator import ActuatorForceGaussianV
-from flowfield import BoundaryConditions
-from sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
+
+import flowcontrol.flowsolver as flowsolver
+import flowcontrol.flowsolverparameters as flowsolverparameters
+import utils.utils_flowsolver as flu
+from flowcontrol.actuator import ActuatorForceGaussianV
+from flowcontrol.flowfield import BoundaryConditions
+from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
 # from controller import Controller
 
@@ -423,7 +424,9 @@ if __name__ == "__main__":
         save_every=5, path_out=cwd / "data_output"
     )
 
-    params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+    params_solver = flowsolverparameters.ParamSolver(
+        throw_error=True, is_eq_nonlinear=True, shift=0.0
+    )
 
     params_mesh = flowsolverparameters.ParamMesh(
         meshpath=cwd / "data_input" / "cavity_coarse.xdmf"
