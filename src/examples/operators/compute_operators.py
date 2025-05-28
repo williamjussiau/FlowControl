@@ -34,7 +34,7 @@ params_solver = flowsolverparameters.ParamSolver(
 )
 
 params_mesh = flowsolverparameters.ParamMesh(
-    meshpath=cwd.parent / "cylinder" / "data_input" / "o1.xdmf"
+    meshpath=cwd.parent / "cylinder" / "data_input" / "O1.xdmf"
 )
 params_mesh.user_data["xinf"] = 20
 params_mesh.user_data["xinfa"] = -10
