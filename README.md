@@ -100,11 +100,9 @@ The toolbox provides additional utility related to flow control:
 ## Roadmap
 The current roadmap is as follows:
 * Complete the documentation :book:,
-* Refactor and release additional control-related tools,
+* Refactor and release additional control-related tools and eigenproblem tools,
 * Update the project to [FEniCSx](https://fenicsproject.org/documentation/),
-* Sort and check all utility functions,
-* Write general form for operator computation,
-* Docker/venv/pip.
+* Sort and check all utility functions. 
 
 
 
