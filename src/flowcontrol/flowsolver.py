@@ -831,13 +831,16 @@ class FlowSolver(ABC):
         self.fields.UP0 = self.fields.STEADY.up
         self.E0 = 1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
 
-    def load_steady_state(self) -> None:
+    def load_steady_state(self, path_u_p: Iterable[Path] | None = None) -> None:
         """Load steady state from file (from ParamSave.path_out)"""
         U0 = dolfin.Function(self.V)
         P0 = dolfin.Function(self.P)
-        flu.read_xdmf(self.paths["U0"], U0, "U0")
-        flu.read_xdmf(self.paths["P0"], P0, "P0")
+        if path_u_p is None:
+            path_u_p = (self.paths["U0"], self.paths["P0"])
+        flu.read_xdmf(path_u_p[0], U0, "U0")
+        flu.read_xdmf(path_u_p[1], P0, "P0")
         self._assign_steady_state(U0=U0, P0=P0)
+        flu.write_xdmf("testU0.xdmf", U0, "U0BIS")
 
     def compute_steady_state(
         self, u_ctrl: list, method: str = "newton", **kwargs
