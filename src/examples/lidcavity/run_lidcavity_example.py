@@ -22,13 +22,13 @@ def main():
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=7000, uinf=1)
+    params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=10, path_out=cwd / "data_output"
+        save_every=1000, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -36,7 +36,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh128_crossed.xdmf"
+        meshpath=cwd / "data_input" / "mesh128.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
@@ -76,13 +76,17 @@ def main():
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = [0.0]
-    fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=uctrl0)
-    fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+    # uctrl0 = [0.0]
+    # fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=uctrl0)
+    # fs.compute_steady_state(
+    #     method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+    # )
+    fs.load_steady_state(
+        path_u_p=[
+            cwd / "data_output" / "steady" / "U0_Re=8000.xdmf",
+            cwd / "data_output" / "steady" / "P0_Re=8000.xdmf",
+        ]
     )
-
-    fs.load_steady_state()
 
     logger.info("Init time-stepping")
     fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
@@ -100,20 +104,6 @@ def main():
     fs.write_timeseries()
 
     logger.info("End with success")
-
-
-def make_mesh(nx, ny, export=True, filename="mesh.xdmf", option="left"):
-    """Make simple unit square mesh with dolfin native function
-    The mesh can be exported to a xdmf file"""
-    mesh = dolfin.UnitSquareMesh(nx, ny, option)  # options: left, right, crossed
-
-    if export:
-        meshpath = Path.cwd() / "src" / "examples" / "lidcavity" / "data_input"
-        with dolfin.XDMFFile(str(meshpath / filename)) as meshfile:
-            print(f"--- Exported mesh file in {meshpath} ---")
-            meshfile.write(mesh)
-
-    return mesh
 
 
 if __name__ == "__main__":
