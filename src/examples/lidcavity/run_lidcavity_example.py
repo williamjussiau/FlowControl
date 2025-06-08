@@ -22,13 +22,13 @@ def main():
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=4000, uinf=0.1)
+    params_flow = flowsolverparameters.ParamFlow(Re=7000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=5, path_out=cwd / "data_output"
+        save_every=10, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -36,7 +36,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh64.xdmf"
+        meshpath=cwd / "data_input" / "mesh128_crossed.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
@@ -53,7 +53,7 @@ def main():
     )
 
     params_ic = flowsolverparameters.ParamIC(
-        xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
+        xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1
     )
 
     fs = LidCavityFlowSolver(
@@ -65,7 +65,7 @@ def main():
         params_restart=params_restart,
         params_control=params_control,
         params_ic=params_ic,
-        verbose=5,
+        verbose=10,
     )
 
     logger.info("__init__(): successful!")
@@ -76,12 +76,13 @@ def main():
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = [0.0, 0.0]
-    fs.compute_steady_state(method="picard", max_iter=25, tol=1e-7, u_ctrl=uctrl0)
-
+    uctrl0 = [0.0]
+    fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
         method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
+
+    fs.load_steady_state()
 
     logger.info("Init time-stepping")
     fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
@@ -90,7 +91,7 @@ def main():
 
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)  # should be empty
-        u_ctrl = [0.01]
+        u_ctrl = [0.0]
 
         fs.step(u_ctrl=[u_ctrl[0]])
 
@@ -101,10 +102,10 @@ def main():
     logger.info("End with success")
 
 
-def make_mesh(nx, ny, export=True, filename="mesh.xdmf"):
+def make_mesh(nx, ny, export=True, filename="mesh.xdmf", option="left"):
     """Make simple unit square mesh with dolfin native function
     The mesh can be exported to a xdmf file"""
-    mesh = dolfin.UnitSquareMesh(nx, ny)  # options: left, right, crossed
+    mesh = dolfin.UnitSquareMesh(nx, ny, option)  # options: left, right, crossed
 
     if export:
         meshpath = Path.cwd() / "src" / "examples" / "lidcavity" / "data_input"

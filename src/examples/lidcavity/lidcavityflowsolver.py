@@ -127,6 +127,19 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
 
         return BC
 
+    # override
+    def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
+        class default_initial_guess(dolfin.UserExpression):
+            def eval(self, value, x):  # zero everywhere
+                value[0] = 0.0
+                value[1] = 0.0
+                value[2] = 0.0
+
+            def value_shape(self):
+                return (3,)
+
+        return default_initial_guess()
+
 
 ###############################################################################
 ###############################################################################
