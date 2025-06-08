@@ -898,11 +898,12 @@ class FlowSolver(ABC):
         Returns:
             dolfin.Function: estimation of steady state UP0
         """
-        F0, UP0 = self._make_varf_steady(initial_guess=initial_guess)
-        BC = self._make_BCs()
+        # Process initial guess
+        UP0 = self._define_initial_guess(initial_guess=initial_guess)
 
-        if initial_guess is None:
-            logger.info("Newton solver --- without initial guess")
+        # Compute
+        F0, UP0 = self._make_varf_steady(initial_guess=UP0)
+        BC = self._make_BCs()
 
         nl_solver_param = {
             "newton_solver": {
@@ -917,7 +918,10 @@ class FlowSolver(ABC):
         return UP0
 
     def _compute_steady_state_picard(
-        self, max_iter: int = 10, tol: float = 1e-14
+        self,
+        max_iter: int = 10,
+        tol: float = 1e-14,
+        initial_guess: dolfin.Function | None = None,
     ) -> dolfin.Function:
         """Compute steady state with fixed-point Picard iteration.
         This method should have a larger convergence radius than Newton method,
@@ -935,13 +939,12 @@ class FlowSolver(ABC):
         BC = self._make_BCs()
         invRe = dolfin.Constant(1 / self.params_flow.Re)
 
-        UP0 = dolfin.Function(self.W)
-        UP1 = dolfin.Function(self.W)
+        UP0 = self._define_initial_guess(initial_guess=initial_guess)
+        UP1 = dolfin.Function(self.W)  # receive result
 
         u, p = dolfin.TrialFunctions(self.W)
         v, q = dolfin.TestFunctions(self.W)
 
-        UP0.interpolate(self._default_steady_state_initial_guess())
         U0 = dolfin.as_vector((UP0[0], UP0[1]))
 
         ap = (
@@ -978,6 +981,16 @@ class FlowSolver(ABC):
 
         return UP1
 
+    def _define_initial_guess(self, initial_guess: dolfin.Function | None = None):
+        UP0 = dolfin.Function(self.W)
+        if initial_guess is None:
+            logger.info("Steady-state solver --- without initial guess")
+            UP0.interpolate(self._default_steady_state_initial_guess())
+        else:
+            logger.info("Steady-state solver --- provided initial guess")
+            UP0 = initial_guess
+        return UP0
+
     def _make_varf_steady(
         self, initial_guess: dolfin.Function | None = None
     ) -> tuple[dolfin.Form, dolfin.Function]:
@@ -992,7 +1005,7 @@ class FlowSolver(ABC):
         """
         v, q = dolfin.TestFunctions(self.W)
         if initial_guess is None:
-            UP0 = dolfin.Function(self.W)
+            UP0 = dolfin.Function(self.W)  # 0
         else:
             UP0 = initial_guess
         U0, P0 = dolfin.split(UP0)  # not deep copy, need the link only
