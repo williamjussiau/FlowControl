@@ -3,11 +3,13 @@ import time
 from pathlib import Path
 
 import dolfin
+import numpy as np
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCParabolicV
+from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 
 def main():
@@ -25,10 +27,10 @@ def main():
     params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=30000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=1000, path_out=cwd / "data_output"
+        save_every=100, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -47,8 +49,9 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     actuator_bc_up = ActuatorBCParabolicV(angular_size_deg=10)
+    sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.05, 0.5]))
     params_control = flowsolverparameters.ParamControl(
-        sensor_list=[],
+        sensor_list=[sensor_1],
         actuator_list=[actuator_bc_up],
     )
 
