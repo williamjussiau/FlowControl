@@ -840,7 +840,6 @@ class FlowSolver(ABC):
         flu.read_xdmf(path_u_p[0], U0, "U0")
         flu.read_xdmf(path_u_p[1], P0, "P0")
         self._assign_steady_state(U0=U0, P0=P0)
-        flu.write_xdmf("testU0.xdmf", U0, "U0BIS")
 
     def compute_steady_state(
         self, u_ctrl: list, method: str = "newton", **kwargs
