@@ -27,7 +27,7 @@ def main():
     params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=30000, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=100, path_out=cwd / "data_output"
@@ -97,8 +97,8 @@ def main():
     logger.info("Step several times")
 
     for _ in range(fs.params_time.num_steps):
-        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)  # should be empty
-        u_ctrl = [0.0]
+        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
+        u_ctrl = [0.0 * y_meas[0]]
 
         fs.step(u_ctrl=[u_ctrl[0]])
 
