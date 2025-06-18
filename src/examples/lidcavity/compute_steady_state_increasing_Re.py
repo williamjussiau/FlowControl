@@ -59,9 +59,9 @@ def main():
     steady_state_filename_U0 = ""
     steady_state_filename_P0 = ""
     for Re in Re_list:
-        print("*" * 100)
-        print(f"--- Computing steady state for Reynolds number Re={Re}")
-        print("*" * 100)
+        logger.info("*" * 100)
+        logger.info(f"--- Computing steady state for Reynolds number Re={Re}")
+        logger.info("*" * 100)
         params_flow.Re = Re
 
         fs = LidCavityFlowSolver(
