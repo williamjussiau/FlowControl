@@ -27,7 +27,7 @@ def main():
     params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=100, path_out=cwd / "data_output"
@@ -110,4 +110,5 @@ def main():
 
 
 if __name__ == "__main__":
+    main()
     main()
