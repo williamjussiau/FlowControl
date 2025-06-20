@@ -1,3 +1,13 @@
+"""
+----------------------------------------------------------------------
+Lid-driven cavity
+Nondimensional incompressible Navier-Stokes equations
+Supercritical Hopf bifurcation near Re_c=7700
+----------------------------------------------------------------------
+This file produces simple meshes for the geometry
+----------------------------------------------------------------------
+"""
+
 from pathlib import Path
 
 import dolfin

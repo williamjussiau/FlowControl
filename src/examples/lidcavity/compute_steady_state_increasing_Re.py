@@ -1,3 +1,15 @@
+"""
+----------------------------------------------------------------------
+Lid-driven cavity
+Nondimensional incompressible Navier-Stokes equations
+Supercritical Hopf bifurcation near Re_c=7700
+----------------------------------------------------------------------
+This file demonstrates the following possibilites:
+    - Use initial guess for steady-state computation
+    - Compute steady-states at increasing Re
+----------------------------------------------------------------------
+"""
+
 import logging
 from pathlib import Path
 

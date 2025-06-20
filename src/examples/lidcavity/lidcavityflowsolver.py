@@ -1,9 +1,8 @@
 """
-Incompressible Navier-Stokes equations
-
-  u' + u . nabla(u)) - div(sigma(u, p)) = f
-                                 div(u) = 0
-Equations were made non-dimensional
+----------------------------------------------------------------------
+Lid-driven cavity
+Nondimensional incompressible Navier-Stokes equations
+Supercritical Hopf bifurcation near Re_c=7700
 ----------------------------------------------------------------------
 """
 
