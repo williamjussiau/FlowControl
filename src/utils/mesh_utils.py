@@ -42,10 +42,9 @@ def convert_mesh_msh2xdmf(mshfile):
     """
     mshfile = set_file_extension(mshfile, ".msh")
     mesh = meshio.read(mshfile)
-    mesh.prune_z_0()
     # as xdmf
     meshxdmf = meshio.Mesh(
-        points=mesh.points, cells={"triangle": mesh.cells_dict["triangle"]}
+        points=mesh.points[:, :2], cells={"triangle": mesh.cells_dict["triangle"]}
     )
     meshio.write(set_file_extension(mshfile, ".xdmf"), meshxdmf)
 
