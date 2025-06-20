@@ -21,7 +21,7 @@ import numpy as np
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
-from flowcontrol.actuator import ActuatorBCParabolicV
+from flowcontrol.actuator import ActuatorBCUniformU
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 
@@ -40,10 +40,10 @@ def main():
     params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=2, path_out=cwd / "data_output"
+        save_every=100, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -61,10 +61,12 @@ def main():
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    actuator_bc_up = ActuatorBCParabolicV(angular_size_deg=10)
+    actuator_bc_up = ActuatorBCUniformU()
     sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.05, 0.5]))
+    sensor_2 = SensorPoint(sensor_type=SENSOR_TYPE.U, position=np.array([0.5, 0.95]))
+    sensor_3 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.5, 0.95]))
     params_control = flowsolverparameters.ParamControl(
-        sensor_list=[sensor_1],
+        sensor_list=[sensor_1, sensor_2, sensor_3],
         actuator_list=[actuator_bc_up],
     )
 
@@ -111,7 +113,7 @@ def main():
 
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = [0.0 * y_meas[0]]
+        u_ctrl = [0.2 * np.sin(2 * np.pi * fs.t) + 0 * y_meas[0]]
 
         fs.step(u_ctrl=[u_ctrl[0]])
 
