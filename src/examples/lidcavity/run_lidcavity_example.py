@@ -1,3 +1,16 @@
+"""
+----------------------------------------------------------------------
+Lid-driven cavity
+Nondimensional incompressible Navier-Stokes equations
+Supercritical Hopf bifurcation near Re_c=7700
+----------------------------------------------------------------------
+This file demonstrates the following possibilites:
+    - Initialize CylinderFlowSolver object
+    - Load steady-state from XDMF file
+    - Perform unactuated time simulation
+----------------------------------------------------------------------
+"""
+
 import logging
 import time
 from pathlib import Path
