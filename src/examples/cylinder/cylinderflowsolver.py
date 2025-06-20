@@ -8,21 +8,15 @@ Suggested Re=100
 """
 
 import logging
-import time
-from pathlib import Path
 
 import dolfin
 import numpy as np
 import pandas
 
 import flowcontrol.flowsolver as flowsolver
-import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_extract as flu2
 import utils.utils_flowsolver as flu
-from flowcontrol.actuator import ActuatorBCParabolicV
-from flowcontrol.controller import Controller
 from flowcontrol.flowfield import BoundaryConditions
-from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
