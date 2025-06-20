@@ -5,14 +5,10 @@ Nondimensional incompressible Navier-Stokes equations
 Supercritical Hopf bifurcation near Re_c=7700
 ----------------------------------------------------------------------
 This file demonstrates the following possibilites:
-    - Initialize CylinderFlowSolver object
-    - Load steady-state from XDMF file
-    - Perform unactuated time simulation
+    - Read XDMF files and store them into numpy arrays
 ----------------------------------------------------------------------
 """
 
-import logging
-import time
 from pathlib import Path
 
 import dolfin
@@ -26,24 +22,16 @@ from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 
 def main():
-    # LOG
-    dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
-    logger = logging.getLogger(__name__)
-    FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-    logging.basicConfig(format=FORMAT, level=logging.DEBUG)
-
-    t000 = time.time()
+    ## Initialize LidCavityFlowSolver to have access to dolfin.Function and dolfin.FunctionSpace
     cwd = Path(__file__).parent
-
-    logger.info("Trying to instantiate FlowSolver...")
 
     params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=2, path_out=cwd / "data_output"
+        save_every=20, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -84,42 +72,56 @@ def main():
         verbose=10,
     )
 
-    logger.info("__init__(): successful!")
+    ##########################################################
+    ##########################################################
+    ##########################################################
+    # XDMF files
+    xdmf_files = [
+        "U_restart0,0.xdmf",
+        "Uprev_restart0,0.xdmf",
+    ]
 
-    logger.info("Exporting subdomains...")
-    flu.export_subdomains(
-        fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
-    )
+    # Allocate dolfin.Function
+    U_field = dolfin.Function(fs.V)
+    P_field = dolfin.Function(fs.P)
+    UP_field = dolfin.Function(fs.W)
 
-    logger.info("Compute steady state...")
-    # uctrl0 = [0.0]
-    # fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=uctrl0)
-    # fs.compute_steady_state(
-    #     method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
-    # )
-    fs.load_steady_state(
-        path_u_p=[
-            cwd / "data_output" / "steady" / "U0_Re=8000.xdmf",
-            cwd / "data_output" / "steady" / "P0_Re=8000.xdmf",
-        ]
-    )
+    # Nr of DOFs to allocate numpy arrays
+    ndof_u = fs.V.dim()
+    ndof_p = fs.P.dim()
+    ndof = fs.W.dim()
+    nsnapshots_max = 100
 
-    logger.info("Init time-stepping")
-    fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
+    # Data will be stored as lists of 2D arrays
+    # each array has shape [ndof, nsnapshots]
+    # because nr of snapshots is initially unknown
+    # and potentially different for each file
+    # if not: preallocate 3D array
+    U_field_alldata = []
+    P_field_alldata = []
+    UP_field_alldata = []
 
-    logger.info("Step several times")
+    U_field_data = np.empty((ndof_u,))
+    P_field_data = np.empty((ndof_p,))
+    UP_field_data = np.empty((ndof,))
 
-    for _ in range(fs.params_time.num_steps):
-        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = [0.0 * y_meas[0]]
+    for jfile, file_name in enumerate(xdmf_files):
+        for icounter in range(nsnapshots_max):
+            # try:
+            print(f"Reading {jfile} file: {file_name}, counter={icounter}")
 
-        fs.step(u_ctrl=[u_ctrl[0]])
-
-    flu.summarize_timings(fs, t000)
-    logger.info(fs.timeseries)
-    fs.write_timeseries()
-
-    logger.info("End with success")
+            flu.read_xdmf(file_name, U_field, "U", counter=icounter)
+            U_field_data = np.asarray(
+                U_field.vector().get_local()
+            )  # .get_local() == [:]
+            print(max(U_field_data))
+            U_field_alldata.append(U_field_data)
+            print(len(U_field_alldata))
+            # except RuntimeError:
+            #    print("EOF -- Reached End Of File")
+            #    break
+        # finally:
+        #     print("coucou")
 
 
 if __name__ == "__main__":
