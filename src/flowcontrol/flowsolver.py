@@ -984,9 +984,9 @@ class FlowSolver(ABC):
         return UP1
 
     def _define_initial_guess(self, initial_guess: dolfin.Function | None = None):
-        UP0 = dolfin.Function(self.W)
         if initial_guess is None:
             logger.info("Steady-state solver --- without initial guess")
+            UP0 = dolfin.Function(self.W)
             UP0.interpolate(self._default_steady_state_initial_guess())
         else:
             logger.info("Steady-state solver --- provided initial guess")
@@ -1135,6 +1135,13 @@ class FlowSolver(ABC):
     ) -> dolfin.Function:
         """Default perturbation added to the initial state, modulated by the amplitude
         self.params_solver.ic_add_perturbation (float)."""
+        return self._perturbation_div0(xloc, yloc, radius)
+
+    def _perturbation_div0(
+        self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
+    ) -> dolfin.Function:
+        """Arbitrary perturbation with zero divergence.
+        See _default_initial_perturbation()"""
         u_nodiv = flu2.get_div0_u(self, xloc=xloc, yloc=yloc, size=radius)
         p_default = flu.projectm(self.fields.STEADY.p, self.P)
         return self.merge(u=u_nodiv, p=p_default)
