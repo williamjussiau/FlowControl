@@ -831,12 +831,14 @@ class FlowSolver(ABC):
         self.fields.UP0 = self.fields.STEADY.up
         self.E0 = 1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
 
-    def load_steady_state(self) -> None:
+    def load_steady_state(self, path_u_p: Iterable[Path] | None = None) -> None:
         """Load steady state from file (from ParamSave.path_out)"""
         U0 = dolfin.Function(self.V)
         P0 = dolfin.Function(self.P)
-        flu.read_xdmf(self.paths["U0"], U0, "U0")
-        flu.read_xdmf(self.paths["P0"], P0, "P0")
+        if path_u_p is None:
+            path_u_p = (self.paths["U0"], self.paths["P0"])
+        flu.read_xdmf(path_u_p[0], U0, "U0")
+        flu.read_xdmf(path_u_p[1], P0, "P0")
         self._assign_steady_state(U0=U0, P0=P0)
 
     def compute_steady_state(
@@ -898,11 +900,12 @@ class FlowSolver(ABC):
         Returns:
             dolfin.Function: estimation of steady state UP0
         """
-        F0, UP0 = self._make_varf_steady(initial_guess=initial_guess)
-        BC = self._make_BCs()
+        # Process initial guess
+        UP0 = self._define_initial_guess(initial_guess=initial_guess)
 
-        if initial_guess is None:
-            logger.info("Newton solver --- without initial guess")
+        # Compute
+        F0, UP0 = self._make_varf_steady(initial_guess=UP0)
+        BC = self._make_BCs()
 
         nl_solver_param = {
             "newton_solver": {
@@ -917,7 +920,10 @@ class FlowSolver(ABC):
         return UP0
 
     def _compute_steady_state_picard(
-        self, max_iter: int = 10, tol: float = 1e-14
+        self,
+        max_iter: int = 10,
+        tol: float = 1e-14,
+        initial_guess: dolfin.Function | None = None,
     ) -> dolfin.Function:
         """Compute steady state with fixed-point Picard iteration.
         This method should have a larger convergence radius than Newton method,
@@ -935,13 +941,12 @@ class FlowSolver(ABC):
         BC = self._make_BCs()
         invRe = dolfin.Constant(1 / self.params_flow.Re)
 
-        UP0 = dolfin.Function(self.W)
-        UP1 = dolfin.Function(self.W)
+        UP0 = self._define_initial_guess(initial_guess=initial_guess)
+        UP1 = dolfin.Function(self.W)  # receive result
 
         u, p = dolfin.TrialFunctions(self.W)
         v, q = dolfin.TestFunctions(self.W)
 
-        UP0.interpolate(self._default_steady_state_initial_guess())
         U0 = dolfin.as_vector((UP0[0], UP0[1]))
 
         ap = (
@@ -978,6 +983,16 @@ class FlowSolver(ABC):
 
         return UP1
 
+    def _define_initial_guess(self, initial_guess: dolfin.Function | None = None):
+        if initial_guess is None:
+            logger.info("Steady-state solver --- without initial guess")
+            UP0 = dolfin.Function(self.W)
+            UP0.interpolate(self._default_steady_state_initial_guess())
+        else:
+            logger.info("Steady-state solver --- provided initial guess")
+            UP0 = initial_guess
+        return UP0
+
     def _make_varf_steady(
         self, initial_guess: dolfin.Function | None = None
     ) -> tuple[dolfin.Form, dolfin.Function]:
@@ -992,7 +1007,7 @@ class FlowSolver(ABC):
         """
         v, q = dolfin.TestFunctions(self.W)
         if initial_guess is None:
-            UP0 = dolfin.Function(self.W)
+            UP0 = dolfin.Function(self.W)  # 0
         else:
             UP0 = initial_guess
         U0, P0 = dolfin.split(UP0)  # not deep copy, need the link only
@@ -1120,6 +1135,13 @@ class FlowSolver(ABC):
     ) -> dolfin.Function:
         """Default perturbation added to the initial state, modulated by the amplitude
         self.params_solver.ic_add_perturbation (float)."""
+        return self._perturbation_div0(xloc, yloc, radius)
+
+    def _perturbation_div0(
+        self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
+    ) -> dolfin.Function:
+        """Arbitrary perturbation with zero divergence.
+        See _default_initial_perturbation()"""
         u_nodiv = flu2.get_div0_u(self, xloc=xloc, yloc=yloc, size=radius)
         p_default = flu.projectm(self.fields.STEADY.p, self.P)
         return self.merge(u=u_nodiv, p=p_default)
