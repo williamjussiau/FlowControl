@@ -1,3 +1,13 @@
+"""
+----------------------------------------------------------------------
+Lid-driven cavity
+Nondimensional incompressible Navier-Stokes equations
+Supercritical Hopf bifurcation near Re_c=7700
+----------------------------------------------------------------------
+This file converts meshes from .msh (gmsh) to .xdmf
+----------------------------------------------------------------------
+"""
+
 from pathlib import Path
 
 import meshio
