@@ -1,9 +1,9 @@
 """
-Incompressible Navier-Stokes equations
-
-  u' + u . nabla(u)) - div(sigma(u, p)) = f
-                                 div(u) = 0
-Equations were made non-dimensional
+----------------------------------------------------------------------
+Flow past a cylinder
+Nondimensional incompressible Navier-Stokes equations
+Supercritical Hopf bifurcation at Re_c=46
+Suggested Re=100
 ----------------------------------------------------------------------
 """
 

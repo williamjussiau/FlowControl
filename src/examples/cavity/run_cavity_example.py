@@ -1,3 +1,16 @@
+"""
+----------------------------------------------------------------------
+Flow over an open cavity
+Nondimensional incompressible Navier-Stokes equations
+Suggested Re=7500
+----------------------------------------------------------------------
+This file demonstrates the following possibilites:
+    - Initialize CavityFlowSolver object
+    - Compute steady-state
+    - Perform open-loop time simulation
+----------------------------------------------------------------------
+"""
+
 import logging
 import time
 from pathlib import Path
