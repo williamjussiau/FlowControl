@@ -43,6 +43,7 @@ class Actuator(ABC):
         """
         pass
 
+
 @dataclass(kw_only=True)
 class ActuatorBC(Actuator):
     """_summary_
@@ -86,6 +87,29 @@ class ActuatorBCParabolicV(ActuatorBC):
 
 
 @dataclass(kw_only=True)
+class ActuatorBCUniformU(ActuatorBC):
+    """Lid-driven cavity actuator: uniform profile on u,
+    located on top boundary.
+    This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
+    to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
+    FlowSolver._make_bcs())"""
+
+    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
+
+    def load_expression(self, flowsolver):
+        expression = dolfin.Expression(
+            [
+                "u_ctrl",
+                "0",
+            ],
+            element=flowsolver.V.ufl_element(),
+            u_ctrl=0.0,
+        )
+
+        self.expression = expression
+
+
+@dataclass(kw_only=True)
 class ActuatorForceGaussianV(Actuator):
     """Cavity actuator: volumic force with Gaussian profile acting on
     the second component of the velocity, centered at custom position.
@@ -118,16 +142,6 @@ class ActuatorForceGaussianV(Actuator):
         expression.eta = 1 / BtB
         expression.u_ctrl = 0.0
         self.expression = expression
-
-
-# class VectorExpression2D:
-#     def __init__(self, expr_u: str, expr_v: str, degree: int = 2, user_parameters: dict = None):
-#         self.expr_u = expr_u
-#         self.expr_v = expr_v
-#         self.degree = degree
-#         self.user_parameters = user_parameters or {}
-
-#         self.expr = dolfin.Expression((expr_u, expr_v), degree=degree, **self.user_parameters)
 
 
 if __name__ == "__main__":
