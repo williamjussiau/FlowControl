@@ -1,32 +1,19 @@
 """
-Incompressible Navier-Stokes equations
-
-  u' + u . nabla(u)) - div(sigma(u, p)) = f
-                                 div(u) = 0
-Equations were made non-dimensional
+----------------------------------------------------------------------
+Flow over an open cavity
+Nondimensional incompressible Navier-Stokes equations
+Suggested Re=7500
 ----------------------------------------------------------------------
 """
 
 import logging
-import time
-from pathlib import Path
 
 import dolfin
-import numpy as np
 import pandas
 
 import flowcontrol.flowsolver as flowsolver
-import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
-from flowcontrol.actuator import ActuatorForceGaussianV
 from flowcontrol.flowfield import BoundaryConditions
-from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
-
-# from controller import Controller
-
-
-# import utils_extract as flu2
-
 
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
@@ -311,13 +298,13 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             dolfin.Constant((0, 0)),
             self.get_subdomain("inlet"),
         )
-        # upper wall : dy(u)=0 # TODO
+        # upper wall : dy(u)=0
         bcu_upper_wall = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),
             self.get_subdomain("upper_wall"),
         )
-        # lower wall left sf : v=0 + dy(u)=0 # TODO
+        # lower wall left sf : v=0 + dy(u)=0
         bcu_lower_wall_left_sf = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),
@@ -335,7 +322,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             dolfin.Constant((0, 0)),
             self.get_subdomain("lower_wall_right_ns"),
         )
-        # lower wall right sf : v=0 + dy(u)=0 # TODO
+        # lower wall right sf : v=0 + dy(u)=0
         bcu_lower_wall_right_sf = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),

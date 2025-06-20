@@ -1,3 +1,19 @@
+"""
+----------------------------------------------------------------------
+Flow past a cylinder
+Nondimensional incompressible Navier-Stokes equations
+Supercritical Hopf bifurcation at Re_c=46
+Suggested Re=100
+----------------------------------------------------------------------
+This file demonstrates the following possibilites:
+    - Initialize CylinderFlowSolver object
+    - Compute steady-state
+    - Load controller from file
+    - Perform closed-loop time simulation
+    - Restart simulation
+----------------------------------------------------------------------
+"""
+
 import logging
 import time
 from pathlib import Path
