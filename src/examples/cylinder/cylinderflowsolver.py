@@ -64,9 +64,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
         ## Cylinder
         radius = self.params_flow.user_data["D"] / 2
-        ldelta = radius * np.sin(
-            self.params_control.actuator_list[0].angular_size_deg / 2 * dolfin.pi / 180
-        )
+        ldelta = self.params_control.actuator_list[0].width
 
         # close_to_cylinder_cpp = between_cpp("x[0]*x[0] + x[1]*x[1]", "0", "2*radius*radius")
         close_to_cylinder_cpp = (
