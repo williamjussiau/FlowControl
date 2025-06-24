@@ -58,32 +58,34 @@ class ActuatorBC(Actuator):
 @dataclass(kw_only=True)
 class ActuatorBCParabolicV(ActuatorBC):
     """Cylinder actuator: parabolic profile depending on first spatial
-    coordinate only, located at the poles of the cylinder.
+    coordinate only. Usually located at the poles of a cylinder.
+    The width of the actuator can be computed with the static method, given
+    the radius of a cylinder and an angular size in degrees.
     This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
     to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
     FlowSolver._make_bcs())"""
 
-    angular_size_deg: float
+    width: float
+    position_x: float = 0.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
     def load_expression(self, flowsolver):
-        L = (
-            1
-            / 2
-            * flowsolver.params_flow.user_data["D"]
-            * np.sin(1 / 2 * self.angular_size_deg * dolfin.pi / 180)
-        )
         expression = dolfin.Expression(
             [
                 "0",
-                "(x[0]>=L || x[0] <=-L) ? 0 : u_ctrl * -1*(x[0]+L)*(x[0]-L) / (L*L)",
+                "(x[0]-x0>=L || x[0]-x0<=-L) ? 0 : u_ctrl * -1*(x[0]-x0+L)*(x[0]-x0-L) / (L*L)",
             ],
             element=flowsolver.V.ufl_element(),
-            L=L,
+            L=self.width,
+            x0=self.position_x,
             u_ctrl=0.0,
         )
 
         self.expression = expression
+
+    @staticmethod
+    def angular_size_deg_to_width(angular_size_deg, cylinder_radius):
+        return cylinder_radius * np.sin(1 / 2 * angular_size_deg * dolfin.pi / 180)
 
 
 @dataclass(kw_only=True)
@@ -121,10 +123,6 @@ class ActuatorForceGaussianV(Actuator):
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
 
     def load_expression(self, flowsolver):
-        # expr_u = "0"
-        # expr_v = "u_ctrl * eta*exp(-0.5*((x[0]-x10)*(x[0]-x10)+(x[1]-x20)*(x[1]-x20))/(sig*sig))"
-        # user_parameters = {"sigma": self.sigma, "x10": self.position[0], "x20": self.position[1]}
-        # expression = VectorExpression2D(expr_u, expr_v, degree=2, user_parameters=user_parameters, u_ctrl=1.0)
         expression = dolfin.Expression(
             [
                 "0",
@@ -148,7 +146,7 @@ if __name__ == "__main__":
     print("-" * 10)
     try:
         actuator = Actuator()
-    except Exception as e:
+    except TypeError as e:
         print(e)
 
     actuator_cylinder = ActuatorBCParabolicV(angular_size_deg=10)

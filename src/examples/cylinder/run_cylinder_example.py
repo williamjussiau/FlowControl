@@ -64,8 +64,19 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # duplicate actuators (1 top, 1 bottom) but assign same control input to each
-    actuator_bc_1 = ActuatorBCParabolicV(angular_size_deg=10)
-    actuator_bc_2 = ActuatorBCParabolicV(angular_size_deg=10)
+    angular_size_deg = 10
+    actuator_bc_1 = ActuatorBCParabolicV(
+        width=ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg, params_flow.user_data["D"] / 2
+        ),
+        position_x=0.0,
+    )
+    actuator_bc_2 = ActuatorBCParabolicV(
+        width=ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg, params_flow.user_data["D"] / 2
+        ),
+        position_x=0.0,
+    )
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
     sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))
     sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1]))
