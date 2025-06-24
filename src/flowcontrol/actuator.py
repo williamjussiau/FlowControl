@@ -149,7 +149,12 @@ if __name__ == "__main__":
     except TypeError as e:
         print(e)
 
-    actuator_cylinder = ActuatorBCParabolicV(angular_size_deg=10)
+    actuator_cylinder = ActuatorBCParabolicV(
+        width=ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg=10, cylinder_radius=3
+        ),
+        position_x=1.3,
+    )
     actuator_cavity = ActuatorForceGaussianV(
         sigma=0.00849, position=np.array([-0.1, 0.02])
     )
