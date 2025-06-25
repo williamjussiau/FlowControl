@@ -181,7 +181,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             cavity_left = dolfin.CompiledSubDomain(
                 on_boundary_cpp
                 + and_cpp
-                + near_cpp("x[0]", "0", "MESH_TOL")
+                + near_cpp("x[0]", 0, "MESH_TOL")
                 + and_cpp
                 + between_cpp("x[1]", "-D", "0"),
                 MESH_TOL=MESH_TOL,
@@ -204,7 +204,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
                 + and_cpp
                 + "near(x[0], L, MESH_TOL)"
                 + and_cpp
-                + between_cpp("x[1]", -D, 0),
+                + between_cpp("x[1]", -D, "0"),
                 L=L,
                 D=D,
                 MESH_TOL=MESH_TOL,
@@ -217,7 +217,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
                 + and_cpp
                 + "x[0] <= x0ns_left + 10*MESH_TOL"
                 + and_cpp
-                + near_cpp("x[1]", "0"),
+                + near_cpp("x[1]", 0),
                 xinfa=xinfa,
                 x0ns_left=x0ns_left,
                 MESH_TOL=MESH_TOL,
@@ -230,7 +230,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
                 + and_cpp
                 + "x[0] <= 0"
                 + and_cpp
-                + near_cpp("x[1]", "0"),
+                + near_cpp("x[1]", 0),
                 x0ns_left=x0ns_left,
                 MESH_TOL=MESH_TOL,
             )

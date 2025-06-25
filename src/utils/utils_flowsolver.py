@@ -10,6 +10,7 @@ import os
 import time
 import warnings
 from pathlib import Path
+from typing import Optional
 
 import control
 import dolfin
@@ -180,7 +181,7 @@ class MpiUtils:
 
 
 # Write CPP utils (for boundaries) ############################################
-def near_cpp(x: str, xnear: str, tol: str = "MESH_TOL"):
+def near_cpp(x: str, xnear: float | str, tol: str = "MESH_TOL"):
     return f"near({x}, {xnear}, {tol})"
 
 
@@ -204,7 +205,7 @@ def on_boundary_cpp():
 
 
 # PETSc, scipy.sparse utility # GOTO ##########################################
-def dense_to_sparse(A, eliminate_zeros=True, eliminate_under=None):
+def dense_to_sparse(A, eliminate_under: Optional[float] = None):
     """Cast PETSc or dolfin Matrix to scipy.sparse
     (Misleading name because A is not dense)"""
 

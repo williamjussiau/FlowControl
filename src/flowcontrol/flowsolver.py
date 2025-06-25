@@ -4,12 +4,13 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, Sequence
 
 import dolfin
 import numpy as np
 import pandas as pd
 from dolfin import div, dot, dx, inner, nabla_grad
+from numpy.typing import NDArray
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_extract as flu2
@@ -594,19 +595,19 @@ class FlowSolver(ABC):
 
         return 1
 
-    def step(self, u_ctrl: np.ndarray[int, float]) -> np.ndarray[int, float]:
+    def step(self, u_ctrl: NDArray[np.float64]) -> NDArray[np.float64]:
         """Simulate the system on one time-step: up(t)->up(t+dt).
         The first time this method is run, it calls _prepare_systems.
 
         Args:
-            u_ctrl (np.ndarray[int, float]): control input list
+            u_ctrl (NDArray[np.float64]): control input list
 
         Raises:
             RuntimeError: solver failed (a coordinate is inf or nan)
             e: any other exception
 
         Returns:
-            np.ndarray[int, float]: value of measurement y after step
+            NDArray[float64]: value of measurement y after step
         """
         v, q = dolfin.TestFunctions(self.W)
         up = dolfin.TrialFunction(self.W)
@@ -706,7 +707,7 @@ class FlowSolver(ABC):
         Returns:
             bool: True if iteration is suitable for exporting/verbing, False else
         """
-        return divider and not iter % divider
+        return bool(divider and not iter % divider)
 
     def merge(self, u: dolfin.Function, p: dolfin.Function) -> dolfin.Function:
         """Merge two fields: (u, p) in (V, P) -> (up) in (W).
@@ -832,7 +833,7 @@ class FlowSolver(ABC):
         self.fields.UP0 = self.fields.STEADY.up
         self.E0 = 1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
 
-    def load_steady_state(self, path_u_p: Optional[Iterable[Path]] = None) -> None:
+    def load_steady_state(self, path_u_p: Optional[Sequence[Path]] = None) -> None:
         """Load steady state from file (from ParamSave.path_out)"""
         U0 = dolfin.Function(self.V)
         P0 = dolfin.Function(self.P)
@@ -1062,7 +1063,9 @@ class FlowSolver(ABC):
 
         return [name + "_" + str(i + 1) for i in range(column_nr)]
 
-    def _assign_to_df(self, df: pd.DataFrame, name, value: float, index: int) -> None:
+    def _assign_to_df(
+        self, df: pd.DataFrame, name, value: NDArray[np.float64], index: int
+    ) -> None:
         """Assign measurement array to timeseries at given index."""
         df.loc[index, self._make_colname_df(name, len(value))] = value
 
@@ -1073,7 +1076,12 @@ class FlowSolver(ABC):
             self.timeseries.to_csv(self.paths["timeseries"], sep=",", index=False)
 
     def _log_timeseries(
-        self, u_ctrl: float, y_meas: float, dE: float, t: float, runtime: float
+        self,
+        u_ctrl: NDArray[np.float64],
+        y_meas: NDArray[np.float64],
+        dE: float,
+        t: float,
+        runtime: float,
     ) -> None:
         """Fill timeseries with simulation data at given index."""
         self._assign_to_df(
@@ -1097,7 +1105,7 @@ class FlowSolver(ABC):
         return dE
 
     def compute_energy_field(
-        self, export: bool = False, filename: str = None
+        self, export: bool = False, filename: Optional[str] = None
     ) -> dolfin.Function:
         """Compute perturbation field dot(u, u) of spatial location of PKE.
 
@@ -1163,7 +1171,7 @@ class FlowSolver(ABC):
     def make_measurement(
         self,
         up: dolfin.Function,
-    ) -> np.ndarray:
+    ) -> NDArray[np.float64]:
         """Define procedure for extracting a measurement from a given
         mixed field (u,v,p)."""
         y_meas = np.zeros((self.params_control.sensor_number,))
