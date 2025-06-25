@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import control
 import numpy as np
@@ -24,8 +25,8 @@ class Controller(control.StateSpace):
         B: np.ndarray,
         C: np.ndarray,
         D: np.ndarray,
-        file: Path = None,
-        x0: np.ndarray | None = None,
+        file: Optional[Path] = None,
+        x0: Optional[np.ndarray] = None,
     ):
         """Initialize Controller with either (A,B,C,D) matrices
         or file, and initialize its state x. This method allows
@@ -37,7 +38,7 @@ class Controller(control.StateSpace):
             C (np.ndarray): System output matrix.
             D (np.ndarray): System feedthrough.
             file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (np.ndarray | None, optional): Internal state. Defaults to None.
+            x0 (np.ndarray, optional): Internal state. Defaults to None.
         """
         super().__init__(A, B, C, D)
         self.file = file
@@ -46,12 +47,14 @@ class Controller(control.StateSpace):
             self.x = np.zeros((self.nstates,))
 
     @classmethod
-    def from_file(cls, file: Path = None, x0: np.ndarray | None = None) -> Controller:
+    def from_file(
+        cls, file: Optional[Path] = None, x0: Optional[np.ndarray] = None
+    ) -> Controller:
         """Initialize Controller from file only, with given inital state x0.
 
         Args:
             file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (np.ndarray | None, optional): Internal state. Defaults to None.
+            x0 (np.ndarray, optional): Internal state. Defaults to None.
 
         Returns:
             Controller
@@ -73,8 +76,8 @@ class Controller(control.StateSpace):
         B: np.ndarray,
         C: np.ndarray,
         D: np.ndarray,
-        file: Path = None,
-        x0: np.ndarray | None = None,
+        file: Optional[Path] = None,
+        x0: Optional[np.ndarray] = None,
     ) -> Controller:
         """Initialize Controller from matrices (A,B,C,D), with given initial state x0.
 
@@ -84,7 +87,7 @@ class Controller(control.StateSpace):
             C (np.ndarray): System output matrix.
             D (np.ndarray): System feedthrough.
             file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (np.ndarray | None, optional): Internal state. Defaults to None.
+            x0 (np.ndarray, optional): Internal state. Defaults to None.
 
         Returns:
             Controller

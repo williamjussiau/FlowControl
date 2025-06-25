@@ -4,7 +4,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 import dolfin
 import numpy as np
@@ -215,7 +215,7 @@ class FlowSolver(ABC):
         self.boundaries["idx"] = list(boundaries_idx)
 
     def initialize_time_stepping(
-        self, Tstart: float = 0.0, ic: dolfin.Function | None = None
+        self, Tstart: float = 0.0, ic: Optional[dolfin.Function] = None
     ) -> None:
         """Initialize the time-stepping process by reading or generating
         initial conditions. Initialize the timeseries (pandas DataFrame)
@@ -224,7 +224,7 @@ class FlowSolver(ABC):
         Args:
             Tstart (float, optional): if Tstart is not 0, restart simulation from Tstart
                 using files from a previous simulation provided in ParamRestart. Defaults to 0.0.
-            ic (dolfin.Function | None, optional): if Tstart is 0, use ic as (pert) initial condition.
+            ic (dolfin.Function, optional): if Tstart is 0, use ic as (pert) initial condition.
                 Defaults to None.
         """
 
@@ -249,7 +249,7 @@ class FlowSolver(ABC):
         self.timeseries = self._initialize_timeseries()
 
     def _initialize_with_ic(
-        self, ic: dolfin.Function | None
+        self, ic: Optional[dolfin.Function] = None
     ) -> tuple[dolfin.Function, ...]:
         """Initialize time-stepping with given initial condition (ic).
         ic is give in perturbation form. ic can be set by user or defined
@@ -257,8 +257,9 @@ class FlowSolver(ABC):
         ic given by the user, thanks to ParamSolver.ic_add_perturbation.
 
         Args:
-            ic (dolfin.Function | None): perturbation initial condition.
+            ic (dolfin.Function): perturbation initial condition.
                 ic is adjusted with ParamSolver.ic_add_perturbation.
+                Defaults to None.
 
         Returns:
             tuple[dolfin.Function, ...]: initial perturbation fields
@@ -831,7 +832,7 @@ class FlowSolver(ABC):
         self.fields.UP0 = self.fields.STEADY.up
         self.E0 = 1 / 2 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
 
-    def load_steady_state(self, path_u_p: Iterable[Path] | None = None) -> None:
+    def load_steady_state(self, path_u_p: Optional[Iterable[Path]] = None) -> None:
         """Load steady state from file (from ParamSave.path_out)"""
         U0 = dolfin.Function(self.V)
         P0 = dolfin.Function(self.P)
@@ -887,7 +888,7 @@ class FlowSolver(ABC):
         self._assign_steady_state(U0=U0, P0=P0)
 
     def _compute_steady_state_newton(
-        self, max_iter: int = 10, initial_guess: dolfin.Function | None = None
+        self, max_iter: int = 10, initial_guess: Optional[dolfin.Function] = None
     ) -> dolfin.Function:
         """Compute steady state with built-in nonlinear solver (Newton method).
         initial_guess is a mixed field (up). This method should not be used directly
@@ -895,7 +896,7 @@ class FlowSolver(ABC):
 
         Args:
             max_iter (int, optional): maximum number of iterations. Defaults to 10.
-            initial_guess (dolfin.Function | None, optional): initial guess to use for mixed field UP. Defaults to None.
+            initial_guess (dolfin.Function, optional): initial guess to use for mixed field UP. Defaults to None.
 
         Returns:
             dolfin.Function: estimation of steady state UP0
@@ -923,7 +924,7 @@ class FlowSolver(ABC):
         self,
         max_iter: int = 10,
         tol: float = 1e-14,
-        initial_guess: dolfin.Function | None = None,
+        initial_guess: Optional[dolfin.Function] = None,
     ) -> dolfin.Function:
         """Compute steady state with fixed-point Picard iteration.
         This method should have a larger convergence radius than Newton method,
@@ -934,6 +935,8 @@ class FlowSolver(ABC):
         Args:
             max_iter (int, optional): maximum number of iterations. Defaults to 10.
             tol (float, optional): precision tolerance. Defaults to 1e-14.
+            initial_guess (dolfin.Function, optional): initial field guess for
+                any of the methods used. Defaults to None.
 
         Returns:
             dolfin.Function: estimation of steady state UP0
@@ -983,7 +986,7 @@ class FlowSolver(ABC):
 
         return UP1
 
-    def _define_initial_guess(self, initial_guess: dolfin.Function | None = None):
+    def _define_initial_guess(self, initial_guess: Optional[dolfin.Function] = None):
         if initial_guess is None:
             logger.info("Steady-state solver --- without initial guess")
             UP0 = dolfin.Function(self.W)
@@ -994,12 +997,12 @@ class FlowSolver(ABC):
         return UP0
 
     def _make_varf_steady(
-        self, initial_guess: dolfin.Function | None = None
+        self, initial_guess: Optional[dolfin.Function] = None
     ) -> tuple[dolfin.Form, dolfin.Function]:
         """Make nonlinear forms for steady state computation, in mixed element space W.
 
         Args:
-            initial_guess (dolfin.Function | None, optional): field UP0 around which varf is computed.
+            initial_guess (dolfin.Function, optional): field UP0 around which varf is computed.
                 Defaults to None. If None, use zero dolfin.Function(self.W).
 
         Returns:

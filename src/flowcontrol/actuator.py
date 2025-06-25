@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Optional
 
 import dolfin
 import numpy as np
@@ -28,7 +29,7 @@ class Actuator(ABC):
     """
 
     actuator_type: ACTUATOR_TYPE
-    expression: dolfin.Expression | None = None
+    expression: Optional[dolfin.Expression] = None
     # only on (u,v) not p if type is force, for BC on syntax of DirichletBC
 
     @abstractmethod
@@ -52,7 +53,7 @@ class ActuatorBC(Actuator):
         Actuator (_type_): _description_
     """
 
-    boundary: None | dolfin.Expression = None
+    boundary: Optional[dolfin.Expression] = None
 
 
 @dataclass(kw_only=True)

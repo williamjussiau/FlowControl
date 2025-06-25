@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
+from typing import Optional
 
 import dolfin
 import numpy as np
@@ -85,8 +86,8 @@ class SensorIntegral(Sensor):
         require_loading (bool) = True: SensorIntegral always require loading
     """
 
-    ds: dolfin.Measure | None = None
-    subdomain: dolfin.SubDomain | None = None
+    ds: Optional[dolfin.Measure] = None
+    subdomain: Optional[dolfin.SubDomain] = None
     sensor_index: int = SENSOR_INDEX_DEFAULT
     require_loading: bool = True
 
