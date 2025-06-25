@@ -2,7 +2,7 @@
 For now: not working, just copied-pasted operator getters from FlowSolver to make room"""
 
 import logging
-from typing import Union
+from typing import Optional
 
 import dolfin
 import numpy as np
@@ -22,7 +22,12 @@ class OperatorGetter:
     def __init__(self, flowsolver: flowsolver.FlowSolver):
         self.flowsolver = flowsolver
 
-    def get_A(self, UP0=None, autodiff=True, u_ctrl=None) -> dolfin.PETScMatrix:
+    def get_A(
+        self,
+        UP0: Optional[dolfin.Function] = None,
+        autodiff: bool = True,
+        u_ctrl: Optional[np.ndarray[int, float]] = None,
+    ) -> dolfin.PETScMatrix:
         """Get state-space dynamic matrix A linearized around some field UP0
         with constant input u_ctrl"""
         logger.info("Computing jacobian A...")
@@ -76,8 +81,8 @@ class OperatorGetter:
         return E
 
     def get_B(
-        self, as_function_list=False, interpolate=True
-    ) -> Union[np.ndarray, list[dolfin.Function]]:  # TODO keep here
+        self, as_function_list: bool = False, interpolate: bool = True
+    ) -> np.ndarray | list[dolfin.Function]:
         """Get actuation matrix B"""
         logger.info("Computing actuation matrix B...")
 
@@ -126,7 +131,7 @@ class OperatorGetter:
 
         return B
 
-    def get_C(self, check=False, fast=True):
+    def get_C(self, check: bool = False, fast: bool = True) -> np.ndarray:
         """Get measurement matrix C"""
         logger.info("Computing measurement matrix C...")
 
