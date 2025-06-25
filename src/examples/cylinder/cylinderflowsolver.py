@@ -10,7 +10,6 @@ Suggested Re=100
 import logging
 
 import dolfin
-import numpy as np
 import pandas
 
 import flowcontrol.flowsolver as flowsolver

@@ -5,6 +5,7 @@ from typing import Optional
 
 import dolfin
 import numpy as np
+from numpy.typing import NDArray
 
 import utils.utils_flowsolver as flu
 
@@ -58,11 +59,11 @@ class SensorPoint(Sensor):
     at a given 2D point _self.position_.
 
     Args:
-        position (np.ndarray): position of probe
+        position (NDArray[np.float64]): position of probe
         require_loading (bool) = False: no loading required
     """
 
-    position: np.ndarray
+    position: NDArray[np.float64]
     require_loading: bool = False
 
     def eval(self, up):

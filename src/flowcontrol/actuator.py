@@ -5,6 +5,7 @@ from typing import Optional
 
 import dolfin
 import numpy as np
+from numpy.typing import NDArray
 
 
 class ACTUATOR_TYPE(IntEnum):
@@ -120,7 +121,7 @@ class ActuatorForceGaussianV(Actuator):
     automatically when building equations (in FlowSolver._make_varfs())."""
 
     sigma: float
-    position: np.ndarray
+    position: NDArray[np.float64]
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
 
     def load_expression(self, flowsolver):
@@ -146,7 +147,7 @@ class ActuatorForceGaussianV(Actuator):
 if __name__ == "__main__":
     print("-" * 10)
     try:
-        actuator = Actuator()
+        actuator = Actuator(ACTUATOR_TYPE=ACTUATOR_TYPE.BC)  # type: ignore
     except TypeError as e:
         print(e)
 

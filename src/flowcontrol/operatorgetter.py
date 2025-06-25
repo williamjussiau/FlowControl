@@ -7,6 +7,7 @@ from typing import Optional
 import dolfin
 import numpy as np
 from dolfin import div, dot, dx, inner, nabla_grad
+from numpy.typing import NDArray
 
 import utils.utils_flowsolver as flu
 from flowcontrol import flowsolver
@@ -26,7 +27,7 @@ class OperatorGetter:
         self,
         UP0: Optional[dolfin.Function] = None,
         autodiff: bool = True,
-        u_ctrl: Optional[np.ndarray[int, float]] = None,
+        u_ctrl: Optional[NDArray[np.float64]] = None,
     ) -> dolfin.PETScMatrix:
         """Get state-space dynamic matrix A linearized around some field UP0
         with constant input u_ctrl"""
@@ -82,7 +83,7 @@ class OperatorGetter:
 
     def get_B(
         self, as_function_list: bool = False, interpolate: bool = True
-    ) -> np.ndarray | list[dolfin.Function]:
+    ) -> NDArray[np.float64] | list[dolfin.Function]:
         """Get actuation matrix B"""
         logger.info("Computing actuation matrix B...")
 
@@ -131,7 +132,7 @@ class OperatorGetter:
 
         return B
 
-    def get_C(self, check: bool = False, fast: bool = True) -> np.ndarray:
+    def get_C(self, check: bool = False, fast: bool = True) -> NDArray[np.float64]:
         """Get measurement matrix C"""
         logger.info("Computing measurement matrix C...")
 
@@ -319,7 +320,7 @@ def cell_owns_at_least_a_vertex(cell, vertices_idx):
 
 def optimize_parsed_dofs(
     dofmap: dolfin.DofMap,
-    dofmap_xy: np.ndarray,
+    dofmap_xy: NDArray[np.float64],
     mesh: dolfin.Mesh,
     sensor_list: list[Sensor],
 ):
