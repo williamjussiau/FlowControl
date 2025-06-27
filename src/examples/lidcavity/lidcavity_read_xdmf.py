@@ -22,7 +22,9 @@ from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 
 def main():
+    ##########################################################
     ## Initialize LidCavityFlowSolver to have access to dolfin.Function and dolfin.FunctionSpace
+    ##########################################################
     cwd = Path(__file__).parent
 
     params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
@@ -49,7 +51,14 @@ def main():
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    actuator_bc_up = ActuatorBCParabolicV(angular_size_deg=10)
+    angular_size_deg = 10
+    actuator_bc_up = ActuatorBCParabolicV(
+        width=ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg=angular_size_deg,
+            cylinder_radius=params_flow.user_data["D"] / 2,
+        ),
+        position_x=0.0,
+    )
     sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.05, 0.5]))
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[sensor_1],
@@ -73,55 +82,126 @@ def main():
     )
 
     ##########################################################
+    # Foreword
     ##########################################################
+    # I recommend reading: https://github.com/williamjussiau/FlowControl/wiki/Numerical-details
+
+    #  - when velocity and pressure fields are computed,
+    #       they are stored in different variables
+    #  - it is possible to merge them using FLowSolver.merge(u, p)
+    #       into a mixed field living in W = V x P
+    #  - be careful to indexing of degrees of freedom, it is nontrivial
+
+    # What is computed by FlowSolver?
+    #  - steady-state U0, P0
+    #  - perturbation fields u, p
+
+    # Which field is stored by FlowSolver?
+    #  - steady-state U0, P0
+    #  - full field U=U0+u, P=P0+p
+    #  --> it is what is being read here
+
+    # When is it saved?
+    #  - fields are saved every save_every steps, corresponding
+    #      to the time t=save_every*dt
+    #  - the previous fields are also saved for restarting purposes,
+    #      they correspond to time t-dt
+
+    # How to read?
+    #  - cf. code below
+    #  - be careful to field names: U/P for current, U0/P0 for
+    #      steady-state, and U_n/P_n for previous
+
+    # How is it being read?
+    #  - reading a field stores content in a dolfin.Function f
+    #  - we can access the contents with f.vector().get_local() or f.vector()[:]
+    #  - usually, everything is passed by reference, so do not forget to
+    #       copy arrays when storing them
+
     ##########################################################
     # XDMF files
+    ##########################################################
     xdmf_files = [
-        "U_restart0,0.xdmf",
-        "Uprev_restart0,0.xdmf",
+        "src/examples/lidcavity/data_output/@_restart0,0.xdmf",
+        "src/examples/lidcavity/data_output/@_restart0,0.xdmf",
     ]
 
-    # Allocate dolfin.Function
+    def make_file_name_for_field(field_name, original_file_name):
+        "Make file name for field U or P, using provided original"
+        "file name with placeholder @"
+        return original_file_name.replace("@", field_name)
+
+    # Data will be stored as 3D arrays
+    # of size [ndof*, nsnapshots, nfiles]
+    nsnapshots = 3
+    ndof_u = fs.V.dim()
+    ndof_p = fs.P.dim()
+    ndof = fs.W.dim()
+    nfiles = len(xdmf_files)
+
+    # Allocate arrays for 1 trajectory (= 1 file)
+    U_field_data = np.empty((ndof_u, nsnapshots))
+    P_field_data = np.empty((ndof_p, nsnapshots))
+    UP_field_data = np.empty((ndof, nsnapshots))
+
+    # Allocate arrays for all data (stack files on axis 2)
+    U_field_alldata = np.empty((ndof_u, nsnapshots, nfiles))
+    P_field_alldata = np.empty((ndof_p, nsnapshots, nfiles))
+    UP_field_alldata = np.empty((ndof, nsnapshots, nfiles))
+
+    # Allocate empty dolfin.Function
     U_field = dolfin.Function(fs.V)
     P_field = dolfin.Function(fs.P)
     UP_field = dolfin.Function(fs.W)
 
-    # Nr of DOFs to allocate numpy arrays
-    ndof_u = fs.V.dim()
-    ndof_p = fs.P.dim()
-    ndof = fs.W.dim()
-    nsnapshots_max = 100
+    for jfile in range(nfiles):
+        print(f"* Reading file nr={jfile}, name={xdmf_files[jfile]}")
 
-    # Data will be stored as lists of 2D arrays
-    # each array has shape [ndof, nsnapshots]
-    # because nr of snapshots is initially unknown
-    # and potentially different for each file
-    # if not: preallocate 3D array
-    U_field_alldata = []
-    P_field_alldata = []
-    UP_field_alldata = []
+        file_name_U = make_file_name_for_field("U", xdmf_files[jfile])
+        file_name_P = make_file_name_for_field("P", xdmf_files[jfile])
 
-    U_field_data = np.empty((ndof_u,))
-    P_field_data = np.empty((ndof_p,))
-    UP_field_data = np.empty((ndof,))
+        for icounter in range(nsnapshots):
+            print(f"\t counter={icounter}")
 
-    for jfile, file_name in enumerate(xdmf_files):
-        for icounter in range(nsnapshots_max):
-            # try:
-            print(f"Reading {jfile} file: {file_name}, counter={icounter}")
+            try:
+                flu.read_xdmf(file_name_U, U_field, "U", counter=icounter)
+                flu.read_xdmf(file_name_P, P_field, "P", counter=icounter)
+                UP_field = fs.merge(U_field, P_field)
+            except RuntimeError:
+                print("\t *** EOF -- Reached End Of File")
+                break
 
-            flu.read_xdmf(file_name, U_field, "U", counter=icounter)
-            U_field_data = np.asarray(
-                U_field.vector().get_local()
-            )  # .get_local() == [:]
-            print(max(U_field_data))
-            U_field_alldata.append(U_field_data)
-            print(len(U_field_alldata))
-            # except RuntimeError:
-            #    print("EOF -- Reached End Of File")
-            #    break
-        # finally:
-        #     print("coucou")
+            U_field_data[:, icounter] = np.copy(U_field.vector().get_local())
+            P_field_data[:, icounter] = np.copy(P_field.vector().get_local())
+            UP_field_data[:, icounter] = np.copy(UP_field.vector().get_local())
+
+        U_field_alldata[:, :, jfile] = np.copy(U_field_data)
+        P_field_alldata[:, :, jfile] = np.copy(P_field_data)
+        UP_field_alldata[:, :, jfile] = np.copy(UP_field_data)
+
+        print(f"\t -> Reached snapshot = {icounter} - Fetching next file")
+
+    print("Finished reading trajectores")
+
+    ##########################################################
+    # Steady-state
+    ##########################################################
+    U0 = dolfin.Function(fs.V)
+    P0 = dolfin.Function(fs.P)
+
+    file_name_U0 = "src/examples/lidcavity/data_output/steady/U0.xdmf"
+    file_name_P0 = "src/examples/lidcavity/data_output/steady/P0.xdmf"
+
+    print(f"* Reading steady-states at {file_name_U0}, {file_name_P0}")
+    flu.read_xdmf(file_name_U0, U_field, "U0")
+    flu.read_xdmf(file_name_P0, P_field, "P0")
+    UP0 = fs.merge(U0, P0)
+
+    U0_field_data = U0.vector().get_local()
+    P0_field_data = P0.vector().get_local()
+    UP0_field_data = UP0.vector().get_local()
+
+    print("Finished reading steady-states")
 
 
 if __name__ == "__main__":
