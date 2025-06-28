@@ -243,7 +243,7 @@ def get_mat_vp_slepc(
             print("Eig%2d = %9f + %9f*j" % (i + 1, np.real(valp[i]), np.imag(valp[i])))
 
         # vecp = vecp_re + 1j*vecp_im
-        vecp = Vr.array + 1j * Vi.array
+        vecp[:, i] = Vr.array + 1j * Vi.array
 
     LAMBDA = valp.reshape(
         -1,
