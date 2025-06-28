@@ -844,7 +844,12 @@ class FlowSolver(ABC):
         self._assign_steady_state(U0=U0, P0=P0)
 
     def compute_steady_state(
-        self, u_ctrl: list, method: str = "newton", **kwargs
+        self,
+        u_ctrl: list,
+        method: str = "newton",
+        initial_guess=None,
+        max_iter=10,
+        **kwargs,
     ) -> None:
         """Compute flow steady state with given method and constant input u_ctrl.
         Two methods are available: Picard method (see _compute_steady_state_picard)
@@ -858,9 +863,13 @@ class FlowSolver(ABC):
         self.set_actuators_u_ctrl(u_ctrl)
 
         if method == "newton":
-            UP0 = self._compute_steady_state_newton(**kwargs)
+            UP0 = self._compute_steady_state_newton(
+                initial_guess=initial_guess, max_iter=max_iter, **kwargs
+            )
         else:
-            UP0 = self._compute_steady_state_picard(**kwargs)
+            UP0 = self._compute_steady_state_picard(
+                initial_guess=initial_guess, max_iter=max_iter, **kwargs
+            )
 
         U0, P0 = UP0.split(deepcopy=True)
         U0 = flu.projectm(U0, self.V)
@@ -924,7 +933,7 @@ class FlowSolver(ABC):
     def _compute_steady_state_picard(
         self,
         max_iter: int = 10,
-        tol: float = 1e-14,
+        tol: float = 1e-8,
         initial_guess: Optional[dolfin.Function] = None,
     ) -> dolfin.Function:
         """Compute steady state with fixed-point Picard iteration.
