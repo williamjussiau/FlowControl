@@ -61,8 +61,6 @@ def main():
             1j,
             2j,
             3j,
-            4j,
-            5j,
         ]
     )
 
@@ -109,7 +107,7 @@ def main():
     np.savez_compressed(save_npz_path / "eigenVectors", V)  # npz
     # as txt
     np.savetxt(save_npz_path / "eigenValues.txt", LAMBDA, delimiter=",")  # txt
-    np.savetxt(save_npz_path / "eigenVectors.txt", V, delimiter=",")  # txt
+    # np.savetxt(save_npz_path / "eigenVectors.txt", V, delimiter=",")  # txt, not recommended
 
     # exit
     print("Elapsed: %f" % (time.time() - t0))
