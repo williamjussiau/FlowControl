@@ -45,7 +45,8 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh128.xdmf"
+        # meshpath=cwd / "data_input" / "mesh128.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_3.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
@@ -81,9 +82,9 @@ def main():
 
     logger.info("Compute steady state...")
     uctrl0 = [0.0]
-    fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
+    fs.compute_steady_state(method="picard", max_iter=20, tol=1e-8, u_ctrl=uctrl0)
     fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+        method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
     # or load
 

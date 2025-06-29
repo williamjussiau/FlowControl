@@ -180,7 +180,7 @@ def get_mat_vp_slepc(
         def kspmonitor(kspstate, it, rnorm):
             # eps = SLEPc.EPS
             if not it % 100:
-                print("--- ksp monitor --- nit: ", it, "+++ res: ", rnorm)
+                print("\t --- KSP monitor --- nit: ", it, "+++ res: ", rnorm)
                 # print('it: ', it)
                 ##print('state: ', kspstate)
                 # print('rnorm: ', rnorm)
@@ -200,7 +200,7 @@ def get_mat_vp_slepc(
 
         def epsmonitor(eps, it, nconv, eig, err):
             # eps = SLEPc.EPS
-            print("***** eps monitor ***** nit: ", it, "+++ cvg ", nconv, "/", n)
+            print("\t --- EPS monitor --- nit: ", it, "+++ cvg ", nconv, "/", n)
             # print('eps it: ', it)
             # print('converged: ', nconv)
             ##print('eig: ', eig)
@@ -215,7 +215,7 @@ def get_mat_vp_slepc(
     niters = eigensolver.getIterationNumber()
 
     if verbose:
-        print("------ Computation terminated ------")
+        print("\t --- Computation terminated ---")
 
     sz = A.size[0]
     n = nconv
@@ -240,7 +240,9 @@ def get_mat_vp_slepc(
         # vecp_im[istart_r:iend_i, i] = np.imag(V.array)
 
         if verbose:
-            print("Eig%2d = %9f + %9f*j" % (i + 1, np.real(valp[i]), np.imag(valp[i])))
+            print(
+                "\t eig%2d = %9f + %9f*j" % (i + 1, np.real(valp[i]), np.imag(valp[i]))
+            )
 
         # vecp = vecp_re + 1j*vecp_im
         vecp[:, i] = Vr.array + 1j * Vi.array
@@ -261,59 +263,62 @@ def get_mat_vp_slepc(
 #################################################################################
 # Run
 if __name__ == "__main__":
-    print("----- using slepc ----- begin")
-    print("...............................")
+    if 0:
+        print("----- using slepc ----- begin")
+        print("...............................")
 
-    print("Start with FEM matrices")
-    t0 = time.time()
-    print("--- Loading matrices")
-    # save_npz_path = '/scratchm/wjussiau/fenics-python/cylinder/data/o1/matrices/'
-    # save_npz_path = '/scratchm/wjussiau/fenics-python/cavity/data/matrices/'
-    # save_npz_path = '/scratchm/wjussiau/fenics-python/cavity/data/matrices_fine/'
-    save_npz_path = "/scratchm/wjussiau/fenics-results/cylinder_o1_eig_correction/"
-    print("--- from sparse...")
-    AA = spr.load_npz(save_npz_path + "A_mean.npz")
-    BB = spr.load_npz(save_npz_path + "Q.npz")
-    print("--- ... to petscmat")
-    seq = True
-    AA = sparse_to_petscmat(AA, sequential=seq).transpose()
-    BB = sparse_to_petscmat(BB, sequential=seq).transpose()
-    sz = AA.size[0]
-    # targets
-    # targets = np.array([[0.8+10j], [0.5+13j], [0.45+8j], [0.01+16j], [0]])
-    # neiglist = np.array([[1],[1],[1],[1],[20]])
-    targets = np.array([[0.15 + 1j]])
-    neiglist = np.array([[1]])
-    nt = len(targets)
-    # store
-    # LAMBDA = np.zeros((n*nt,), dtype=complex)
-    # V = np.zeros((sz, n*nt), dtype=complex)
-    LAMBDA = np.zeros((0,), dtype=complex)
-    V = np.zeros((sz, 0), dtype=complex)
+        print("Start with FEM matrices")
+        t0 = time.time()
+        print("--- Loading matrices")
+        # save_npz_path = '/scratchm/wjussiau/fenics-python/cylinder/data/o1/matrices/'
+        # save_npz_path = '/scratchm/wjussiau/fenics-python/cavity/data/matrices/'
+        # save_npz_path = '/scratchm/wjussiau/fenics-python/cavity/data/matrices_fine/'
+        save_npz_path = "/scratchm/wjussiau/fenics-results/cylinder_o1_eig_correction/"
+        print("--- from sparse...")
+        AA = spr.load_npz(save_npz_path + "A_mean.npz")
+        BB = spr.load_npz(save_npz_path + "Q.npz")
+        print("--- ... to petscmat")
+        seq = True
+        AA = sparse_to_petscmat(AA, sequential=seq).transpose()
+        BB = sparse_to_petscmat(BB, sequential=seq).transpose()
+        sz = AA.size[0]
+        # targets
+        # targets = np.array([[0.8+10j], [0.5+13j], [0.45+8j], [0.01+16j], [0]])
+        # neiglist = np.array([[1],[1],[1],[1],[20]])
+        targets = np.array([[0.15 + 1j]])
+        neiglist = np.array([[1]])
+        nt = len(targets)
+        # store
+        # LAMBDA = np.zeros((n*nt,), dtype=complex)
+        # V = np.zeros((sz, n*nt), dtype=complex)
+        LAMBDA = np.zeros((0,), dtype=complex)
+        V = np.zeros((sz, 0), dtype=complex)
 
-    # solve
-    print("--- Starting solve")
-    for target, neig in zip(targets, neiglist):
-        print("Current target: ", target)
-        L, v, eigensolver = get_mat_vp_slepc(
-            A=AA,
-            B=BB,
-            target=target,
-            n=neig,
-            return_eigensolver=True,
-            verbose=True,
-            precond_type=PETSc.PC.Type.LU,
-            eps_type=SLEPc.EPS.Type.KRYLOVSCHUR,
-            ksp_type=PETSc.KSP.Type.PREONLY,
-            tol=1e-9,
-        )
+        # solve
+        print("--- Starting solve")
+        for target, neig in zip(targets, neiglist):
+            print("Current target: ", target)
+            L, v, eigensolver = get_mat_vp_slepc(
+                A=AA,
+                B=BB,
+                target=target,
+                n=neig,
+                return_eigensolver=True,
+                verbose=True,
+                precond_type=PETSc.PC.Type.LU,
+                eps_type=SLEPc.EPS.Type.KRYLOVSCHUR,
+                ksp_type=PETSc.KSP.Type.PREONLY,
+                tol=1e-9,
+            )
 
-        LAMBDA = np.hstack((LAMBDA, L))
-        V = np.hstack((V, v))
+            LAMBDA = np.hstack((LAMBDA, L))
+            V = np.hstack((V, v))
 
-    np.save(save_npz_path + "eig_AmeanT", LAMBDA)
-    np.save(save_npz_path + "eig_vec_AmeanT", V)
-    # np.save(save_npz_path + 'eig_Amean', LAMBDA)
-    # np.save(save_npz_path + 'eig_vec_Amean', V)
-    print("Elapsed: %f" % (time.time() - t0))
-    print("...............................")
+        np.save(save_npz_path + "eig_AmeanT", LAMBDA)
+        np.save(save_npz_path + "eig_vec_AmeanT", V)
+        # np.save(save_npz_path + 'eig_Amean', LAMBDA)
+        # np.save(save_npz_path + 'eig_vec_Amean', V)
+        print("Elapsed: %f" % (time.time() - t0))
+        print("...............................")
+
+    pass
