@@ -1,0 +1,10 @@
+name: eig
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - slepc4py[build=*complex*]
+  - conda-build
+  - scipy
+  - matplotlib
+prefix: /home/willij/miniconda3/envs/eig
