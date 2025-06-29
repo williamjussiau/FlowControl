@@ -5,6 +5,7 @@ Nondimensional incompressible Navier-Stokes equations
 Supercritical Hopf bifurcation near Re_c=7700
 ----------------------------------------------------------------------
 This file exports operators A and E from a LidCavityFlowSolver
+It should be run in a conda environment for FEniCS
 ----------------------------------------------------------------------
 """
 
