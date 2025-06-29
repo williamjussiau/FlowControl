@@ -4,8 +4,8 @@ Lid-driven cavity
 Nondimensional incompressible Navier-Stokes equations
 Supercritical Hopf bifurcation near Re_c=7700
 ----------------------------------------------------------------------
-This file demonstrates the following possibilites:
-    - Read XDMF files and store them into numpy arrays
+This file demonstrates how to read XDMF files and store
+fields into numpy arrays
 ----------------------------------------------------------------------
 """
 
