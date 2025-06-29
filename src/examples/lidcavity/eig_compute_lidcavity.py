@@ -1,8 +1,12 @@
 """
+----------------------------------------------------------------------
 Eigenvalues utilities
-Warning: these functions should be run under a dedicated SLEPc environment
-Warning: sometimes compulsory to run "mpirun -n 1 python eig_utils.py"
-Warning: the function needs a few adjustments for running in parallel (~L216)
+Warning: does not run with MPI
+----------------------------------------------------------------------
+Warning: these functions should be run in a dedicated slepc4py environment,
+including: slepc4py=*=*complex*, scipy, matplotlib, conda-build
+with conda-develop src
+----------------------------------------------------------------------
 """
 
 # from dolfin import *
