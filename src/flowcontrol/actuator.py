@@ -67,7 +67,7 @@ class ActuatorBCParabolicV(ActuatorBC):
     to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
     FlowSolver._make_bcs())"""
 
-    width: float
+    width: float = 0.0
     position_x: float = 0.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
