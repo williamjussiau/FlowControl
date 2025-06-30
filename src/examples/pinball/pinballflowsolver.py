@@ -10,7 +10,7 @@ Recommended Re<100
 import logging
 
 import dolfin
-import pandas
+import pandas as pd
 
 import flowcontrol.flowsolver as flowsolver
 import utils.utils_extract as flu2
@@ -25,7 +25,7 @@ logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
 
 class PinballFlowSolver(flowsolver.FlowSolver):
-    """Flow past 3 cylinders."""
+    """Flow past 3 cylinders"""
 
     def _make_boundaries(self):
         near_cpp = flu.near_cpp
@@ -93,6 +93,8 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         cone_charm_act_cpp = between_cpp(
             "x[0]", "-ldelta-1.5*cos(pi/6)", "-1.5*cos(pi/6)+ldelta"
         )
+        cone_top_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
+        cone_bot_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
 
         cylinder_top = dolfin.CompiledSubDomain(
             cylinder_boundary_top_cpp, radius=radius, ldelta=ldelta
@@ -104,6 +106,16 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             cylinder_boundary_charm_cpp, radius=radius, ldelta=ldelta
         )
 
+        actuator_top = dolfin.CompiledSubDomain(
+            cylinder_boundary_top_cpp + and_cpp + cone_top_act_cpp,
+            radius=radius,
+            ldelta=ldelta,
+        )
+        actuator_bot = dolfin.CompiledSubDomain(
+            cylinder_boundary_bot_cpp + and_cpp + cone_bot_act_cpp,
+            radius=radius,
+            ldelta=ldelta,
+        )
         actuator_charm = dolfin.CompiledSubDomain(
             cylinder_boundary_charm_cpp + and_cpp + cone_charm_act_cpp,
             radius=radius,
@@ -119,6 +131,8 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             "cylinder_bot",
             "cylinder_charm",
             "actuator_charm",
+            "actuator_top",
+            "actuator_bot",
         ]
         subdomains_list = [
             inlet,
@@ -128,9 +142,11 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             cylinder_bot,
             cylinder_charm,
             actuator_charm,
+            actuator_top,
+            actuator_bot,
         ]
 
-        boundaries_df = pandas.DataFrame(
+        boundaries_df = pd.DataFrame(
             index=boundaries_names, data={"subdomain": subdomains_list}
         )
 
@@ -173,6 +189,22 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         self.params_control.actuator_list[0].boundary = self.get_subdomain(
             "actuator_charm"
         )
+        bcu_actuation_top = dolfin.DirichletBC(
+            self.W.sub(0),
+            self.params_control.actuator_list[1].expression,
+            self.get_subdomain("actuator_top"),
+        )
+        self.params_control.actuator_list[1].boundary = self.get_subdomain(
+            "actuator_top"
+        )
+        bcu_actuation_bot = dolfin.DirichletBC(
+            self.W.sub(0),
+            self.params_control.actuator_list[2].expression,
+            self.get_subdomain("actuator_bot"),
+        )
+        self.params_control.actuator_list[2].boundary = self.get_subdomain(
+            "actuator_bot"
+        )
 
         bcu = [
             bcu_inlet,
@@ -181,13 +213,13 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             bcu_cylinder_bot,
             bcu_cylinder_charm,
             bcu_actuation_charm,
+            bcu_actuation_top,
+            bcu_actuation_bot,
         ]
 
         return BoundaryConditions(bcu=bcu, bcp=[])
 
-    def make_BCs(self):
-        """Define boundary conditions full field"""
-
+    def _make_BCs(self):
         # inlet : u = uinf, v = 0
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
@@ -201,7 +233,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             self.boundaries.loc["walls"].subdomain,
         )
         bcs = self._make_bcs()
-        BC = BoundaryConditions(bcu=[bcu_inlet, bcu_walls] + bcs.bcu[1:], bcp=[])
+        BC = BoundaryConditions(bcu=[bcu_inlet, bcu_walls] + bcs.bcu[2:], bcp=[])
 
         return BC
 
