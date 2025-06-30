@@ -20,6 +20,8 @@ import utils.utils_flowsolver as flu
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCParabolicV
 
+Re_final = 8000
+
 
 def main():
     # LOG
@@ -46,7 +48,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh128.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
@@ -56,7 +58,8 @@ def main():
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    actuator_bc_up = ActuatorBCParabolicV(angular_size_deg=10)
+    # actuator_bc_up = ActuatorBCParabolicV(angular_size_deg=10)
+    actuator_bc_up = ActuatorBCParabolicV(width=0)
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[],
         actuator_list=[actuator_bc_up],
@@ -66,7 +69,7 @@ def main():
         xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1
     )
 
-    Re_list = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 7500, 8000]
+    Re_list = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 7500, Re_final]
     first_loop = True
     steady_state_filename_U0 = ""
     steady_state_filename_P0 = ""

@@ -1,40 +1,36 @@
-"""
-----------------------------------------------------------------------
-Lid-driven cavity
-Nondimensional incompressible Navier-Stokes equations
-Supercritical Hopf bifurcation near Re_c=7700
-----------------------------------------------------------------------
-This file demonstrates how to read XDMF files and store
-fields into numpy arrays
-----------------------------------------------------------------------
-"""
-Re = 8000  # Reynolds number
-
+from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
 from pathlib import Path
-
-import dolfin
 import numpy as np
 
-import flowcontrol.flowsolverparameters as flowsolverparameters
-import utils.utils_flowsolver as flu
-from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
-from flowcontrol.actuator import ActuatorBCParabolicV
-from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
+def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
+    import logging
+    import time
+    from pathlib import Path
 
+    import dolfin
+    import numpy as np
 
-def main():
-    ##########################################################
-    ## Initialize LidCavityFlowSolver to have access to dolfin.Function and dolfin.FunctionSpace
-    ##########################################################
+    import flowcontrol.flowsolverparameters as flowsolverparameters
+    import utils.utils_flowsolver as flu
+    from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
+    from flowcontrol.actuator import ActuatorBCUniformU
+    from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
+
+    t000 = time.time()
     cwd = Path(__file__).parent
+
+    dolfin.set_log_level(dolfin.LogLevel.INFO)
+    logger = logging.getLogger(__name__)
+    FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
+    logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=20, path_out=cwd / "data_output"
+        save_every=20, path_out=save_dir
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -44,7 +40,6 @@ def main():
     params_mesh = flowsolverparameters.ParamMesh(
         meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
     )
-    # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
     params_mesh.user_data["ylo"] = 0
     params_mesh.user_data["xri"] = 1
@@ -52,22 +47,17 @@ def main():
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    angular_size_deg = 10
-    actuator_bc_up = ActuatorBCParabolicV(
-        width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg=angular_size_deg,
-            cylinder_radius=params_flow.user_data["D"] / 2,
-        ),
-        position_x=0.0,
-    )
+    actuator_bc_up = ActuatorBCUniformU()
     sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.05, 0.5]))
+    sensor_2 = SensorPoint(sensor_type=SENSOR_TYPE.U, position=np.array([0.5, 0.95]))
+    sensor_3 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.5, 0.95]))
     params_control = flowsolverparameters.ParamControl(
-        sensor_list=[sensor_1],
+        sensor_list=[sensor_1, sensor_2, sensor_3],
         actuator_list=[actuator_bc_up],
     )
 
     params_ic = flowsolverparameters.ParamIC(
-        xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1
+        xloc=xloc, yloc=yloc, radius=radius, amplitude=amplitude
     )
 
     fs = LidCavityFlowSolver(
@@ -82,54 +72,35 @@ def main():
         verbose=10,
     )
 
-    ##########################################################
-    # Foreword
-    ##########################################################
-    # I recommend reading: https://github.com/williamjussiau/FlowControl/wiki/Numerical-details
+    logger.info("__init__(): successful!")
 
-    #  - when velocity and pressure fields are computed,
-    #       they are stored in different variables
-    #  - it is possible to merge them using FLowSolver.merge(u, p)
-    #       into a mixed field living in W = V x P
-    #  - be careful to indexing of degrees of freedom, it is nontrivial
+    logger.info("Exporting subdomains...")
+    flu.export_subdomains(
+        fs.mesh, fs.boundaries.subdomain, save_dir / "subdomains.xdmf"
+    )
 
-    # What is computed by FlowSolver?
-    #  - steady-state U0, P0
-    #  - perturbation fields u, p
+    logger.info("Load steady state...")
+    fs.load_steady_state(
+        path_u_p=[
+            cwd / "data_output" / "steady" / f"U0_Re={Re}.xdmf",
+            cwd / "data_output" / "steady" / f"P0_Re={Re}.xdmf",
+        ]
+    )
 
-    # Which field is stored by FlowSolver?
-    #  - steady-state U0, P0
-    #  - full field U=U0+u, P=P0+p
-    #  --> it is what is being read here
+    logger.info("Init time-stepping")
+    fs.initialize_time_stepping(ic=None)
 
-    # When is it saved?
-    #  - fields are saved every save_every steps, corresponding
-    #      to the time t=save_every*dt
-    #  - the previous fields are also saved for restarting purposes,
-    #      they correspond to time t-dt
-
-    # How to read?
-    #  - cf. code below
-    #  - be careful to field names: U/P for current, U0/P0 for
-    #      steady-state, and U_n/P_n for previous
-
-    # How is it being read?
-    #  - reading a field stores content in a dolfin.Function f
-    #  - we can access the contents with f.vector().get_local() or f.vector()[:]
-    #  - usually, everything is passed by reference, so do not forget to
-    #       copy arrays when storing them
-
-    ##########################################################
-    # XDMF files
-    ##########################################################
-    # xdmf_files = [
-    #     "src/examples/lidcavity/data_output/@_restart0,0.xdmf",
-    #     "src/examples/lidcavity/data_output/@_restart0,0.xdmf",
-    # ]
+    logger.info("Step several times")
+    for _ in range(fs.params_time.num_steps):
+        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
+        # This is still for unforced simulations
+        # TODO: Add forcing to the workflow
+        u_ctrl = [0 * y_meas[0]]
+        fs.step(u_ctrl=[u_ctrl[0]])
 
     xdmf_files = [
     cwd / "data_output" / "@_restart0,0.xdmf",
-    cwd / "data_output" / "@_restart0,0.xdmf",
+    # cwd / "data_output" / "@_restart0,0.xdmf",
     ]
 
     def make_file_name_for_field(field_name, original_file_name):
@@ -139,7 +110,7 @@ def main():
 
     # Data will be stored as 3D arrays
     # of size [ndof*, nsnapshots, nfiles]
-    nsnapshots = 3
+    nsnapshots = fs.params_time.num_steps // fs.params_save.save_every
     ndof_u = fs.V.dim()
     ndof_p = fs.P.dim()
     ndof = fs.W.dim()
@@ -212,9 +183,6 @@ def main():
 
     print("Finished reading steady-states")
 
-    save_dir = Path("/Users/james/Desktop/PhD/lid_driven_cavity")
-    save_dir.mkdir(parents=True, exist_ok=True)  # Create the folder if it doesn't exist
-
     np.save(save_dir / "U_field_alldata.npy", U_field_alldata)
     np.save(save_dir / "P_field_alldata.npy", P_field_alldata)
     np.save(save_dir / "UP_field_alldata.npy", UP_field_alldata)
@@ -223,6 +191,23 @@ def main():
     np.save(save_dir / "P0_field_data.npy", P0_field_data)
     np.save(save_dir / "UP0_field_data.npy", UP0_field_data)
 
-
 if __name__ == "__main__":
-    main()
+    # Adapt to wherever you want to save the results
+    base_dir = Path("/Users/james/Desktop/PhD/lid_driven_cavity")
+    parent_dir = base_dir / f"Re{Re}"
+    parent_dir.mkdir(parents=True, exist_ok=True)
+
+    x_vals = np.linspace(0.2, 0.8, 3)
+    y_vals = np.linspace(0.2, 0.8, 3)
+    radius = 0.1
+    amplitude = 0.1
+    count = 1
+    for xloc in x_vals:
+        for yloc in y_vals:
+            save_dir = parent_dir / f"run{count}"
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            print(f"Running simulation {count} with xloc={xloc:.3f}, yloc={yloc:.3f}, radius={radius:.3f}, amplitude={amplitude:.3f}")
+            run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir)
+            print(f"Finished simulation {count}, results saved in {save_dir}")
+            count += 1

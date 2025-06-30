@@ -24,6 +24,8 @@ from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCUniformU
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
+Re = 8000
+
 
 def main():
     # LOG
@@ -37,13 +39,13 @@ def main():
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
+    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=100, path_out=cwd / "data_output"
+        save_every=20, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -51,7 +53,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh128.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
@@ -101,8 +103,8 @@ def main():
     # )
     fs.load_steady_state(
         path_u_p=[
-            cwd / "data_output" / "steady" / "U0_Re=8000.xdmf",
-            cwd / "data_output" / "steady" / "P0_Re=8000.xdmf",
+            cwd / "data_output" / "steady" / f"U0_Re={Re}.xdmf",
+            cwd / "data_output" / "steady" / f"P0_Re={Re}.xdmf",
         ]
     )
 
@@ -113,7 +115,10 @@ def main():
 
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = [0.2 * np.sin(2 * np.pi * fs.t) + 0 * y_meas[0]]
+        # unforced:
+        u_ctrl = [0 * y_meas[0]]
+        # Forced:
+        # u_ctrl = [0.2 * np.sin(2 * np.pi * fs.t) + 0 * y_meas[0]]
 
         fs.step(u_ctrl=[u_ctrl[0]])
 
