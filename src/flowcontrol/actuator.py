@@ -48,10 +48,14 @@ class Actuator(ABC):
 
 @dataclass(kw_only=True)
 class ActuatorBC(Actuator):
-    """_summary_
+    """Boundary condition actuator, inherits from abstract base class Actuator
+    This actuators features an attribute _boundary_ that links the boundary to the
+    actuator automatically
+    --> this is only required for operator B computation, we can probably do better
+    See https://github.com/williamjussiau/FlowControl/issues/7
 
     Args:
-        Actuator (_type_): _description_
+        boundary (dolfin.Expression): boundary on which the boundary condition is enforced
     """
 
     boundary: Optional[dolfin.Expression] = None
