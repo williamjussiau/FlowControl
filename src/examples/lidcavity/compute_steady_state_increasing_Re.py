@@ -56,7 +56,7 @@ def main():
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    actuator_bc_up = ActuatorBCParabolicV(angular_size_deg=10)
+    actuator_bc_up = ActuatorBCParabolicV(width=0)
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[],
         actuator_list=[actuator_bc_up],
