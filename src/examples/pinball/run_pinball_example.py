@@ -31,7 +31,7 @@ def main():
     params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=200, path_out=cwd / "data_output"
+        save_every=10, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -47,20 +47,35 @@ def main():
 
     params_restart = flowsolverparameters.ParamRestart()
 
+    # duplicate actuators
+
     angular_size_deg = 10
+
     actuator_charm_bc = ActuatorBCParabolicV(
         width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg=angular_size_deg,
-            cylinder_radius=params_flow.user_data["D"] / 2,
+            angular_size_deg, params_flow.user_data["D"] / 2
         ),
         position_x=-1.5 * np.cos(np.pi / 6),
     )
+    actuator_top_bc = ActuatorBCParabolicV(
+        width=ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg, params_flow.user_data["D"] / 2
+        ),
+        position_x=0.0,
+    )
+    actuator_bottom_bc = ActuatorBCParabolicV(
+        width=ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg, params_flow.user_data["D"] / 2
+        ),
+        position_x=0.0,
+    )
+
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8, 0]))
     sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([10, 0]))
     sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([12, 0]))
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
-        actuator_list=[actuator_charm_bc],
+        actuator_list=[actuator_charm_bc, actuator_top_bc, actuator_bottom_bc],
     )
 
     params_ic = flowsolverparameters.ParamIC(
@@ -87,28 +102,37 @@ def main():
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = [0.0]
-    fs.compute_steady_state(method="picard", max_iter=15, tol=1e-7, u_ctrl=uctrl0)
+    uctrl0 = [0.0, 0.0, 0.0]
+
+    fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
+    # fs.load_steady_state()
 
     logger.info("Init time-stepping")
     fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
 
     logger.info("Step several times")
     Kss = Controller.from_file(file=cwd / "data_input" / "Kdx8dy0p0.mat", x0=0)
+    tlen = 0.10  # characteristic length of gaussian bump
+    tpeak = [0.25, 0.5, 0.75]  # peaking time
+    u0peak = [1.0, -1.5, 2.0]  # peaking amplitude
+
+    def gaussian_bump(t, tpeak):
+        return np.exp(-1 / 2 * (t - tpeak) ** 2 / tlen**2)
 
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = Kss.step(y=+y_meas[0], dt=fs.params_time.dt)
-        fs.step(u_ctrl=[u_ctrl[0]])
+        # u_ctrl = Kss.step(y=+y_meas[0], dt=fs.params_time.dt)
+        u_ctrlc = u0peak[0] * gaussian_bump(fs.t, tpeak[0])
+        u_ctrlt = u0peak[1] * gaussian_bump(fs.t, tpeak[1])
+        u_ctrlb = u0peak[2] * gaussian_bump(fs.t, tpeak[2])
+        fs.step(u_ctrl=[u_ctrlc, u_ctrlt, u_ctrlb])
 
     flu.summarize_timings(fs, t000)
     logger.info(fs.timeseries)
     fs.write_timeseries()
-
-    logger.info("End with success")
 
 
 if __name__ == "__main__":
