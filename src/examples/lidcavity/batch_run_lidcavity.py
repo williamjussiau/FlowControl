@@ -27,7 +27,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=20, path_out=save_dir
@@ -173,8 +173,8 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     file_name_P0 = cwd / "data_output" / "steady" / "P0.xdmf"
 
     print(f"* Reading steady-states at {file_name_U0}, {file_name_P0}")
-    flu.read_xdmf(file_name_U0, U_field, "U0")
-    flu.read_xdmf(file_name_P0, P_field, "P0")
+    flu.read_xdmf(file_name_U0, U0, "U0")
+    flu.read_xdmf(file_name_P0, P0, "P0")
     UP0 = fs.merge(U0, P0)
 
     U0_field_data = U0.vector().get_local()

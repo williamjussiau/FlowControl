@@ -20,7 +20,7 @@ import utils.utils_flowsolver as flu
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCParabolicV
 
-Re_final = 8000
+Re_final = 7700
 
 
 def main():
