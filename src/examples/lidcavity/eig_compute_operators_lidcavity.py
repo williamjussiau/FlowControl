@@ -20,6 +20,7 @@ import utils.utils_flowsolver as flu
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCUniformU
 from flowcontrol.operatorgetter import OperatorGetter
+from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
 
 
 def main():
@@ -32,7 +33,7 @@ def main():
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
+    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
@@ -46,7 +47,6 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        # meshpath=cwd / "data_input" / "mesh128.xdmf"
         meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
     )
     # mesh is in upper-right quadrant
@@ -82,17 +82,17 @@ def main():
     logger.info("__init__(): successful!")
 
     logger.info("Compute steady state...")
-    U00 = dolfin.Function(fs.V)
-    P00 = dolfin.Function(fs.P)
-    steady_state_filename_U0 = params_save.path_out / "steady" / f"U0_Re=8000.xdmf"
-    steady_state_filename_P0 = params_save.path_out / "steady" / f"P0_Re=8000.xdmf"
-    flu.read_xdmf(steady_state_filename_U0, U00, "U0")
-    flu.read_xdmf(steady_state_filename_P0, P00, "P0")
-    initial_guess = fs.merge(U00, P00)
+    # U00 = dolfin.Function(fs.V)
+    # P00 = dolfin.Function(fs.P)
+    # steady_state_filename_U0 = params_save.path_out / "steady" / f"U0_Re={Re}.xdmf"
+    # steady_state_filename_P0 = params_save.path_out / "steady" / f"P0_Re={Re}.xdmf"
+    # flu.read_xdmf(steady_state_filename_U0, U00, "U0")
+    # flu.read_xdmf(steady_state_filename_P0, P00, "P0")
+    # initial_guess = fs.merge(U00, P00)
     uctrl0 = [0.0]
-    fs.compute_steady_state(method="picard", max_iter=20, tol=1e-8, u_ctrl=uctrl0, initial_guess=initial_guess)
+    fs.compute_steady_state(method="picard", max_iter=20, tol=1e-8, u_ctrl=uctrl0, initial_guess=None)
     fs.compute_steady_state(
-        method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
     # or load
 
