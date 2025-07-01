@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import scipy.sparse as spr
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
@@ -118,12 +119,25 @@ if OPERATORS_CYLINDER:
     E = opget.get_mass_matrix()
 
     export = True
+    # if export:
+    #     path_out = cwd / "cylinder" / "data_output"
+    #     flu.export_sparse_matrix(A0, path_out / "A.png")
+    #     flu.export_field(B, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "B")
+    #     flu.export_field(C.T, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "C")
+    #     flu.export_sparse_matrix(E, path_out / "E.png")
+
+    # Exporting like in eig_compute_operators_lidcavity.py
     if export:
         path_out = cwd / "cylinder" / "data_output"
-        flu.export_sparse_matrix(A0, path_out / "A.png")
-        flu.export_field(B, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "B")
-        flu.export_field(C.T, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "C")
-        flu.export_sparse_matrix(E, path_out / "E.png")
+        path_out.mkdir(parents=True, exist_ok=True)
+        for Mat, Matname in zip([A0, E], ["A", "E"]):
+            # Export as png only
+            flu.export_sparse_matrix(Mat, path_out / f"{Matname}.png")
+
+            # Export as npz
+            Matc, Mats, Matr = Mat.mat().getValuesCSR()
+            Acsr = spr.csr_matrix((Matr, Mats, Matc))
+            spr.save_npz(path_out / f"{Matname}.npz", Acsr)
 
     logger.info("Cylinder -- Finished properly.")
     logger.info("*" * 50)
