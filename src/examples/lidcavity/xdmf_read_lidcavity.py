@@ -202,8 +202,6 @@ def main():
     file_name_P0 = cwd / "data_output" / "steady" / "P0.xdmf"
 
     print(f"* Reading steady-states at {file_name_U0}, {file_name_P0}")
-    # flu.read_xdmf(file_name_U0, U_field, "U0")
-    # flu.read_xdmf(file_name_P0, P_field, "P0")
     flu.read_xdmf(file_name_U0, U0, "U0")
     flu.read_xdmf(file_name_P0, P0, "P0")
     UP0 = fs.merge(U0, P0)
