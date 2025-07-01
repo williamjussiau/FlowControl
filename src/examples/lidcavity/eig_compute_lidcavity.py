@@ -61,10 +61,10 @@ def main():
 
     targets = np.array(
         [
-            0 + 0j,
-            1j,
-            2j,
-            3j,
+            -0.0 + 0j,
+            -0.0 + 1j,
+            -0.0 + 2j,
+            -0.0 + 3j,
         ]
     )
 
@@ -94,7 +94,7 @@ def main():
             precond_type=PETSc.PC.Type.LU,
             eps_type=SLEPc.EPS.Type.KRYLOVSCHUR,
             ksp_type=PETSc.KSP.Type.PREONLY,
-            tol=1e-9,
+            tol=1e-12,
         )
 
         if np.any(np.real(L) > 0):

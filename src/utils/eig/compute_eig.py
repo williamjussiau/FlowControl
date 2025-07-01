@@ -6,6 +6,7 @@ Warning: the function needs a few adjustments for running in parallel (~L216)
 '''
 
 import time
+from pathlib import Path
 
 import numpy as np
 import scipy as scp
@@ -23,7 +24,7 @@ import functools
 import pdb
 import warnings
 
-from eig_utils import *
+from utils.eig.eig_utils import *
 
 #################################################################################
 #################################################################################
@@ -36,10 +37,13 @@ if __name__=='__main__':
     print('Start with FEM matrices')
     t0 = time.time()
     print('--- Loading matrices')
-    save_npz_path = '/scratchm/wjussiau/fenics-results/cylinder_o1_eig_correction/data/'
+    save_npz_path = 'src/examples/operators/cylinder/data_output/'
+    # save_npz_path = '/scratchm/wjussiau/fenics-results/cylinder_o1_eig_correction/data/'
     print('--- from sparse...')
-    AA = spr.load_npz(save_npz_path + 'A_mean.npz') 
-    BB = spr.load_npz(save_npz_path + 'Q.npz') 
+    # AA = spr.load_npz(save_npz_path + 'A_mean.npz') 
+    # BB = spr.load_npz(save_npz_path + 'Q.npz') 
+    AA = spr.load_npz(save_npz_path + 'A.npz') 
+    BB = spr.load_npz(save_npz_path + 'E.npz') 
     print('--- ... to petscmat')
     seq = True
     AA = sparse_to_petscmat(AA, sequential=seq)
@@ -110,6 +114,7 @@ if __name__=='__main__':
     np.save(save_npz_path + 'lk_py', V)
     savemat(outfile=save_npz_path + 'mukstar_py.mat', mat=LAMBDA, matname='mukstar')
     savemat(outfile=save_npz_path + 'lk_py.mat', mat=V, matname='lk')
+    np.savetxt(save_npz_path + "eigenValues.txt", LAMBDA, delimiter=",")
 
     print('Elapsed: %f' %(time.time() - t0))
     print('...............................')

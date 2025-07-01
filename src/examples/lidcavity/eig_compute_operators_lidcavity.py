@@ -32,10 +32,10 @@ def main():
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=4000, uinf=1)
+    params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=100, path_out=cwd / "data_output"
@@ -46,8 +46,8 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh128.xdmf"
-        # meshpath=cwd / "data_input" / "lidcavity_3.xdmf"
+        # meshpath=cwd / "data_input" / "mesh128.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
@@ -82,8 +82,15 @@ def main():
     logger.info("__init__(): successful!")
 
     logger.info("Compute steady state...")
+    U00 = dolfin.Function(fs.V)
+    P00 = dolfin.Function(fs.P)
+    steady_state_filename_U0 = params_save.path_out / "steady" / f"U0_Re=8000.xdmf"
+    steady_state_filename_P0 = params_save.path_out / "steady" / f"P0_Re=8000.xdmf"
+    flu.read_xdmf(steady_state_filename_U0, U00, "U0")
+    flu.read_xdmf(steady_state_filename_P0, P00, "P0")
+    initial_guess = fs.merge(U00, P00)
     uctrl0 = [0.0]
-    fs.compute_steady_state(method="picard", max_iter=20, tol=1e-8, u_ctrl=uctrl0)
+    fs.compute_steady_state(method="picard", max_iter=20, tol=1e-8, u_ctrl=uctrl0, initial_guess=initial_guess)
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
@@ -100,7 +107,7 @@ def main():
     export = True
     if export:
         path_out = cwd / "data_output" / "operators"
-
+        path_out.mkdir(parents=True, exist_ok=True)
         for Mat, Matname in zip([A0, E], ["A", "E"]):
             # Export as png only
             flu.export_sparse_matrix(Mat, path_out / f"{Matname}.png")
