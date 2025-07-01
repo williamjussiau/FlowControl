@@ -48,10 +48,14 @@ class Actuator(ABC):
 
 @dataclass(kw_only=True)
 class ActuatorBC(Actuator):
-    """_summary_
+    """Boundary condition actuator, inherits from abstract base class Actuator
+    This actuators features an attribute _boundary_ that links the boundary to the
+    actuator automatically
+    --> this is only required for operator B computation, we can probably do better
+    See https://github.com/williamjussiau/FlowControl/issues/7
 
     Args:
-        Actuator (_type_): _description_
+        boundary (dolfin.Expression): boundary on which the boundary condition is enforced
     """
 
     boundary: Optional[dolfin.Expression] = None
@@ -67,7 +71,7 @@ class ActuatorBCParabolicV(ActuatorBC):
     to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
     FlowSolver._make_bcs())"""
 
-    width: float
+    width: float = 0.0
     position_x: float = 0.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
