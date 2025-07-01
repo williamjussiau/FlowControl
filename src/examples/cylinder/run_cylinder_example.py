@@ -111,10 +111,11 @@ def main():
     logger.info("Compute steady state...")
     uctrl0 = [0.0, 0.0]
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
-
     fs.compute_steady_state(
         method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
+    # Expected:
+    # Newton iteration 4: r (abs) = 6.901e-14 (tol = 1.000e-10) r (rel) = 1.109e-11 (tol = 1.000e-09)
 
     logger.info("Init time-stepping")
     fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
