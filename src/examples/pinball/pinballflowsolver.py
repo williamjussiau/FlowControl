@@ -223,13 +223,13 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         # inlet : u = uinf, v = 0
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
-            dolfin.Constant((self.uinf, 0)),
+            dolfin.Constant((self.params_flow.uinf, 0)),
             self.boundaries.loc["inlet"].subdomain,
         )
         # walls :  u = uinf, v = 0
         bcu_walls = dolfin.DirichletBC(
             self.W.sub(0),
-            dolfin.Constant((self.uinf, 0)),
+            dolfin.Constant((self.params_flow.uinf, 0)),
             self.boundaries.loc["walls"].subdomain,
         )
         bcs = self._make_bcs()
