@@ -17,21 +17,20 @@ def main():
     # LOG
     dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
     logger = logging.getLogger(__name__)
-    FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-    logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
     t000 = time.time()
     cwd = Path(__file__).parent
 
     logger.info("Trying to instantiate FlowSolver...")
 
+    # All parameters
     params_flow = flowsolverparameters.ParamFlow(Re=50, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=4000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=10, path_out=cwd / "data_output"
+        save_every=200, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -47,10 +46,8 @@ def main():
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    # duplicate actuators
-
+    # Actuators
     angular_size_deg = 10
-
     actuator_charm_bc = ActuatorBCParabolicV(
         width=ActuatorBCParabolicV.angular_size_deg_to_width(
             angular_size_deg, params_flow.user_data["D"] / 2
@@ -70,6 +67,7 @@ def main():
         position_x=0.0,
     )
 
+    # Sensors
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8, 0]))
     sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([10, 0]))
     sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([12, 0]))
@@ -78,6 +76,7 @@ def main():
         actuator_list=[actuator_charm_bc, actuator_top_bc, actuator_bottom_bc],
     )
 
+    # IC
     params_ic = flowsolverparameters.ParamIC(
         xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
     )
@@ -91,7 +90,7 @@ def main():
         params_restart=params_restart,
         params_control=params_control,
         params_ic=params_ic,
-        verbose=5,
+        verbose=10,
     )
 
     logger.info("__init__(): successful!")
@@ -114,7 +113,7 @@ def main():
     fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
 
     logger.info("Step several times")
-    Kss = Controller.from_file(file=cwd / "data_input" / "Kdx8dy0p0.mat", x0=0)
+    # Kss = Controller.from_file(file=cwd / "data_input" / "Kdx8dy0p0.mat", x0=0)
     tlen = 0.10  # characteristic length of gaussian bump
     tpeak = [0.25, 0.5, 0.75]  # peaking time
     u0peak = [1.0, -1.5, 2.0]  # peaking amplitude
@@ -123,7 +122,7 @@ def main():
         return np.exp(-1 / 2 * (t - tpeak) ** 2 / tlen**2)
 
     for _ in range(fs.params_time.num_steps):
-        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
+        # y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         # u_ctrl = Kss.step(y=+y_meas[0], dt=fs.params_time.dt)
         u_ctrlc = u0peak[0] * gaussian_bump(fs.t, tpeak[0])
         u_ctrlt = u0peak[1] * gaussian_bump(fs.t, tpeak[1])
