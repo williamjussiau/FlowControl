@@ -27,7 +27,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=20, path_out=save_dir
@@ -99,7 +99,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
         fs.step(u_ctrl=[u_ctrl[0]])
 
     xdmf_files = [
-    cwd / "data_output" / "@_restart0,0.xdmf",
+    save_dir / "@_restart0,0.xdmf",
     # cwd / "data_output" / "@_restart0,0.xdmf",
     ]
 
@@ -193,7 +193,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
 
 if __name__ == "__main__":
     # Adapt to wherever you want to save the results
-    base_dir = Path("/Users/james/Desktop/PhD/lid_driven_cavity")
+    base_dir = Path("/Users/jaking/Desktop/PhD/lid_driven_cavity")
     parent_dir = base_dir / f"Re{Re}"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
