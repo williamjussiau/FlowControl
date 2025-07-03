@@ -27,7 +27,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=20, path_out=save_dir
@@ -191,6 +191,68 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     np.save(save_dir / "P0_field_data.npy", P0_field_data)
     np.save(save_dir / "UP0_field_data.npy", UP0_field_data)
 
+    ##########################################################
+    # Extract mesh coordinates corresponding to DOF ordering
+    ##########################################################
+    print("Extracting mesh coordinates...")
+    
+    # Get DOF coordinates for velocity space (V)
+    V_dof_coordinates = fs.V.tabulate_dof_coordinates()
+    
+    # Get DOF coordinates for pressure space (P)
+    P_dof_coordinates = fs.P.tabulate_dof_coordinates()
+    
+    # Get DOF coordinates for mixed space (W)
+    W_dof_coordinates = fs.W.tabulate_dof_coordinates()
+    
+    print(f"V DOF coordinates shape: {V_dof_coordinates.shape}")
+    print(f"P DOF coordinates shape: {P_dof_coordinates.shape}")
+    print(f"W DOF coordinates shape: {W_dof_coordinates.shape}")
+
+    # Save mesh coordinates
+    np.save(save_dir / "V_dof_coordinates.npy", V_dof_coordinates)
+    np.save(save_dir / "P_dof_coordinates.npy", P_dof_coordinates)
+    np.save(save_dir / "W_dof_coordinates.npy", W_dof_coordinates)
+
+    ##########################################################
+    # Extract mesh coordinates corresponding to DOF ordering
+    ##########################################################
+    # print("Extracting mesh coordinates...")
+
+    # # Get coordinates
+    # V_dof_coordinates = fs.V.tabulate_dof_coordinates()
+    # P_dof_coordinates = fs.P.tabulate_dof_coordinates()
+
+    # print(f"V DOF coordinates shape: {V_dof_coordinates.shape}")
+    # print(f"P DOF coordinates shape: {P_dof_coordinates.shape}")
+
+    # # For velocity: take first half of coordinates (they correspond to spatial locations)
+    # n_spatial_points = fs.V.dim() // 2
+    # V_spatial_coords = V_dof_coordinates[:n_spatial_points, :]
+
+    # print(f"V spatial coordinates shape: {V_spatial_coords.shape}")
+
+    # # Save coordinates
+    # np.save(save_dir / "V_spatial_coordinates.npy", V_spatial_coords)
+    # np.save(save_dir / "P_dof_coordinates.npy", P_dof_coordinates)
+
+    # Plot to verify saved data - final trajectory snapshot
+    plot_to_check = False
+    if plot_to_check:
+        import matplotlib.pyplot as plt
+        U_final = dolfin.Function(fs.V)
+        U_final.vector().set_local(U_field_alldata[:, -1, 0])  # Last snapshot from saved data
+        
+        V_scalar = dolfin.FunctionSpace(fs.mesh, "CG", 1)
+        velocity_mag = dolfin.project(dolfin.sqrt(dolfin.dot(U_final, U_final)), V_scalar)
+        
+        plt.figure(figsize=(8, 6))
+        c = dolfin.plot(velocity_mag)
+        plt.colorbar(c)
+        plt.title(f'Velocity Magnitude (from saved data) - xloc={xloc:.3f}, yloc={yloc:.3f}')
+        plt.savefig(save_dir / "velocity_magnitude_from_saved_data.png", dpi=150, bbox_inches='tight')
+        plt.show()
+
 if __name__ == "__main__":
     # Adapt to wherever you want to save the results
     base_dir = Path("/Users/jaking/Desktop/PhD/lid_driven_cavity")
@@ -199,8 +261,10 @@ if __name__ == "__main__":
 
     x_vals = np.linspace(0.2, 0.8, 3)
     y_vals = np.linspace(0.2, 0.8, 3)
+    # x_vals = np.linspace(0.2, 0.2, 1)
+    # y_vals = np.linspace(0.2, 0.2, 1)
     radius = 0.1
-    amplitude = 0.1
+    amplitude = 0.05
     count = 1
     for xloc in x_vals:
         for yloc in y_vals:
