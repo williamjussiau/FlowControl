@@ -27,7 +27,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=20000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=20, path_out=save_dir
@@ -38,7 +38,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_1.xdmf"
     )
     params_mesh.user_data["yup"] = 1
     params_mesh.user_data["ylo"] = 0
@@ -255,8 +255,8 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
 
 if __name__ == "__main__":
     # Adapt to wherever you want to save the results
-    base_dir = Path("/Users/jaking/Desktop/PhD/lid_driven_cavity")
-    parent_dir = base_dir / f"Re{Re}"
+    base_dir = Path("/Users/james/Desktop/PhD/lid_driven_cavity")
+    parent_dir = base_dir / f"Re{Re}_low_res"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     x_vals = np.linspace(0.2, 0.8, 3)
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     # x_vals = np.linspace(0.2, 0.2, 1)
     # y_vals = np.linspace(0.2, 0.2, 1)
     radius = 0.1
-    amplitude = 0.05
+    amplitude = 0.001
     count = 1
     for xloc in x_vals:
         for yloc in y_vals:
