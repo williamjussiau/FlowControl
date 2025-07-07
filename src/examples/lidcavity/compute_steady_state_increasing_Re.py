@@ -48,7 +48,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
+        meshpath=cwd / "data_input" / "mesh64.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
