@@ -1,5 +1,4 @@
 import logging
-import time
 from pathlib import Path
 
 import numpy as np
@@ -9,25 +8,41 @@ import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.cavity.cavityflowsolver import CavityFlowSolver
 from examples.cylinder.cylinderflowsolver import CylinderFlowSolver
-from flowcontrol.actuator import ActuatorBCParabolicV, ActuatorForceGaussianV
+from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
+from flowcontrol.actuator import (
+    ActuatorBCParabolicV,
+    ActuatorBCUniformU,
+    ActuatorForceGaussianV,
+)
 from flowcontrol.operatorgetter import OperatorGetter
 from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
-OPERATORS_CYLINDER = True
-OPERATORS_CAVITY = False
-OPERATORS_LIDCAVITY = False  # not implemented yet
-OPERATORS_PINBALL = False  # not implemented yet
-
 # Set logger
 logger = logging.getLogger(__name__)
-FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 cwd = Path(__file__).parent
 
+
+def export_operators(path, operators, operators_names):
+    """Export given operators as png and sparse npz"""
+    path.mkdir(parents=True, exist_ok=True)
+    for Mat, Matname in zip(operators, operators_names):
+        # Export as png only
+        flu.export_sparse_matrix(Mat, path / f"{Matname}.png")
+
+        # Export as npz
+        Matc, Mats, Matr = Mat.mat().getValuesCSR()
+        Acsr = spr.csr_matrix((Matr, Mats, Matc))
+        Acoo = Acsr.tocoo()
+        spr.save_npz(path / f"{Matname}.npz", Acsr)
+        spr.save_npz(path / f"{Matname}_coo.npz", Acoo)
+
+
+####################################################################################
 # Get Cylinder operators
-if OPERATORS_CYLINDER:
-    params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
+####################################################################################
+def make_cylinder(Re=100):
+    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
@@ -49,7 +64,6 @@ if OPERATORS_CYLINDER:
 
     params_restart = flowsolverparameters.ParamRestart()
 
-    # duplicate actuators (1 top, 1 bottom) but assign same control input to each
     angular_size_deg = 10
     actuator_bc_1 = ActuatorBCParabolicV(
         width=ActuatorBCParabolicV.angular_size_deg_to_width(
@@ -94,58 +108,15 @@ if OPERATORS_CYLINDER:
     fscyl.compute_steady_state(
         method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fscyl.fields.UP0
     )
-    # fscyl.load_steady_state()
 
-    # Compute operator: A
-    logger.info("Now computing operators...")
-    opget = OperatorGetter(fscyl)
-    A0 = opget.get_A(UP0=fscyl.fields.UP0, autodiff=True)
-
-    # Compute operator: B
-    B = opget.get_B(as_function_list=False, interpolate=True)
-
-    # Compute operator: C
-    # import time
-    # t0 = time.time()
-    C = opget.get_C(check=False, fast=True)
-    # dt1 = time.time() - t0
-    # logger.info(dt1)
-    # C = opget.get_C(check=False, fast=False)
-    # dt2 = time.time() - (t0 + dt1)
-    # logger.info(dt2)
-    # logger.info(f"Error in optimization: {np.linalg.norm(C - C_opt)}")
-
-    # Compute operator: E
-    E = opget.get_mass_matrix()
-
-    export = True
-    # if export:
-    #     path_out = cwd / "cylinder" / "data_output"
-    #     flu.export_sparse_matrix(A0, path_out / "A.png")
-    #     flu.export_field(B, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "B")
-    #     flu.export_field(C.T, fscyl.W, fscyl.V, fscyl.P, save_dir=path_out / "C")
-    #     flu.export_sparse_matrix(E, path_out / "E.png")
-
-    # Exporting like in eig_compute_operators_lidcavity.py
-    if export:
-        path_out = cwd / "cylinder" / "data_output"
-        path_out.mkdir(parents=True, exist_ok=True)
-        for Mat, Matname in zip([A0, E], ["A", "E"]):
-            # Export as png only
-            flu.export_sparse_matrix(Mat, path_out / f"{Matname}.png")
-
-            # Export as npz
-            Matc, Mats, Matr = Mat.mat().getValuesCSR()
-            Acsr = spr.csr_matrix((Matr, Mats, Matc))
-            spr.save_npz(path_out / f"{Matname}.npz", Acsr)
-
-    logger.info("Cylinder -- Finished properly.")
-    logger.info("*" * 50)
+    return fscyl
 
 
+####################################################################################
 # Get Cavity operators
-if OPERATORS_CAVITY:
-    params_flow = flowsolverparameters.ParamFlow(Re=7500, uinf=1.0)
+####################################################################################
+def make_cavity(Re=7500):
+    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1.0)
     params_flow.user_data["L"] = 1.0
     params_flow.user_data["D"] = 1.0
 
@@ -211,48 +182,140 @@ if OPERATORS_CAVITY:
     fscav.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fscav.fields.UP0
     )
-    # fscav.load_steady_state()
 
+    return fscav
+
+
+####################################################################################
+# Get Lid-driven Cavity operators
+####################################################################################
+def make_lidcavity(Re=4000):
+    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
+    params_flow.user_data["D"] = 1.0
+
+    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
+
+    params_save = flowsolverparameters.ParamSave(
+        save_every=100, path_out=cwd / "lidcavity" / "data_output"
+    )
+
+    params_solver = flowsolverparameters.ParamSolver(
+        throw_error=True, is_eq_nonlinear=True, shift=0.0
+    )
+
+    params_mesh = flowsolverparameters.ParamMesh(
+        meshpath=cwd.parent / "lidcavity" / "data_input" / "mesh64.xdmf"
+    )
+    params_mesh.user_data["yup"] = 1
+    params_mesh.user_data["ylo"] = 0
+    params_mesh.user_data["xri"] = 1
+    params_mesh.user_data["xle"] = 0
+
+    params_restart = flowsolverparameters.ParamRestart()
+
+    actuator_bc_up = ActuatorBCUniformU()
+    params_control = flowsolverparameters.ParamControl(
+        sensor_list=[],
+        actuator_list=[actuator_bc_up],
+    )
+
+    params_ic = flowsolverparameters.ParamIC(
+        xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1
+    )
+
+    fslid = LidCavityFlowSolver(
+        params_flow=params_flow,
+        params_time=params_time,
+        params_save=params_save,
+        params_solver=params_solver,
+        params_mesh=params_mesh,
+        params_restart=params_restart,
+        params_control=params_control,
+        params_ic=params_ic,
+        verbose=10,
+    )
+
+    logger.info("__init__(): successful!")
+
+    logger.info("Compute steady state...")
+    uctrl0 = [0.0]
+    # fslid.compute_steady_state(
+    #     method="picard", max_iter=16, tol=1e-8, u_ctrl=uctrl0, initial_guess=None
+    # )
+    # fslid.compute_steady_state(
+    #     method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fslid.fields.UP0
+    # )
+    root_path_load = cwd.parent
+    fslid.load_steady_state(
+        path_u_p=[
+            root_path_load
+            / Path(
+                "lidcavity",
+                "data_output",
+                "steady",
+                "U0_Re=8000.xdmf",
+            ),
+            root_path_load
+            / Path(
+                "lidcavity",
+                "data_output",
+                "steady",
+                "P0_Re=8000.xdmf",
+            ),
+        ]
+    )
+
+    return fslid
+
+
+####################################################################################
+# Get Pinball operators
+####################################################################################
+def make_pinball():
+    raise NotImplementedError()
+    return None
+
+
+####################################################################################
+# Compute operators
+####################################################################################
+def compute_operators_flowsolver(flowsolver, export):
     # Compute operator: A
     logger.info("Now computing operators...")
-    opget = OperatorGetter(fscav)
-
-    t0 = time.time()
-    A0 = opget.get_A(UP0=fscav.fields.UP0, autodiff=True)
-    dt1 = time.time() - t0
-    logger.info(dt1)
-
-    # Compute operator: B
-    t0 = time.time()
-    B = opget.get_B(as_function_list=False, interpolate=True)
-    dt1 = time.time() - t0
-    logger.info(dt1)
-
-    # Compute operator: C
-    t0 = time.time()
-    C = opget.get_C(check=True, fast=True)
-    dt1 = time.time() - t0
-    for jj in range(C.shape[0]):
-        print(f"max of Cj is: {max(C[jj, :])}")
-    # max of Cj is: 3.038870378001052
-    # max of Cj is: 0.9999999999994703
-    # result is somewhat different in parallel, nice!
-    # ---> check matrices in Paraview
-    # dolfin.list_timings(dolfin.TimingClear.clear, [dolfin.TimingType.wall])
-    logger.info(dt1)
+    opget = OperatorGetter(flowsolver)
+    A0 = opget.get_A(UP0=flowsolver.fields.UP0, autodiff=True)
 
     # Compute operator: E
-    t0 = time.time()
     E = opget.get_mass_matrix()
-    dt1 = time.time() - t0
-    logger.info(dt1)
 
-    export = True
+    # Could also compute B, C
+
+    # Export
     if export:
-        path_out = cwd / "cavity" / "data_output"
-        flu.export_sparse_matrix(A0, path_out / "A.png")
-        flu.export_field(B, fscav.W, fscav.V, fscav.P, save_dir=path_out / "B")
-        flu.export_field(C.T, fscav.W, fscav.V, fscav.P, save_dir=path_out / "C")
-        flu.export_sparse_matrix(E, path_out / "E.png")
+        export_operators(
+            path=cwd / "lidcavity" / "data_output",
+            operators=[A0, E],
+            operators_names=["A", "E"],
+        )
 
-    logger.info("Cavity -- Finished properly.")
+
+####################################################################################
+# Main
+####################################################################################
+if __name__ == "__main__":
+    COMPUTE_OPERATORS_CYLINDER = False
+    COMPUTE_OPERATORS_CAVITY = False
+    COMPUTE_OPERATORS_LIDCAVITY = True
+    COMPUTE_OPERATORS_PINBALL = False  # not implemented yet
+
+    if COMPUTE_OPERATORS_CYLINDER:
+        compute_operators_flowsolver(make_cylinder(Re=100), export=True)
+
+    if COMPUTE_OPERATORS_CAVITY:
+        compute_operators_flowsolver(make_cavity(Re=7500), export=True)
+
+    if COMPUTE_OPERATORS_LIDCAVITY:
+        compute_operators_flowsolver(make_lidcavity(Re=8000), export=True)
+
+    if COMPUTE_OPERATORS_PINBALL:
+        pass
