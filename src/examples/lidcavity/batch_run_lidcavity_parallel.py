@@ -1,6 +1,8 @@
 from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
 from pathlib import Path
 import numpy as np
+import multiprocessing as mp
+from tqdm import tqdm
 
 def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     import logging
@@ -253,6 +255,20 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
         plt.savefig(save_dir / "velocity_magnitude_from_saved_data.png", dpi=150, bbox_inches='tight')
         plt.show()
 
+def run_single_simulation(args):
+    """Wrapper function for parallel execution"""
+    xloc, yloc, radius, amplitude, Re, save_dir = args
+    
+    print(f"Starting simulation xloc={xloc:.3f}, yloc={yloc:.3f} in process {mp.current_process().name}")
+    
+    try:
+        run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir)
+        print(f"✓ Completed simulation xloc={xloc:.3f}, yloc={yloc:.3f}")
+        return True
+    except Exception as e:
+        print(f"Error in simulation xloc={xloc:.3f}, yloc={yloc:.3f}: {e}")
+        return False
+
 if __name__ == "__main__":
     # Adapt to wherever you want to save the results
     base_dir = Path("/Users/james/Desktop/PhD/lid_driven_cavity")
@@ -261,17 +277,38 @@ if __name__ == "__main__":
 
     x_vals = np.linspace(0.2, 0.8, 3)
     y_vals = np.linspace(0.2, 0.8, 3)
-    # x_vals = np.linspace(0.2, 0.2, 1)
-    # y_vals = np.linspace(0.2, 0.2, 1)
     radius = 0.1
     amplitude = 0.1
+    
+    # Prepare all simulation parameters
+    simulation_args = []
     count = 1
     for xloc in x_vals:
         for yloc in y_vals:
             save_dir = parent_dir / f"run{count}"
             save_dir.mkdir(parents=True, exist_ok=True)
-
-            print(f"Running simulation {count} with xloc={xloc:.3f}, yloc={yloc:.3f}, radius={radius:.3f}, amplitude={amplitude:.3f}")
-            run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir)
-            print(f"Finished simulation {count}, results saved in {save_dir}")
+            
+            # Store parameters for this simulation
+            simulation_args.append((xloc, yloc, radius, amplitude, Re, save_dir))
             count += 1
+    
+    # Determine number of processes (adjust based on your system)
+    n_processes = min(mp.cpu_count() - 1, len(simulation_args))  # Leave 1 core free
+    print(f"Running {len(simulation_args)} simulations using {n_processes} processes")
+    
+    # Run simulations in parallel
+    with mp.Pool(processes=n_processes) as pool:
+        results = list(tqdm(
+            pool.imap(run_single_simulation, simulation_args),
+            total=len(simulation_args),
+            desc="Running simulations"
+        ))
+    
+    # Report results
+    successful = sum(results)
+    total = len(results)
+    print(f"\n{'='*50}")
+    print(f"Parallel execution completed!")
+    print(f"Successful simulations: {successful}/{total}")
+    print(f"Failed simulations: {total - successful}")
+    print(f"{'='*50}")
