@@ -16,6 +16,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as spr
+import scipy.sparse.linalg as sprl
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
@@ -26,23 +27,21 @@ from utils.eig.eig_utils import get_mat_vp_slepc, sparse_to_petscmat
 #################################################################################
 
 
-def main():
+def main(operators_path):
     # intro
     print("----- using slepc ----- begin")
     print("...............................")
 
     # process matrices
     print("--- Loading matrices")
-    # save_npz_path = Path("src", "examples", "operators", "cylinder", "data_output")
-    save_npz_path = Path("src", "examples", "operators", "cavity", "data_output")
     print("--- \t from sparse...")
     t0 = time.time()
-    AA = spr.load_npz(save_npz_path / "A.npz")
-    BB = spr.load_npz(save_npz_path / "E.npz")
+    AAspr = spr.load_npz(operators_path / "A.npz")
+    BBspr = spr.load_npz(operators_path / "E.npz")
     print("--- \t ... to petscmat")
     seq = True
-    AA = sparse_to_petscmat(AA, sequential=seq)
-    BB = sparse_to_petscmat(BB, sequential=seq)
+    AA = sparse_to_petscmat(AAspr, sequential=seq)
+    BB = sparse_to_petscmat(BBspr, sequential=seq)
     sz = AA.size[0]
 
     ########################################
@@ -64,14 +63,16 @@ def main():
     ########################################
 
     # Specify targets for shift-invert
-    # targets = np.array(
-    #     [
-    #         -0.0 + 0j,
-    #         -0.0 + 1j,
-    #         -0.0 + 2j,
-    #     ]
-    # )
-    targets = np.array([-0.0 + 0j, 1 + 13j, 0.5 + 8j, 0 + 16j])
+    targets = np.array(
+        [
+            -0.0 + 0j,
+            -0.0 + 1j,
+            -0.0 + 2j,
+            -0.0 + 3j,
+        ]
+    )
+    # targets = np.array([0.1 + 0.8j, 0.0])
+    # targets = np.array([-0.0 + 0j, 1 + 13j, 0.5 + 8j, 0 + 16j])
 
     # Mesh targets (for fine mapping)
     # targets_re = np.arange(start=0, step=-0.5, stop=-2)
@@ -89,18 +90,20 @@ def main():
     print("--- Starting solve A x = Q L x ")
     for target, neig in zip(targets, neig_list):
         print(f"---> Current target: {target} <---")
-        L, v, eigensolver = get_mat_vp_slepc(
-            A=AA,
-            B=BB,
-            target=target,
-            n=neig,
-            return_eigensolver=True,
-            verbose=True,
-            precond_type=PETSc.PC.Type.LU,
-            eps_type=SLEPc.EPS.Type.KRYLOVSCHUR,
-            ksp_type=PETSc.KSP.Type.PREONLY,
-            tol=1e-12,
-        )
+        # L, v, eigensolver = get_mat_vp_slepc(
+        #     A=AA,
+        #     B=BB,
+        #     target=target,
+        #     n=neig,
+        #     return_eigensolver=True,
+        #     verbose=True,
+        #     precond_type=PETSc.PC.Type.LU,
+        #     eps_type=SLEPc.EPS.Type.KRYLOVSCHUR,
+        #     ksp_type=PETSc.KSP.Type.PREONLY,
+        #     tol=1e-12,
+        # )
+
+        L, v = sprl.eigs(A=AAspr, k=neig, M=BBspr, sigma=target)
 
         if np.any(np.real(L) > 0):
             print(
@@ -112,11 +115,11 @@ def main():
 
     # Export
     # as npz
-    np.savez_compressed(save_npz_path / "eigenValues", LAMBDA)  # npz
-    np.savez_compressed(save_npz_path / "eigenVectors", V)  # npz
+    np.savez_compressed(operators_path / "eigenValues", LAMBDA)  # npz
+    np.savez_compressed(operators_path / "eigenVectors", V)  # npz
     # as txt
-    np.savetxt(save_npz_path / "eigenValues.txt", LAMBDA, delimiter=",")  # txt
-    # np.savetxt(save_npz_path / "eigenVectors.txt", V, delimiter=",")  # txt, not recommended
+    np.savetxt(operators_path / "eigenValues.txt", LAMBDA, delimiter=",")  # txt
+    # np.savetxt(operators_path / "eigenVectors.txt", V, delimiter=",")  # txt, not recommended
 
     # exit
     print("Elapsed: %f" % (time.time() - t0))
@@ -124,8 +127,8 @@ def main():
     return LAMBDA, V
 
 
-def plot_eig(LAMBDA):
-    """Shortcut function to plot eigenvalues in the complex plane
+def plot_eig(LAMBDA, operators_path):
+    """Plot eigenvalues in the complex plane
     Conjugate eigenvalues are added by hand, even if not computed"""
     fig, ax = plt.subplots()
     ax.plot(
@@ -149,21 +152,15 @@ def plot_eig(LAMBDA):
     ax.grid(visible=True, which="major")
     ax.set_title("Eigenvalues")
     # export plot
-    fig.savefig(
-        Path(
-            "src",
-            "examples",
-            "lidcavity",
-            "data_output",
-            "operators",
-            "eigenValues.png",
-        )
-    )
+    fig.savefig(operators_path / "eigenValues.png")
 
 
 if __name__ == "__main__":
-    LAMBDA, V = main()
+    # operators_path = Path("src", "examples", "operators", "cylinder", "data_output")
+    # operators_path = Path("src", "examples", "operators", "cavity", "data_output")
+    operators_path = Path("src", "examples", "operators", "lidcavity", "data_output")
+    LAMBDA, V = main(operators_path=operators_path)
 
     PLOT_EIG = True
     if PLOT_EIG:
-        plot_eig(LAMBDA=LAMBDA)
+        plot_eig(LAMBDA=LAMBDA, operators_path=operators_path)
