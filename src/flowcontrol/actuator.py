@@ -76,6 +76,7 @@ class ActuatorBCParabolicV(ActuatorBC):
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
     def load_expression(self, flowsolver):
+        
         expression = dolfin.Expression(
             [
                 "0",
@@ -86,12 +87,41 @@ class ActuatorBCParabolicV(ActuatorBC):
             x0=self.position_x,
             u_ctrl=0.0,
         )
-
+        print(">>> DEBUG: ActuatorBCParabolicV loaded")
         self.expression = expression
 
     @staticmethod
     def angular_size_deg_to_width(angular_size_deg, cylinder_radius):
         return cylinder_radius * np.sin(1 / 2 * angular_size_deg * dolfin.pi / 180)
+
+
+@dataclass(kw_only=True)
+class ActuatorBCRotation(ActuatorBC):
+    """ Cylinder actuator: rotational profile generating tangential velocity 
+    around a center (x0, y0). Typically used to model rotating surfaces 
+    for cylinder and pinball examples
+    This actuator has type ACTUATOR_TYPE.BC which means it is closely linked
+    to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
+    FlowSolver._make_bcs())"""
+
+    
+    position_x: float = 0.0
+    position_y: float = 0.0
+    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
+
+    def load_expression(self, flowsolver): 
+        d = flowsolver.params_flow.user_data["D"]
+        expression = dolfin.Expression(['-sin(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2','cos(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2'],
+            element=flowsolver.V.ufl_element(),
+            y0=self.position_y,
+            x0=self.position_x,
+            u_ctrl=0.0,
+            d=d,
+        )
+        self.expression = expression
+
+    
+
 
 
 @dataclass(kw_only=True)
