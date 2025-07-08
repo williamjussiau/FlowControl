@@ -29,7 +29,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=20000, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=30000, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=20, path_out=save_dir
@@ -40,7 +40,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "lidcavity_2.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_1.xdmf"
     )
     params_mesh.user_data["yup"] = 1
     params_mesh.user_data["ylo"] = 0
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     x_vals = np.linspace(0.2, 0.8, 3)
     y_vals = np.linspace(0.2, 0.8, 3)
     radius = 0.1
-    amplitude = 0.1
+    amplitude = 0.01
     
     # Prepare all simulation parameters
     simulation_args = []
@@ -293,7 +293,7 @@ if __name__ == "__main__":
             count += 1
     
     # Determine number of processes (adjust based on your system)
-    n_processes = min(mp.cpu_count() - 1, len(simulation_args))  # Leave 1 core free
+    n_processes = min(mp.cpu_count() - 2, len(simulation_args))  # Leave 2 core free
     print(f"Running {len(simulation_args)} simulations using {n_processes} processes")
     
     # Run simulations in parallel
