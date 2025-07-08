@@ -45,12 +45,12 @@ def dense_to_sparse(A, eliminate_zeros=False):
 
 def sparse_to_petscmat(A, sequential=True):
     """Cast scipy.sparse matrix A to PETSc.Matrix()
-    A should be scipy.sparse.xQxx and square"""
-    t00 = time.time()
+    A should be scipy.sparse.xxx and square"""
     A = A.tocsr()
 
     if sequential:
         Amat = PETSc.Mat().createAIJ(size=A.shape, csr=(A.indptr, A.indices, A.data))
+        Amat.assemble()
     else:
         # Parallel
         # but much longer than sequential....!!
@@ -72,7 +72,7 @@ def sparse_to_petscmat(A, sequential=True):
         # Amat.assemblyBegin()
         # Amat.setValuesCSR(local_csr[0], local_csr[1], local_csr[2])
         # Amat.assemblyEnd()
-
+        Amat.assemble()
     return Amat
 
 
@@ -256,6 +256,10 @@ def get_mat_vp_slepc(
     #    eigz = (eigz, eigensolver)
 
     return LAMBDA, V, eigensolver
+
+
+def eigenproblem_slepc(A, B, n, target, options):
+    pass
 
 
 #################################################################################
