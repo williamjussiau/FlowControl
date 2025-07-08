@@ -38,7 +38,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "lidcavity_2.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_1.xdmf"
     )
     params_mesh.user_data["yup"] = 1
     params_mesh.user_data["ylo"] = 0
