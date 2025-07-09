@@ -14,6 +14,7 @@ from pathlib import Path
 
 import dolfin
 import scipy.sparse as spr
+import scipy.io
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
@@ -47,7 +48,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "lidcavity_5.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_4.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
@@ -81,20 +82,27 @@ def main():
 
     logger.info("__init__(): successful!")
 
-    logger.info("Compute steady state...")
-    # U00 = dolfin.Function(fs.V)
-    # P00 = dolfin.Function(fs.P)
-    # steady_state_filename_U0 = params_save.path_out / "steady" / f"U0_Re={Re}.xdmf"
-    # steady_state_filename_P0 = params_save.path_out / "steady" / f"P0_Re={Re}.xdmf"
-    # flu.read_xdmf(steady_state_filename_U0, U00, "U0")
-    # flu.read_xdmf(steady_state_filename_P0, P00, "P0")
-    # initial_guess = fs.merge(U00, P00)
-    uctrl0 = [0.0]
-    fs.compute_steady_state(method="picard", max_iter=20, tol=1e-8, u_ctrl=uctrl0, initial_guess=None)
-    fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
-    )
+    # logger.info("Compute steady state...")
+    # # U00 = dolfin.Function(fs.V)
+    # # P00 = dolfin.Function(fs.P)
+    # # steady_state_filename_U0 = params_save.path_out / "steady" / f"U0_Re={Re}.xdmf"
+    # # steady_state_filename_P0 = params_save.path_out / "steady" / f"P0_Re={Re}.xdmf"
+    # # flu.read_xdmf(steady_state_filename_U0, U00, "U0")
+    # # flu.read_xdmf(steady_state_filename_P0, P00, "P0")
+    # # initial_guess = fs.merge(U00, P00)
+    # uctrl0 = [0.0]
+    # fs.compute_steady_state(method="picard", max_iter=20, tol=3e-7, u_ctrl=uctrl0, initial_guess=None)
+    # fs.compute_steady_state(
+    #     method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+    # )
     # or load
+    logger.info("Load steady state...")
+    fs.load_steady_state(
+        path_u_p=[
+            cwd / "data_output" / "steady" / f"U0_Re={Re}.xdmf",
+            cwd / "data_output" / "steady" / f"P0_Re={Re}.xdmf",
+        ]
+    )
 
     # Compute operator: A
     logger.info("Now computing operators...")
@@ -116,6 +124,17 @@ def main():
             Matc, Mats, Matr = Mat.mat().getValuesCSR()
             Acsr = spr.csr_matrix((Matr, Mats, Matc))
             spr.save_npz(path_out / f"{Matname}.npz", Acsr)
+
+            # Export as mat
+            scipy.io.savemat(
+                path_out / f"{Matname}_sparse.mat",
+                {
+                    f"{Matname}_data": Acsr.data,
+                    f"{Matname}_indices": Acsr.indices,
+                    f"{Matname}_indptr": Acsr.indptr,
+                    f"{Matname}_shape": Acsr.shape,
+                },
+            )
 
     logger.info("Lidcavity -- Finished properly.")
     logger.info("*" * 50)
