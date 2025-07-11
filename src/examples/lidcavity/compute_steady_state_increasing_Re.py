@@ -20,7 +20,7 @@ import utils.utils_flowsolver as flu
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCParabolicV
 
-Re_final = 8015
+Re_final = 8000
 
 
 def main():
@@ -48,7 +48,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "lidcavity_4.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_3.xdmf"
     )
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
