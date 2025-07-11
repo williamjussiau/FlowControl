@@ -27,7 +27,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=20000, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=20, path_out=save_dir
@@ -38,7 +38,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "lidcavity_1.xdmf"
+        meshpath=cwd / "data_input" / "lidcavity_3.xdmf"
     )
     params_mesh.user_data["yup"] = 1
     params_mesh.user_data["ylo"] = 0
@@ -159,6 +159,18 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
         print(f"\t -> Reached snapshot = {icounter} - Fetching next file")
 
     print("Finished reading trajectores")
+
+    ##########################################################
+    # DOF Indices
+    ##########################################################
+
+    # Get velocity and pressure DOF indices in the mixed space
+    vel_dofs = fs.W.sub(0).dofmap().dofs()
+    pres_dofs = fs.W.sub(1).dofmap().dofs()
+
+    # Save these indices for later use in post-processing
+    np.save(save_dir / "vel_dofs_in_mixed.npy", vel_dofs)
+    np.save(save_dir / "pres_dofs_in_mixed.npy", pres_dofs)
 
     ##########################################################
     # Steady-state
