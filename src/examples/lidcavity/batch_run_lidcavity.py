@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial import cKDTree
 
-def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
+def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps=100):
     import logging
     import time
     from pathlib import Path
@@ -28,7 +28,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=20, path_out=save_dir
@@ -340,6 +340,7 @@ if __name__ == "__main__":
     y_vals = np.linspace(0.2, 0.2, 1)
     radius = 0.1
     amplitude = 0.1
+    num_steps = 150
     count = 1
     for xloc in x_vals:
         for yloc in y_vals:
@@ -347,6 +348,6 @@ if __name__ == "__main__":
             save_dir.mkdir(parents=True, exist_ok=True)
 
             print(f"Running simulation {count} with xloc={xloc:.3f}, yloc={yloc:.3f}, radius={radius:.3f}, amplitude={amplitude:.3f}")
-            run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir)
+            run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps)
             print(f"Finished simulation {count}, results saved in {save_dir}")
             count += 1
