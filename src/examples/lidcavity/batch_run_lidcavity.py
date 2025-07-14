@@ -1,6 +1,7 @@
 from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
 from pathlib import Path
 import numpy as np
+from scipy.spatial import cKDTree
 
 def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     import logging
@@ -161,18 +162,6 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     print("Finished reading trajectores")
 
     ##########################################################
-    # DOF Indices
-    ##########################################################
-
-    # Get velocity and pressure DOF indices in the mixed space
-    vel_dofs = fs.W.sub(0).dofmap().dofs()
-    pres_dofs = fs.W.sub(1).dofmap().dofs()
-
-    # Save these indices for later use in post-processing
-    np.save(save_dir / "vel_dofs_in_mixed.npy", vel_dofs)
-    np.save(save_dir / "pres_dofs_in_mixed.npy", pres_dofs)
-
-    ##########################################################
     # Steady-state
     ##########################################################
     U0 = dolfin.Function(fs.V)
@@ -209,44 +198,118 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     print("Extracting mesh coordinates...")
     
     # Get DOF coordinates for velocity space (V)
-    V_dof_coordinates = fs.V.tabulate_dof_coordinates()
+    V_coords = fs.V.tabulate_dof_coordinates()
     
     # Get DOF coordinates for pressure space (P)
-    P_dof_coordinates = fs.P.tabulate_dof_coordinates()
+    P_coords = fs.P.tabulate_dof_coordinates()
     
     # Get DOF coordinates for mixed space (W)
-    W_dof_coordinates = fs.W.tabulate_dof_coordinates()
+    W_coords = fs.W.tabulate_dof_coordinates()
     
-    print(f"V DOF coordinates shape: {V_dof_coordinates.shape}")
-    print(f"P DOF coordinates shape: {P_dof_coordinates.shape}")
-    print(f"W DOF coordinates shape: {W_dof_coordinates.shape}")
+    print(f"V DOF coordinates shape: {V_coords.shape}")
+    print(f"P DOF coordinates shape: {P_coords.shape}")
+    print(f"W DOF coordinates shape: {W_coords.shape}")
 
     # Save mesh coordinates
-    np.save(save_dir / "V_dof_coordinates.npy", V_dof_coordinates)
-    np.save(save_dir / "P_dof_coordinates.npy", P_dof_coordinates)
-    np.save(save_dir / "W_dof_coordinates.npy", W_dof_coordinates)
+    np.save(save_dir / "V_dof_coordinates.npy", V_coords)
+    np.save(save_dir / "P_dof_coordinates.npy", P_coords)
+    np.save(save_dir / "W_dof_coordinates.npy", W_coords)
 
     ##########################################################
-    # Extract mesh coordinates corresponding to DOF ordering
+    # DOF Indices and Mixed Space Mapping
     ##########################################################
-    # print("Extracting mesh coordinates...")
+    print("Computing DOF indices and mixed space mappings...")
 
-    # # Get coordinates
-    # V_dof_coordinates = fs.V.tabulate_dof_coordinates()
-    # P_dof_coordinates = fs.P.tabulate_dof_coordinates()
+    # Get velocity and pressure DOF indices in the mixed space
+    vel_dofs_in_mixed = np.array(fs.W.sub(0).dofmap().dofs())
+    pres_dofs_in_mixed = np.array(fs.W.sub(1).dofmap().dofs())
 
-    # print(f"V DOF coordinates shape: {V_dof_coordinates.shape}")
-    # print(f"P DOF coordinates shape: {P_dof_coordinates.shape}")
+    # Get component DOFs for both spaces
+    V_u_dofs = fs.V.sub(0).dofmap().dofs()
+    V_v_dofs = fs.V.sub(1).dofmap().dofs()
+    W_u_dofs = fs.W.sub(0).sub(0).dofmap().dofs()
+    W_v_dofs = fs.W.sub(0).sub(1).dofmap().dofs()
 
-    # # For velocity: take first half of coordinates (they correspond to spatial locations)
-    # n_spatial_points = fs.V.dim() // 2
-    # V_spatial_coords = V_dof_coordinates[:n_spatial_points, :]
+    # Get coordinates for mapping
+    # V_coords = fs.V.tabulate_dof_coordinates()
+    # W_coords = fs.W.tabulate_dof_coordinates()
 
-    # print(f"V spatial coordinates shape: {V_spatial_coords.shape}")
+    # Build coordinate-based mapping between V and W velocity spaces
+    V_u_coords = V_coords[V_u_dofs]
+    V_v_coords = V_coords[V_v_dofs]
+    W_u_coords = W_coords[W_u_dofs]
+    W_v_coords = W_coords[W_v_dofs]
 
-    # # Save coordinates
-    # np.save(save_dir / "V_spatial_coordinates.npy", V_spatial_coords)
-    # np.save(save_dir / "P_dof_coordinates.npy", P_dof_coordinates)
+    # Create KDTrees for coordinate matching
+    tree_u = cKDTree(W_u_coords)
+    tree_v = cKDTree(W_v_coords)
+
+    # Find coordinate mappings
+    _, u_mapping = tree_u.query(V_u_coords, k=1)
+    _, v_mapping = tree_v.query(V_v_coords, k=1)
+
+    # Create full mapping from V to W velocity DOFs
+    V_to_W_vel_mapping = np.zeros(len(U_field.vector().get_local()), dtype=int)
+
+    # Map u-components
+    for i, v_dof in enumerate(V_u_dofs):
+        V_to_W_vel_mapping[v_dof] = W_u_dofs[u_mapping[i]]
+
+    # Map v-components  
+    for i, v_dof in enumerate(V_v_dofs):
+        V_to_W_vel_mapping[v_dof] = W_v_dofs[v_mapping[i]]
+
+    # Test the mapping
+    UP_test_vec = UP_field.vector().get_local()
+    U_extracted_mapped = UP_test_vec[V_to_W_vel_mapping]
+    U_direct = U_field.vector().get_local()
+
+    mapping_test = np.allclose(U_extracted_mapped, U_direct, atol=1e-12)
+    print(f"Velocity extraction test passed: {mapping_test}")
+    print(f"Max difference: {np.max(np.abs(U_extracted_mapped - U_direct))}")
+
+    if mapping_test:
+        print("✓ Velocity extraction from mixed space works correctly!")
+        
+        # Save all DOF mappings and indices
+        np.save(save_dir / "V_to_W_vel_mapping.npy", V_to_W_vel_mapping)
+        np.save(save_dir / "vel_dofs_in_mixed.npy", vel_dofs_in_mixed)
+        np.save(save_dir / "pres_dofs_in_mixed.npy", pres_dofs_in_mixed)
+        # np.save(save_dir / "W_u_dofs.npy", W_u_dofs)
+        # np.save(save_dir / "W_v_dofs.npy", W_v_dofs)
+        # np.save(save_dir / "V_u_dofs.npy", V_u_dofs)
+        # np.save(save_dir / "V_v_dofs.npy", V_v_dofs)
+        
+        # Create utility functions file
+        utility_code = '''# Utility functions for velocity extraction/insertion
+    import numpy as np
+
+    def extract_velocity_from_mixed(mixed_vector, V_to_W_mapping):
+        """Extract velocity components from mixed vector using correct mapping"""
+        return mixed_vector[V_to_W_mapping]
+
+    def insert_velocity_into_mixed(mixed_vector, velocity_vector, V_to_W_mapping):
+        """Insert velocity components into mixed vector using correct mapping"""
+        mixed_copy = mixed_vector.copy()
+        mixed_copy[V_to_W_mapping] = velocity_vector
+        return mixed_copy
+
+    # Example usage:
+    # V_to_W_mapping = np.load("V_to_W_vel_mapping.npy")
+    # mixed_data = np.load("UP_field_alldata.npy")
+    # velocity_data = extract_velocity_from_mixed(mixed_data[:, 0, 0], V_to_W_mapping)
+    '''
+        
+        with open(save_dir / "velocity_extraction_utils.py", "w") as f:
+            f.write(utility_code)
+        
+        print("✓ DOF mappings and utility functions saved!")
+        
+    else:
+        raise RuntimeError("Velocity extraction mapping failed!")
+
+    print(f"Velocity DOFs in mixed space: {len(vel_dofs_in_mixed)}")
+    print(f"Pressure DOFs in mixed space: {len(pres_dofs_in_mixed)}")
 
     # Plot to verify saved data - final trajectory snapshot
     plot_to_check = False
@@ -271,10 +334,10 @@ if __name__ == "__main__":
     parent_dir = base_dir / f"Re{Re}"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
-    x_vals = np.linspace(0.2, 0.8, 3)
-    y_vals = np.linspace(0.2, 0.8, 3)
-    # x_vals = np.linspace(0.2, 0.2, 1)
-    # y_vals = np.linspace(0.2, 0.2, 1)
+    # x_vals = np.linspace(0.2, 0.8, 3)
+    # y_vals = np.linspace(0.2, 0.8, 3)
+    x_vals = np.linspace(0.2, 0.2, 1)
+    y_vals = np.linspace(0.2, 0.2, 1)
     radius = 0.1
     amplitude = 0.1
     count = 1
