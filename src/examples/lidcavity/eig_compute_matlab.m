@@ -63,13 +63,17 @@ end
 
 A = load_sparse_from_python('data_output/operators/A_sparse.mat', 'A');
 E = load_sparse_from_python('data_output/operators/E_sparse.mat', 'E');
+Re = str2double(fileread("data_output/current_Re.txt"));
 %%
 neig = 10;          % number of eigenvalues per shift
 opts.tol = 1e-8;
 opts.maxit = 1000;
 
 % Frequencies to scan along imaginary axis
-omega_list = linspace(0, 5, 20);
+% omega_list = linspace(0, 5, 20);
+omega_list1 = 1i * linspace(0, 5, 10);
+omega_list2 = -1 + 1i * linspace(0, 5, 10);
+omega_list = [omega_list1, omega_list2];
 
 % all_lambda = [];      % store all eigenvalues found
 % all_vecs = {};        % store eigenvectors in cell array, aligned with all_lambda entries
@@ -103,10 +107,14 @@ omega_list = linspace(0, 5, 20);
 %         count = count + batch_size;
 %     end
 % end
+
+% % Now found_vec is the eigenvector corresponding to the eigenvalue with the largest real part
+% disp(['Largest real part eigenvalue: ', num2str(all_lambda(idx_max))]);
+% save('slow_eigenvector.mat', 'found_vec');
 eig_data = [];  % struct array: only unique eigenvalue/eigenvector pairs
 
 for omega = omega_list
-    target = 1i * omega;
+    target = omega;
     try
         [vecs, vals] = eigs(A, E, neig, target, opts);
         lambda = diag(vals);
@@ -139,15 +147,11 @@ disp(['Largest real part eigenvalue: ', num2str(top_eig.lambda)]);
 
 % Save corresponding eigenvector
 found_vec = top_eig.vec;
-save('slow_eigenvector.mat', 'found_vec');
-
-
-% % Now found_vec is the eigenvector corresponding to the eigenvalue with the largest real part
-% disp(['Largest real part eigenvalue: ', num2str(all_lambda(idx_max))]);
-% save('slow_eigenvector.mat', 'found_vec');
+save('data_output/slow_eigenvector.mat', 'found_vec');
+save('data_output/eig_data.mat', 'eig_data');
 
 %%
-
+all_lambda = [eig_data.lambda];
 figure('Position', [100, 100, 800, 400]);  % wider figure: [left bottom width height]
 plot(real(all_lambda), imag(all_lambda), 'bo', 'MarkerSize', 8, 'LineWidth', 1.5);
 grid on;
@@ -158,13 +162,14 @@ title('Eigenvalues near imaginary axis');
 hold on;
 % xlim([-0.7 0.1]);  % Set x-axis limits from -1 to 0.1
 xlim([-0.1 0.05]);
+% xlim([-2.0 0.05]);
 ylim([0 5]);
 
 plot(xlim, [0 0], 'k--'); % horizontal zero line
 plot([0 0], ylim, 'k--'); % vertical zero line
 
 % Highlight the eigenvalue with largest real part
-plot(real(all_lambda(idx_max)), imag(all_lambda(idx_max)), 'ro', 'MarkerSize', 12, 'LineWidth', 2);
+plot(real(all_lambda(1)), imag(all_lambda(1)), 'ro', 'MarkerSize', 12, 'LineWidth', 2);
 
 hold off;
 
