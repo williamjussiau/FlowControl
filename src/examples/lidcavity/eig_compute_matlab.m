@@ -71,42 +71,80 @@ opts.maxit = 1000;
 % Frequencies to scan along imaginary axis
 omega_list = linspace(0, 5, 20);
 
-all_lambda = [];      % store all eigenvalues found
-all_vecs = {};        % store eigenvectors in cell array, aligned with all_lambda entries
+% all_lambda = [];      % store all eigenvalues found
+% all_vecs = {};        % store eigenvectors in cell array, aligned with all_lambda entries
+% 
+% for omega = omega_list
+%     target = 1i * omega;  % shift along imaginary axis
+%     try
+%         [vecs, vals] = eigs(A, E, neig, target, opts);
+%         lambda = diag(vals);
+%         all_lambda = [all_lambda; lambda];  %#ok<AGROW>
+%         % Store eigenvectors in columns, cell per batch
+%         all_vecs{end+1} = vecs; 
+%     catch ME
+%         warning('eigs failed for omega = %f + %fi\n%s', real(target), imag(target), ME.message);
+%     end
+% end
+% 
+% % Find eigenvalue with largest real part
+% [~, idx_max] = max(real(all_lambda));
+% 
+% % To find which batch and column this eigenvalue corresponds to:
+% count = 0;
+% found_vec = [];
+% for batch_idx = 1:length(all_vecs)
+%     batch_size = size(all_vecs{batch_idx}, 2);
+%     if idx_max <= count + batch_size
+%         col_idx = idx_max - count;
+%         found_vec = all_vecs{batch_idx}(:, col_idx);
+%         break;
+%     else
+%         count = count + batch_size;
+%     end
+% end
+eig_data = [];  % struct array: only unique eigenvalue/eigenvector pairs
 
 for omega = omega_list
-    target = 1i * omega;  % shift along imaginary axis
+    target = 1i * omega;
     try
         [vecs, vals] = eigs(A, E, neig, target, opts);
         lambda = diag(vals);
-        all_lambda = [all_lambda; lambda];  %#ok<AGROW>
-        % Store eigenvectors in columns, cell per batch
-        all_vecs{end+1} = vecs; 
+        for j = 1:length(lambda)
+            % Check if eigenvalue already exists (up to tolerance)
+            is_duplicate = false;
+            for k = 1:length(eig_data)
+                if abs(eig_data(k).lambda - lambda(j)) < 1e-5
+                    is_duplicate = true;
+                    break;
+                end
+            end
+            if ~is_duplicate
+                eig_data(end+1).lambda = lambda(j);
+                eig_data(end).vec = vecs(:, j);
+            end
+        end
     catch ME
         warning('eigs failed for omega = %f + %fi\n%s', real(target), imag(target), ME.message);
     end
 end
 
-% Find eigenvalue with largest real part
-[~, idx_max] = max(real(all_lambda));
+% Sort by real part of eigenvalues (descending)
+[~, sort_idx] = sort(real([eig_data.lambda]), 'descend');
+eig_data = eig_data(sort_idx);
 
-% To find which batch and column this eigenvalue corresponds to:
-count = 0;
-found_vec = [];
-for batch_idx = 1:length(all_vecs)
-    batch_size = size(all_vecs{batch_idx}, 2);
-    if idx_max <= count + batch_size
-        col_idx = idx_max - count;
-        found_vec = all_vecs{batch_idx}(:, col_idx);
-        break;
-    else
-        count = count + batch_size;
-    end
-end
+% Display the top eigenvalue
+top_eig = eig_data(1);
+disp(['Largest real part eigenvalue: ', num2str(top_eig.lambda)]);
 
-% Now found_vec is the eigenvector corresponding to the eigenvalue with the largest real part
-disp(['Largest real part eigenvalue: ', num2str(all_lambda(idx_max))]);
+% Save corresponding eigenvector
+found_vec = top_eig.vec;
 save('slow_eigenvector.mat', 'found_vec');
+
+
+% % Now found_vec is the eigenvector corresponding to the eigenvalue with the largest real part
+% disp(['Largest real part eigenvalue: ', num2str(all_lambda(idx_max))]);
+% save('slow_eigenvector.mat', 'found_vec');
 
 %%
 
@@ -118,7 +156,8 @@ ylabel('Imaginary Part');
 title('Eigenvalues near imaginary axis');
 
 hold on;
-xlim([-0.7 0.1]);  % Set x-axis limits from -1 to 0.1
+% xlim([-0.7 0.1]);  % Set x-axis limits from -1 to 0.1
+xlim([-0.1 0.05]);
 ylim([0 5]);
 
 plot(xlim, [0 0], 'k--'); % horizontal zero line

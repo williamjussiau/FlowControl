@@ -365,8 +365,8 @@ if __name__ == "__main__":
     x_vals = np.linspace(0.2, 0.8, 3)
     y_vals = np.linspace(0.2, 0.8, 3)
     radius = 0.1
-    amplitude = 0.1
-    num_steps = 150
+    amplitude = 0.01
+    num_steps = 30000
 
     # Prepare all simulation parameters
     simulation_args = []
