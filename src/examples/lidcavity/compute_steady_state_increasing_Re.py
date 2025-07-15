@@ -22,7 +22,6 @@ from flowcontrol.actuator import ActuatorBCParabolicV
 
 Re_final = 8500
 
-
 def main():
     # LOG
     dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
@@ -125,6 +124,9 @@ def main():
         flu.write_xdmf(steady_state_filename_P0, fs.fields.P0, "P0")
 
         first_loop = False
+
+    with open(params_save.path_out / "current_Re.txt", "w") as f:
+        f.write(f"{Re_final}\n")
 
 
 if __name__ == "__main__":
