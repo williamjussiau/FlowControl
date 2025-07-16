@@ -109,7 +109,7 @@ def main():
         fs.compute_steady_state(
             method="picard",
             max_iter=10,
-            tol=1e-7,
+            tol=3e-7,
             u_ctrl=uctrl0,
             initial_guess=initial_guess,
         )

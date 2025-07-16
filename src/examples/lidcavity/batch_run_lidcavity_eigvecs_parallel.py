@@ -7,26 +7,26 @@ from tqdm import tqdm
 
 def run_single_simulation(args):
     """Wrapper function for parallel execution"""
-    eigenvector_index, eigenvector_amplitude, Re, save_dir, num_steps = args
+    phase_angle, eigenvector_amplitude, Re, save_dir, num_steps = args
     
-    print(f"Starting simulation eig_idx={eigenvector_index}, amp={eigenvector_amplitude:.4f} in process {mp.current_process().name}")
+    print(f"Starting simulation eig_idx={phase_angle}, amp={eigenvector_amplitude:.4f} in process {mp.current_process().name}")
     
     try:
-        run_lidcavity_with_eigenvector_ic(Re, eigenvector_index, eigenvector_amplitude, save_dir, num_steps)
-        print(f"✓ Completed simulation eig_idx={eigenvector_index}, amp={eigenvector_amplitude:.4f}")
+        run_lidcavity_with_eigenvector_ic(Re, phase_angle, eigenvector_amplitude, save_dir, num_steps)
+        print(f"✓ Completed simulation eig_idx={phase_angle}, amp={eigenvector_amplitude:.4f}")
         return True
     except Exception as e:
-        print(f"Error in simulation eig_idx={eigenvector_index}, amp={eigenvector_amplitude:.4f}: {e}")
+        print(f"Error in simulation eig_idx={phase_angle}, amp={eigenvector_amplitude:.4f}: {e}")
         return False
 
 if __name__ == "__main__":
     # Adapt to wherever you want to save the results
     base_dir = Path("/Users/james/Desktop/PhD/lid_driven_cavity")
-    parent_dir = base_dir / f"Re{Re}_eigenvector_parallel"
+    parent_dir = base_dir / f"Re{Re}_test"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     # Define parameter ranges for eigenvector simulations
-    eigenvector_indices = list(range(9))  # 0 to 8 (9 eigenvectors)
+    phase_angles = np.linspace(0,2*np.pi, 9)
     amplitudes = [0.01]  # Different perturbation amplitudes
     num_steps = 200
     
@@ -34,19 +34,19 @@ if __name__ == "__main__":
     simulation_args = []
     count = 1
     
-    for eig_idx in eigenvector_indices:
+    for phase_angle in phase_angles:
         for amp in amplitudes:
             save_dir = parent_dir / f"run{count}"
             save_dir.mkdir(parents=True, exist_ok=True)
             
             # Store parameters for this simulation
-            simulation_args.append((eig_idx, amp, Re, save_dir, num_steps))
+            simulation_args.append((phase_angle, amp, Re, save_dir, num_steps))
             count += 1
     
     # Determine number of processes (adjust based on your system)
     n_processes = min(mp.cpu_count() - 2, len(simulation_args))  # Leave 2 cores free
     print(f"Running {len(simulation_args)} simulations using {n_processes} processes")
-    print(f"Total simulations: {len(eigenvector_indices)} eigenvectors × {len(amplitudes)} amplitudes = {len(simulation_args)}")
+    print(f"Total simulations: {len(phase_angles)} eigenvectors × {len(amplitudes)} amplitudes = {len(simulation_args)}")
     
     # Run simulations in parallel
     with mp.Pool(processes=n_processes) as pool:
@@ -68,19 +68,19 @@ if __name__ == "__main__":
         print(f"\nFailed simulation details:")
         for i, (success, args) in enumerate(zip(results, simulation_args)):
             if not success:
-                eig_idx, amp, _, save_dir, _ = args
-                print(f"  - Eigenvector {eig_idx}, amplitude {amp:.3f} (run{i+1})")
+                phase_angle, amp, _, save_dir, _ = args
+                print(f"  - Eigenvector {phase_angle}, amplitude {amp:.3f} (run{i+1})")
     
     print(f"{'='*60}")
     
     # Summary by eigenvector
     print(f"\nResults by eigenvector:")
-    for eig_idx in eigenvector_indices:
+    for phase_angle in phase_angles:
         eig_results = []
         for i, (success, args) in enumerate(zip(results, simulation_args)):
-            if args[0] == eig_idx:  # eigenvector_index
+            if args[0] == phase_angle:
                 eig_results.append(success)
         
         successful_eig = sum(eig_results)
         total_eig = len(eig_results)
-        print(f"  Eigenvector {eig_idx}: {successful_eig}/{total_eig} successful")
+        print(f"  Angle {phase_angle}: {successful_eig}/{total_eig} successful")
