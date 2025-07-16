@@ -4,6 +4,34 @@ import numpy as np
 from scipy.spatial import cKDTree
 import scipy.io
 
+def cleanup_redundant_files(save_dir):
+    """Delete redundant Uprev files to save disk space"""
+    import os
+    from pathlib import Path
+    
+    patterns_to_delete = [
+        "Uprev_restart0,0.h5",
+        "Uprev_restart0,0.xdmf", 
+        "Pprev_restart0,0.h5",
+        "Pprev_restart0,0.xdmf"
+    ]
+    
+    deleted_files = []
+    for pattern in patterns_to_delete:
+        file_path = save_dir / pattern
+        if file_path.exists():
+            try:
+                os.remove(file_path)
+                deleted_files.append(pattern)
+                print(f"✓ Deleted redundant file: {pattern}")
+            except Exception as e:
+                print(f"⚠ Failed to delete {pattern}: {e}")
+    
+    if deleted_files:
+        print(f"Cleaned up {len(deleted_files)} redundant files")
+    else:
+        print("No redundant files found to clean up")
+
 def load_eigendata(mat_file_path, num_eigenvectors=1):
     """Load eigendata from .mat file and return the last num_eigenvectors (fastest growing modes)
     
@@ -163,6 +191,10 @@ def run_lidcavity_with_eigenvector_ic(Re, phase_angle, eigenvector_amplitude, sa
     save_dir / "@_restart0,0.xdmf",
     # cwd / "data_output" / "@_restart0,0.xdmf",
     ]
+
+    logger.info("Cleanung up redundant prev files")
+    cleanup_redundant_files(save_dir)
+    logger.info("Finished cleaning up")
 
     def make_file_name_for_field(field_name, original_file_name):
         "Make file name for field U or P, using provided original"
