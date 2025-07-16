@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # Define parameter ranges for eigenvector simulations
     eigenvector_indices = list(range(9))  # 0 to 8 (9 eigenvectors)
     amplitudes = [0.01]  # Different perturbation amplitudes
-    num_steps = 150
+    num_steps = 200
     
     # Prepare all simulation parameters
     simulation_args = []
