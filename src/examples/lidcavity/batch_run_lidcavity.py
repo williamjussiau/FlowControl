@@ -331,7 +331,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
 if __name__ == "__main__":
     # Adapt to wherever you want to save the results
     base_dir = Path("/Users/james/Desktop/PhD/lid_driven_cavity")
-    parent_dir = base_dir / f"Re{Re}"
+    parent_dir = base_dir / f"Re{Re}_test"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     # x_vals = np.linspace(0.2, 0.8, 3)
