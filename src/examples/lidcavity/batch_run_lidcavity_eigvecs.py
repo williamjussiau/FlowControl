@@ -4,12 +4,12 @@ import numpy as np
 from scipy.spatial import cKDTree
 import scipy.io
 
-def load_eigendata(mat_file_path, num_eigenvectors=9):
+def load_eigendata(mat_file_path, num_eigenvectors=1):
     """Load eigendata from .mat file and return the last num_eigenvectors (fastest growing modes)
     
     Args:
         mat_file_path: Path to .mat file with structured 'eig_data' containing 'lambda' and 'vec' fields
-        num_eigenvectors: Number of eigenvectors to extract (default 9, the last/fastest)
+        num_eigenvectors: Number of eigenvectors to extract (default 1, the ones with largest real value)
     
     Returns:
         eigenvalues: Real parts of the last num_eigenvectors eigenvalues 
@@ -38,22 +38,18 @@ def load_eigendata(mat_file_path, num_eigenvectors=9):
     print(f"First eigenvector shape: {eigenvectors_complex[0].shape}")
     
     # Take the last num_eigenvectors (fastest growing modes since sorted by descending real part)
-    eigenvalues_selected = eigenvalues_complex[-num_eigenvectors:]
-    eigenvectors_selected_list = eigenvectors_complex[-num_eigenvectors:]
+    eigenvalues_selected = eigenvalues_complex[:num_eigenvectors]
+    eigenvectors_selected_list = eigenvectors_complex[:num_eigenvectors]
     
     # Stack the individual eigenvectors into a matrix (ndof x num_eigenvectors)
     eigenvectors_matrix = np.hstack([vec.flatten()[:, np.newaxis] for vec in eigenvectors_selected_list])
     
-    # Take real parts only
-    eigenvalues_real = np.real(eigenvalues_selected)
-    eigenvectors_real = np.real(eigenvectors_matrix)
+    print(f"Selected eigenvalues: {eigenvalues_selected}")
+    print(f"Selected eigenvectors shape: {eigenvectors_matrix.shape}")
     
-    print(f"Selected eigenvalues (real parts): {eigenvalues_real}")
-    print(f"Selected eigenvectors shape: {eigenvectors_real.shape}")
-    
-    return eigenvalues_real, eigenvectors_real
+    return eigenvalues_selected, eigenvectors_matrix
 
-def run_lidcavity_with_eigenvector_ic(Re, eigenvector_index, eigenvector_amplitude, save_dir, num_steps=100):
+def run_lidcavity_with_eigenvector_ic(Re, phase_angle, eigenvector_amplitude, save_dir, num_steps=100):
     """Run lid cavity with eigenvector-based initial condition"""
     import logging
     import time
@@ -124,29 +120,25 @@ def run_lidcavity_with_eigenvector_ic(Re, eigenvector_index, eigenvector_amplitu
 
     # Load eigendata and create eigenvector IC
     logger.info("Loading eigendata...")
-    eigenvalues_real, eigenvectors_real = load_eigendata(cwd / "data_output" / "eig_data.mat", num_eigenvectors=9)
+    eigenvalue, eigenvector = load_eigendata(cwd / "data_output" / "eig_data.mat", num_eigenvectors=1)
     logger.info("Eigendata loading successful")
 
-    if eigenvector_index >= eigenvectors_real.shape[1]:
-        raise ValueError(f"Eigenvector index {eigenvector_index} out of range (available: 0-{eigenvectors_real.shape[1]-1})")
+    eigenvector_real_part = np.real(eigenvector)
+    eigenvector_imag_part = np.imag(eigenvector)
 
-    eigenvector_real = eigenvectors_real[:, eigenvector_index]
-    eigenvalue_real = eigenvalues_real[eigenvector_index]
-    # eigenvector_norm = np.linalg.norm(eigenvector_real)
-    # eigenvector_real = eigenvector_real / eigenvector_norm
-    logger.info(f"Using eigenvector {eigenvector_index} with eigenvalue (real part) {eigenvalue_real:.6f}")
-    logger.info(f"Eigenvector (real part) norm: {np.linalg.norm(eigenvector_real):.6f}")
+    perturbation_vector = (np.cos(phase_angle) * eigenvector_real_part + 
+                          np.sin(phase_angle) * eigenvector_imag_part)
 
     # Create eigenvector IC
     logger.info("Creating eigenvector-based initial condition...")
         
-    if len(eigenvector_real) == fs.W.dim():
+    if len(eigenvector) == fs.W.dim():
         # Mixed space eigenvector
         logger.info("Processing mixed-space eigenvector (real part)")
-        UP_pert_vec = eigenvector_amplitude * eigenvector_real
+        UP_pert_vec = eigenvector_amplitude * perturbation_vector
         
     else:
-        raise ValueError(f"Eigenvector size {len(eigenvector_real)} doesn't match W ({fs.W.dim()})")
+        raise ValueError(f"Eigenvector size {len(eigenvector)} doesn't match W ({fs.W.dim()})")
 
     logger.info("Creating steady state + perturbation IC...")
     UP_ic = dolfin.Function(fs.W)
@@ -155,7 +147,6 @@ def run_lidcavity_with_eigenvector_ic(Re, eigenvector_index, eigenvector_amplitu
     # Log perturbation info
     pert_norm = np.linalg.norm(UP_pert_vec)
     logger.info(f"Perturbation norm: {pert_norm:.6f}")
-    logger.info(f"Applied perturbation in direction of eigenvector {eigenvector_index} (real part) with amplitude {eigenvector_amplitude}")
 
     logger.info("Init time-stepping with eigenvector IC")
     fs.initialize_time_stepping(ic=UP_ic)
@@ -728,19 +719,19 @@ if __name__ == "__main__":
     parent_dir = base_dir / f"Re{Re}_test"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
-    eigenvector_indices = list(range(9))
-    amplitudes = [0.01]  # Different perturbation amplitudes
-    num_steps = 150
+    phase_angles = np.linspace(0,2*np.pi, 1)
+    amplitudes = [0.005]  # Different perturbation amplitudes
+    num_steps = 10000
     count = 1
-    for eig_idx in eigenvector_indices:
+    for phase_angle in phase_angles:
         for amp in amplitudes:
             save_dir = parent_dir / f"run{count}"
             save_dir.mkdir(parents=True, exist_ok=True)
 
-            print(f"Running simulation {count} with eigenvector {eig_idx}, amplitude {amp}")
+            print(f"Running simulation {count} with angle {phase_angle}, amplitude {amp}")
             print(f"  -> Save directory: {save_dir}")
             
-            run_lidcavity_with_eigenvector_ic(Re, eig_idx, amp, save_dir, num_steps)
+            run_lidcavity_with_eigenvector_ic(Re, phase_angle, amp, save_dir, num_steps)
             
             print(f"Finished simulation {count}")
             count += 1
