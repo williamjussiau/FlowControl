@@ -14,9 +14,9 @@ def main():
     ## Make matrix
     A, B = make_operators(n=n)
     # operators_path = Path("src", "examples", "operators", "cylinder", "data_output")
-    operators_path = Path("src", "examples", "operators", "cavity", "data_output")
+    # operators_path = Path("src", "examples", "operators", "cavity", "data_output")
     # operators_path = Path("src", "examples", "operators", "lidcavity", "data_output")
-    A, B = load_operators(operators_path=operators_path)
+    # A, B = load_operators(operators_path=operators_path)
 
     ## Make EPS
     E = SLEPc.EPS()
@@ -26,8 +26,9 @@ def main():
     E.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
     E.setFromOptions()
 
+    sigma = 4
     # sigma = 0.13 + 0.7j
-    sigma = 1 + 13j
+    # sigma = 1 + 13j
     # sigma = 0 + 2.85j
     E.setTarget(sigma)
 
