@@ -5,8 +5,6 @@ from pathlib import Path
 import dolfin
 import numpy as np
 
-
-
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.pinball.pinballflowsolver import PinballFlowSolver
@@ -17,7 +15,6 @@ from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 def main():
     # LOG
-    
     dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
     logger = logging.getLogger(__name__)
     t000 = time.time()
@@ -49,26 +46,26 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-    mode_actuation = "rot"  # or "rot"
+    mode_actuation = "rot"  # "suc" or "rot"
     params_flow.user_data["mode_actuation"] = mode_actuation
-    
+
     if mode_actuation == "suc":
         angular_size_deg = 10
         actuator_charm_bc = ActuatorBCParabolicV(
             width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg, params_flow.user_data["D"] / 2
+                angular_size_deg, params_flow.user_data["D"] / 2
             ),
             position_x=-1.5 * np.cos(np.pi / 6),
         )
         actuator_top_bc = ActuatorBCParabolicV(
             width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg, params_flow.user_data["D"] / 2
+                angular_size_deg, params_flow.user_data["D"] / 2
             ),
             position_x=0.0,
         )
         actuator_bottom_bc = ActuatorBCParabolicV(
             width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg, params_flow.user_data["D"] / 2
+                angular_size_deg, params_flow.user_data["D"] / 2
             ),
             position_x=0.0,
         )
@@ -88,7 +85,7 @@ def main():
 
     else:
         raise ValueError(f"Unknown actuation mode : {mode_actuation}")
-    
+
     logger.info(f"Actuation mode : {mode_actuation.upper()}")
     # Sensors
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8, 0]))
@@ -140,7 +137,8 @@ def main():
     tlen = 0.10  # characteristic length of gaussian bump
     tpeak = [0.25, 0.5, 0.75]  # peaking time
     u0peak = [1.0, -1.5, 2.0]  # peaking amplitude
-    #fs.get_B(export='true',)
+
+    # fs.get_B(export='true',)
     def gaussian_bump(t, tpeak):
         return np.exp(-1 / 2 * (t - tpeak) ** 2 / tlen**2)
 

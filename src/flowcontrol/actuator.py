@@ -51,8 +51,11 @@ class ActuatorBC(Actuator):
     """Boundary condition actuator, inherits from abstract base class Actuator
     This actuators features an attribute _boundary_ that links the boundary to the
     actuator automatically
-    --> this is only required for operator B computation, we can probably do better
+    --> this attribute is only required for operator B computation, we can probably do better
     See https://github.com/williamjussiau/FlowControl/issues/7
+
+    All BC actuators are closely linked to the definition of boundaries
+    (i.e. FlowSolver._make_boundaries() and FlowSolver._make_bcs())
 
     Args:
         boundary (dolfin.Expression): boundary on which the boundary condition is enforced
@@ -67,16 +70,13 @@ class ActuatorBCParabolicV(ActuatorBC):
     coordinate only. Usually located at the poles of a cylinder.
     The width of the actuator can be computed with the static method, given
     the radius of a cylinder and an angular size in degrees.
-    This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
-    to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
-    FlowSolver._make_bcs())"""
+    """
 
     width: float = 0.0
     position_x: float = 0.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
     def load_expression(self, flowsolver):
-        
         expression = dolfin.Expression(
             [
                 "0",
@@ -87,7 +87,6 @@ class ActuatorBCParabolicV(ActuatorBC):
             x0=self.position_x,
             u_ctrl=0.0,
         )
-        print(">>> DEBUG: ActuatorBCParabolicV loaded")
         self.expression = expression
 
     @staticmethod
@@ -97,21 +96,21 @@ class ActuatorBCParabolicV(ActuatorBC):
 
 @dataclass(kw_only=True)
 class ActuatorBCRotation(ActuatorBC):
-    """ Cylinder actuator: rotational profile generating tangential velocity 
-    around a center (x0, y0). Typically used to model rotating surfaces 
-    for cylinder and pinball examples
-    This actuator has type ACTUATOR_TYPE.BC which means it is closely linked
-    to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
-    FlowSolver._make_bcs())"""
+    """Cylinder actuator: tangential velocity at a radius D around a center (x0, y0).
+    Typically used to model a rotating cylinder.
+    """
 
-    
     position_x: float = 0.0
     position_y: float = 0.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
-    def load_expression(self, flowsolver): 
+    def load_expression(self, flowsolver):
         d = flowsolver.params_flow.user_data["D"]
-        expression = dolfin.Expression(['-sin(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2','cos(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2'],
+        expression = dolfin.Expression(
+            [
+                "-sin(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2",
+                "cos(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2",
+            ],
             element=flowsolver.V.ufl_element(),
             y0=self.position_y,
             x0=self.position_x,
@@ -119,9 +118,6 @@ class ActuatorBCRotation(ActuatorBC):
             d=d,
         )
         self.expression = expression
-
-    
-
 
 
 @dataclass(kw_only=True)
