@@ -81,7 +81,7 @@ def main(operators_path):
     # targets = txx.flatten() + 1j * tyy.flatten()
 
     # Number of eigenvalues to compute at each target
-    neig_at_target = 1
+    neig_at_target = 2
     neig_list = neig_at_target * np.ones(shape=targets.shape, dtype=int)
 
     # Solve A@x = L@Q@x
