@@ -287,6 +287,7 @@ class RestrictFunctionToBoundary(dolfin.UserExpression):
     def eval(self, values, x):
         values[:] = 0.0
         if self.boundary.inside(x, True):
+            # this bool=True may be a problem when defining the boundaries as "on_boundary && x_interval"
             values[:2] = self.fun(x)[:2]
 
     def value_shape(self):
