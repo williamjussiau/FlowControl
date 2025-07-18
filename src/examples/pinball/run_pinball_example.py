@@ -74,7 +74,7 @@ def main():
     elif mode_actuation == CYLINDER_ACTUATION_MODE.ROTATION:
         actuator_charm_bc = ActuatorBCRotation(
             position_x=-1.5 * np.cos(np.pi / 6),
-            position_y=-1.5 * np.sin(np.pi / 6),
+            position_y=0.0,
             diameter=cylinder_diameter,
         )
         actuator_top_bc = ActuatorBCRotation(
