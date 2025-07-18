@@ -108,6 +108,8 @@ def main():
         fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
     )
 
+    return 1
+
     logger.info("Compute steady state...")
     uctrl0 = [0.0, 0.0]
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)

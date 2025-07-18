@@ -71,17 +71,17 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
             + and_cpp
             + between_cpp("x[1]", "-radius", "radius")
         )
-        cylinder_boundary_cpp = on_boundary_cpp + and_cpp + close_to_cylinder_cpp
+        cylinder_boundary_cpp = on_boundary_cpp  #  + and_cpp + close_to_cylinder_cpp
 
         cone_up_cpp = (
             between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01")
-            + and_cpp
-            + between_cpp("x[1]", "0", "radius")
+            # + and_cpp
+            # + between_cpp("x[1]", "0", "radius")
         )
         cone_lo_cpp = (
             between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01")
-            + and_cpp
-            + between_cpp("x[1]", "-radius", "0")
+            # + and_cpp
+            # + between_cpp("x[1]", "-radius", "0")
         )
 
         cone_le_cpp = between_cpp("x[0]", "-radius", "-ldelta")

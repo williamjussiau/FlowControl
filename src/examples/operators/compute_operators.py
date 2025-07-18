@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+import dolfin
 import numpy as np
 import scipy.sparse as spr
 
@@ -26,7 +27,9 @@ logger = logging.getLogger(__name__)
 cwd = Path(__file__).parent
 
 
-def export_square_operators(path, operators, operators_names):
+def export_square_operators(
+    path: Path, operators: list[dolfin.Matrix], operators_names: list[str]
+):
     """Export given square operators as png and sparse npz"""
     path.mkdir(parents=True, exist_ok=True)
     for Mat, Matname in zip(operators, operators_names):
@@ -41,9 +44,22 @@ def export_square_operators(path, operators, operators_names):
         spr.save_npz(path / f"{Matname}_coo.npz", Acoo)
 
 
-def export_column_operators(path, operators, operators_names):
+def export_column_operators(
+    path: Path, operators: list[dolfin.Function], operators_names: list[str]
+):
     """Export given column operators as xdmf"""
-    return 1
+    path.mkdir(parents=True, exist_ok=True)
+    for Col, Colname in zip(operators, operators_names):
+        # Col represents a Column operator (B, C) in a mixed FunctionSpace
+        # Step 1: split
+        Col_v, Col_p = Col.split()
+        # Step 2: export Col_v, Col_p
+        flu.write_xdmf(
+            filename=path / f"{Colname}_v.xdmf", func=Col_v, name=Colname + "_v"
+        )
+        flu.write_xdmf(
+            filename=path / f"{Colname}_p.xdmf", func=Col_p, name=Colname + "_p"
+        )
 
 
 ####################################################################################
@@ -372,7 +388,7 @@ def make_pinball(Re=50, mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION):
 ####################################################################################
 # Compute operators
 ####################################################################################
-def compute_operators_flowsolver(flowsolver, export):
+def compute_operators_flowsolver(flowsolver, path_export):
     # Compute operator: A
     logger.info("Now computing operators...")
     opget = OperatorGetter(flowsolver)
@@ -382,21 +398,20 @@ def compute_operators_flowsolver(flowsolver, export):
     E = opget.get_mass_matrix()
 
     # Could also compute B, C
-    B = opget.get_B(interpolate=False)
+    B = opget.get_B(interpolate=False, as_function_list=True)
     # C = opget.get_C(fast=True)
 
     # Export
-    if export:
-        export_path = cwd / "lidcavity" / "data_output"
+    if path_export:
         export_square_operators(
-            path=export_path,
+            path=path_export,
             operators=[A0, E],
             operators_names=["A", "E"],
         )
         export_column_operators(
-            path=export_path,
-            operators=[B],
-            operators_names=["B.xdmf"],
+            path=path_export,
+            operators=[B[0]],
+            operators_names=["B"],
         )
 
 
@@ -410,16 +425,25 @@ if __name__ == "__main__":
     COMPUTE_OPERATORS_PINBALL = False  # not implemented yet
 
     if COMPUTE_OPERATORS_CYLINDER:
-        compute_operators_flowsolver(make_cylinder(Re=100), export=True)
+        compute_operators_flowsolver(
+            make_cylinder(Re=100),
+            path_export=cwd / "cylinder" / "data_output",
+        )
 
     if COMPUTE_OPERATORS_CAVITY:
-        compute_operators_flowsolver(make_cavity(Re=7500), export=True)
+        compute_operators_flowsolver(
+            make_cavity(Re=7500),
+            path_export=cwd / "cavity" / "data_output",
+        )
 
     if COMPUTE_OPERATORS_LIDCAVITY:
-        compute_operators_flowsolver(make_lidcavity(Re=8000), export=True)
+        compute_operators_flowsolver(
+            make_lidcavity(Re=8000),
+            path_export=cwd / "lidcavity" / "data_output",
+        )
 
     if COMPUTE_OPERATORS_PINBALL:
         compute_operators_flowsolver(
             make_pinball(Re=50, mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION),
-            export=True,
+            path_export=cwd / "pinball" / "data_output",
         )
