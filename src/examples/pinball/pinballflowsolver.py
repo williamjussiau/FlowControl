@@ -15,6 +15,7 @@ import pandas as pd
 import flowcontrol.flowsolver as flowsolver
 import utils.utils_extract as flu2
 import utils.utils_flowsolver as flu
+from flowcontrol.actuator import CYLINDER_ACTUATION_MODE
 from flowcontrol.flowfield import BoundaryConditions
 
 # LOG
@@ -94,7 +95,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         boundaries_names = ["inlet", "outlet", "walls"]
         subdomains_list = [inlet, outlet, walls]
 
-        if mode_actuation == "suc":
+        if mode_actuation == CYLINDER_ACTUATION_MODE.BLOWING:
             ldelta = self.params_control.actuator_list[0].width
 
             cone_charm_act_cpp = between_cpp(
@@ -189,7 +190,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             bcu_walls,
         ]
 
-        if mode_actuation == "suc":
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
             bcu_cylinder_top = dolfin.DirichletBC(
                 self.W.sub(0),
                 dolfin.Constant((0, 0)),
@@ -289,7 +290,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         Fo = -dolfin.dot(sigma, facet_normals)
 
         # integration surfaces names
-        if mode_actuation == "suc":
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
             surfaces_names = [
                 "cylinder_charm",
                 "actuator_charm",

@@ -8,7 +8,11 @@ import numpy as np
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.pinball.pinballflowsolver import PinballFlowSolver
-from flowcontrol.actuator import ActuatorBCParabolicV, ActuatorBCRotation
+from flowcontrol.actuator import (
+    CYLINDER_ACTUATION_MODE,
+    ActuatorBCParabolicV,
+    ActuatorBCRotation,
+)
 from flowcontrol.controller import Controller
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
@@ -46,40 +50,38 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-    mode_actuation = "rot"  # "suc" or "rot"
+    mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
+    cylinder_diameter = params_flow.user_data["D"]
 
-    if mode_actuation == "suc":
+    if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
         angular_size_deg = 10
+        actuator_width = ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg=angular_size_deg,
+            cylinder_radius=cylinder_diameter / 2,
+        )
         actuator_charm_bc = ActuatorBCParabolicV(
-            width=ActuatorBCParabolicV.angular_size_deg_to_width(
-                angular_size_deg, params_flow.user_data["D"] / 2
-            ),
+            width=actuator_width,
             position_x=-1.5 * np.cos(np.pi / 6),
         )
         actuator_top_bc = ActuatorBCParabolicV(
-            width=ActuatorBCParabolicV.angular_size_deg_to_width(
-                angular_size_deg, params_flow.user_data["D"] / 2
-            ),
+            width=actuator_width,
             position_x=0.0,
         )
         actuator_bottom_bc = ActuatorBCParabolicV(
-            width=ActuatorBCParabolicV.angular_size_deg_to_width(
-                angular_size_deg, params_flow.user_data["D"] / 2
-            ),
+            width=actuator_width,
             position_x=0.0,
         )
-    elif mode_actuation == "rot":
+    elif mode_actuation == CYLINDER_ACTUATION_MODE.ROTATION:
         actuator_charm_bc = ActuatorBCRotation(
             position_x=-1.5 * np.cos(np.pi / 6),
             position_y=-1.5 * np.sin(np.pi / 6),
+            diameter=cylinder_diameter,
         )
         actuator_top_bc = ActuatorBCRotation(
-            position_x=0.0,
-            position_y=+0.75,
+            position_x=0.0, position_y=+0.75, diameter=cylinder_diameter
         )
         actuator_bottom_bc = ActuatorBCRotation(
-            position_x=0.0,
-            position_y=-0.75,
+            position_x=0.0, position_y=-0.75, diameter=cylinder_diameter
         )
 
     else:
