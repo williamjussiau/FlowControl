@@ -271,7 +271,7 @@ def make_lidcavity(Re=4000):
 ####################################################################################
 # Get Pinball operators
 ####################################################################################
-def make_pinball():
+def make_pinball(Re=50):
     raise NotImplementedError()
     return None
 
@@ -318,4 +318,4 @@ if __name__ == "__main__":
         compute_operators_flowsolver(make_lidcavity(Re=8000), export=True)
 
     if COMPUTE_OPERATORS_PINBALL:
-        pass
+        compute_operators_flowsolver(make_pinball(Re=50), export=True)
