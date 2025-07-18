@@ -35,7 +35,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         on_boundary_cpp = flu.on_boundary_cpp()
 
         MESH_TOL = dolfin.DOLFIN_EPS
-        mode_actuation = self.params_flow.user_data["mode_actuation"]
+        mode_actuation = self.params_control.user_data["mode_actuation"]
 
         ## Inlet
         inlet = dolfin.CompiledSubDomain(
@@ -148,26 +148,14 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             ]
 
         else:
-            # actuator_top = dolfin.CompiledSubDomain(
-            #   cylinder_boundary_top_cpp + and_cpp + '(x[0]*x[0] + (x[1] - 3*radius/2)*(x[1] - 3*radius/2) <= radius*radius + 1e-9)',
-            #   radius=radius,
-            # )
             actuator_top = dolfin.CompiledSubDomain(
                 cylinder_boundary_top_cpp,
                 radius=radius,
             )
-            # actuator_bot = dolfin.CompiledSubDomain(
-            #   cylinder_boundary_bot_cpp + and_cpp + '(x[0]*x[0] + (x[1] + 3*radius/2)*(x[1] + 3*radius/2) <= radius*radius + 1e-9)',
-            #   radius=radius,
-            # )
             actuator_bot = dolfin.CompiledSubDomain(
                 cylinder_boundary_bot_cpp,
                 radius=radius,
             )
-            # actuator_charm = dolfin.CompiledSubDomain(
-            #    cylinder_boundary_charm_cpp + and_cpp + '((x[0]+1.5*cos(pi/6))*(x[0]+1.5*cos(pi/6)) + x[1]*x[1] <= radius*radius + 1e-9)',
-            #    radius=radius,
-            # )
             actuator_charm = dolfin.CompiledSubDomain(
                 cylinder_boundary_charm_cpp,
                 radius=radius,
@@ -184,7 +172,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
 
     def _make_bcs(self):
         # Free boundaries
-        mode_actuation = self.params_flow.user_data["mode_actuation"]
+        mode_actuation = self.params_control.user_data["mode_actuation"]
 
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
@@ -294,7 +282,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         """Compute lift & drag coefficients acting on the cylinder."""
         D = self.params_flow.user_data["D"]
         nu = self.params_flow.uinf * D / self.params_flow.Re
-        mode_actuation = self.params_flow.user_data["mode_actuation"]
+        mode_actuation = self.params_control.user_data["mode_actuation"]
 
         sigma = flu2.stress_tensor(nu, u, p)
         facet_normals = dolfin.FacetNormal(self.mesh)

@@ -26,10 +26,10 @@ def main():
     params_flow = flowsolverparameters.ParamFlow(Re=50, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=2, path_out=cwd / "data_output"
+        save_every=10, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -47,7 +47,6 @@ def main():
 
     # Actuators
     mode_actuation = "rot"  # "suc" or "rot"
-    params_flow.user_data["mode_actuation"] = mode_actuation
 
     if mode_actuation == "suc":
         angular_size_deg = 10
@@ -94,6 +93,7 @@ def main():
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
         actuator_list=[actuator_charm_bc, actuator_top_bc, actuator_bottom_bc],
+        user_data={"mode_actuation": mode_actuation},
     )
 
     # IC
