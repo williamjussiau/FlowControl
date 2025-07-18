@@ -14,7 +14,7 @@ import meshio
 
 data_dir = Path(__file__).parent / "data_input"
 
-for i in range(5):
+for i in range(1,6):
     msh_path = data_dir / f"lidcavity_{i}.msh"
     xdmf_path = data_dir / f"lidcavity_{i}.xdmf"
 
