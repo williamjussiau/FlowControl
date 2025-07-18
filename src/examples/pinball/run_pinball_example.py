@@ -75,7 +75,7 @@ def main():
     elif mode_actuation == "rot":
         actuator_charm_bc = ActuatorBCRotation(
             position_x=-1.5 * np.cos(np.pi / 6),
-            position_y=-1.5 * np.sin(np.pi / 6),
+            position_y=0.0,
         )
         actuator_top_bc = ActuatorBCRotation(
             position_x=0.0,
