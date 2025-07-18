@@ -52,6 +52,8 @@ def main():
     # Actuators
     mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
     cylinder_diameter = params_flow.user_data["D"]
+    position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
+    position_top = [0.0, +0.75]
 
     if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
         angular_size_deg = 10
@@ -61,27 +63,31 @@ def main():
         )
         actuator_charm_bc = ActuatorBCParabolicV(
             width=actuator_width,
-            position_x=-1.5 * np.cos(np.pi / 6),
+            position_x=position_mid[0],
         )
         actuator_top_bc = ActuatorBCParabolicV(
             width=actuator_width,
-            position_x=0.0,
+            position_x=position_top[0],
         )
         actuator_bottom_bc = ActuatorBCParabolicV(
             width=actuator_width,
-            position_x=0.0,
+            position_x=position_top[0],
         )
     elif mode_actuation == CYLINDER_ACTUATION_MODE.ROTATION:
         actuator_charm_bc = ActuatorBCRotation(
-            position_x=-1.5 * np.cos(np.pi / 6),
-            position_y=0.0,
+            position_x=position_mid[0],
+            position_y=position_mid[1],
             diameter=cylinder_diameter,
         )
         actuator_top_bc = ActuatorBCRotation(
-            position_x=0.0, position_y=+0.75, diameter=cylinder_diameter
+            position_x=position_top[0],
+            position_y=+position_top[1],
+            diameter=cylinder_diameter,
         )
         actuator_bottom_bc = ActuatorBCRotation(
-            position_x=0.0, position_y=-0.75, diameter=cylinder_diameter
+            position_x=position_top[0],
+            position_y=-position_top[1],
+            diameter=cylinder_diameter,
         )
 
     else:
