@@ -96,10 +96,11 @@ class OperatorGetter:
         try:
             # Embed actuators in W (originally in V) + restrict spatially to boundary
             actuators_expressions = []
+            actuator_list = self.flowsolver.params_control.actuator_list
             for actuator in self.flowsolver.params_control.actuator_list:
                 expr = ExpandFunctionSpace(actuator.expression)
-                if actuator.actuator_type is ACTUATOR_TYPE.BC:
-                    expr = RestrictFunctionToBoundary(actuator.boundary, expr)
+                # if actuator.actuator_type is ACTUATOR_TYPE.BC:
+                #     expr = RestrictFunctionToBoundary(actuator.boundary, expr)
                 actuators_expressions.append(expr)
 
             # Determine local range and size
@@ -118,7 +119,15 @@ class OperatorGetter:
                 if interpolate:
                     Bproj = dolfin.interpolate(actuator_expression, self.flowsolver.W)
                 else:
-                    Bproj = flu.projectm(actuator_expression, self.flowsolver.W)
+                    if actuator_list[ii].actuator_type == ACTUATOR_TYPE.BC:
+                        Bproj = project_on_boundary(
+                            actuator_expression=actuator_expression,
+                            boundary=actuator_list[ii].boundary,
+                            W=self.flowsolver.W,
+                            mesh=self.flowsolver.mesh,
+                        )
+                    else:
+                        Bproj = flu.projectm(actuator_expression, self.flowsolver.W)
                 Bproj.vector().apply("insert")
 
                 if as_function_list:
@@ -292,6 +301,21 @@ class RestrictFunctionToBoundary(dolfin.UserExpression):
 
     def value_shape(self):
         return (3,)
+
+
+def project_on_boundary(actuator_expression, boundary, W, mesh):
+    v = dolfin.TestFunction(W)
+    u = dolfin.TrialFunction(W)
+    SUBD_IDX = 33
+    boundary_markers = mark_boundaries(
+        mesh=mesh, subdomain=boundary, SUBDOMAIN_INDEX=SUBD_IDX
+    )
+    ds = dolfin.Measure("ds", domain=mesh, subdomain_data=boundary_markers)
+    aB = dolfin.inner(u, v) * ds(SUBD_IDX) + 1e-10 * dolfin.inner(u, v) * dx
+    LB = dolfin.inner(actuator_expression, v) * ds(SUBD_IDX)
+    Bproj = dolfin.Function(W)
+    dolfin.solve(aB == LB, Bproj)
+    return Bproj
 
 
 def sensor_is_compatible(sensor):
