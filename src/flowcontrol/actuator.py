@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 
 class ACTUATOR_TYPE(IntEnum):
-    """Enumeration of actuator types
+    """Enumeration of actuator types.
 
     Args:
         BC: boundary condition actuation
@@ -18,6 +18,19 @@ class ACTUATOR_TYPE(IntEnum):
 
     BC = 1
     FORCE = 2
+
+
+class CYLINDER_ACTUATION_MODE(IntEnum):
+    """Modes for actuation on cylinders. This IntEnum is intended to be used
+    by the user, it is never called by the original FlowSolver.
+
+    Args:
+        SUCTION: blowing & suction devices at the poles (ex. ActuatorBCParabolicV)
+        ROTATION: rotation of whole cylinder (= ActuatorBCRotation)
+    """
+
+    SUCTION = 1
+    ROTATION = 2
 
 
 @dataclass(kw_only=True)
@@ -102,10 +115,10 @@ class ActuatorBCRotation(ActuatorBC):
 
     position_x: float = 0.0
     position_y: float = 0.0
+    diameter: float = 1.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
     def load_expression(self, flowsolver):
-        d = flowsolver.params_flow.user_data["D"]
         expression = dolfin.Expression(
             [
                 "-sin(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2",
@@ -115,7 +128,7 @@ class ActuatorBCRotation(ActuatorBC):
             y0=self.position_y,
             x0=self.position_x,
             u_ctrl=0.0,
-            d=d,
+            d=self.diameter,
         )
         self.expression = expression
 
