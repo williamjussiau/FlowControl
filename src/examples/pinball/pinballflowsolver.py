@@ -6,7 +6,6 @@ Several supercritical Hopf bifurcations
 Recommended Re<100
 ----------------------------------------------------------------------
 """
-
 import logging
 
 import dolfin
@@ -92,11 +91,10 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         cylinder_boundary_charm_cpp = (
             on_boundary_cpp + and_cpp + close_to_cylinder_charm_cpp
         )
-
         boundaries_names = ["inlet", "outlet", "walls"]
         subdomains_list = [inlet, outlet, walls]
 
-        if mode_actuation == CYLINDER_ACTUATION_MODE.BLOWING:
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
             ldelta = self.params_control.actuator_list[0].width
 
             cone_charm_act_cpp = between_cpp(
@@ -150,6 +148,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             ]
 
         else:
+
             actuator_top = dolfin.CompiledSubDomain(
                 cylinder_boundary_top_cpp,
                 radius=radius,
@@ -272,11 +271,14 @@ class PinballFlowSolver(flowsolver.FlowSolver):
     def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
         super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
         # assign steady cl, cd
-        cl, cd = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
+        force_coeffs_dict = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
 
-        self.cl0 = cl
-        self.cd0 = cd
+        cl = sum(val[0] for val in force_coeffs_dict.values())
+        cd = sum(val[1] for val in force_coeffs_dict.values())
         if self.verbose:
+            
+            for name, (cl_val, cd_val) in force_coeffs_dict.items():
+                logger.info(f"{name}: Cl = {cl_val:.4f}, Cd = {cd_val:.4f}")
             logger.info(f"Lift coefficient is: cl = {cl}")
             logger.info(f"Drag coefficient is: cd = {cd}")
 
@@ -306,24 +308,22 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         else:
             surfaces_names = ["actuator_charm", "actuator_top", "actuator_bot"]
         # integration surfaces indices
-        surfaces_idx = [self.boundaries.loc[nm].idx for nm in surfaces_names]
+        cl_cd_dict = {}
 
-        # define drag & lift expressions
-        # sum symbolic forces
-        drag_sym = sum(
-            [Fo[0] * self.ds(int(sfi)) for sfi in surfaces_idx]
-        )  # (forced int)
-        lift_sym = sum(
-            [Fo[1] * self.ds(int(sfi)) for sfi in surfaces_idx]
-        )  # (forced int)
-        # integrate sum of symbolic forces
-        lift = dolfin.assemble(lift_sym)
-        drag = dolfin.assemble(drag_sym)
+        for name in surfaces_names:
+           surface_idx = self.boundaries.loc[name].idx
+           drag_sym = Fo[0] * self.ds(int(surface_idx))
+           lift_sym = Fo[1] * self.ds(int(surface_idx))
 
-        # define force coefficients by normalizing
-        cd = drag / (1 / 2 * self.params_flow.uinf**2 * D)
-        cl = lift / (1 / 2 * self.params_flow.uinf**2 * D)
-        return cl, cd
+           drag = dolfin.assemble(drag_sym)
+           lift = dolfin.assemble(lift_sym)
+
+           cd = drag / (0.5 * self.params_flow.uinf**2 * D)
+           cl = lift / (0.5 * self.params_flow.uinf**2 * D)
+
+           cl_cd_dict[name] = (cl, cd)
+
+        return cl_cd_dict
 
 
 ###############################################################################
