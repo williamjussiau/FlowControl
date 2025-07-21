@@ -35,7 +35,7 @@ def main():
     params_flow.user_data["D"] = 1.0
 
 
-    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=10, path_out=cwd / "data_output"
@@ -55,8 +55,12 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-
+    print(list(CYLINDER_ACTUATION_MODE))
+    
     mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
+    print(mode_actuation.name)
+
+    
     cylinder_diameter = params_flow.user_data["D"]
     position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
     position_top = [0.0, +0.75]
@@ -80,6 +84,9 @@ def main():
             position_x=position_top[0],
         )
     elif mode_actuation == CYLINDER_ACTUATION_MODE.ROTATION:
+        print(f"mode_actuation = {mode_actuation} ({mode_actuation.name})")
+        print(f"Is rotation? {mode_actuation == CYLINDER_ACTUATION_MODE.ROTATION}")
+
         actuator_charm_bc = ActuatorBCRotation(
             position_x=position_mid[0],
             position_y=position_mid[1],
@@ -99,7 +106,7 @@ def main():
     else:
         raise ValueError(f"Unknown actuation mode : {mode_actuation}")
 
-    logger.info(f"Actuation mode : {mode_actuation.upper()}")
+    logger.info(f"Actuation mode : {mode_actuation.name}")
     # Sensors
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8, 0]))
     sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([10, 0]))
@@ -150,7 +157,7 @@ def main():
     # Kss = Controller.from_file(file=cwd / "data_input" / "Kdx8dy0p0.mat", x0=0)
     tlen = 0.10  # characteristic length of gaussian bump
     tpeak = [0.25, 0.5, 0.75]  # peaking time
-    u0peak = [1.0, -1.5, 2.0]  # peaking amplitude
+    u0peak = [+2.0, -1.5, -2.0]  # peaking amplitude
 
 
     # fs.get_B(export='true',)
@@ -169,6 +176,8 @@ def main():
     logger.info(fs.timeseries)
     fs.write_timeseries()
 
-
+    cl_cd_dict = fs.compute_force_coefficients(fs.fields.u_, fs.fields.p_)
+    for surface, (cl, cd) in cl_cd_dict.items():
+        print(f"Surface: {surface} | Cl: {cl:.4f}, Cd: {cd:.4f}")    
 if __name__ == "__main__":
     main()
