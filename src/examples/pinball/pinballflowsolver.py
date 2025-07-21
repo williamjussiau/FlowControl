@@ -15,6 +15,7 @@ import pandas as pd
 import flowcontrol.flowsolver as flowsolver
 import utils.utils_extract as flu2
 import utils.utils_flowsolver as flu
+from flowcontrol.actuator import CYLINDER_ACTUATION_MODE
 from flowcontrol.flowfield import BoundaryConditions
 
 # LOG
@@ -35,7 +36,8 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         on_boundary_cpp = flu.on_boundary_cpp()
 
         MESH_TOL = dolfin.DOLFIN_EPS
-        mode_actuation = self.params_flow.user_data["mode_actuation"]
+
+        mode_actuation = self.params_control.user_data["mode_actuation"]
 
         ## Inlet
         inlet = dolfin.CompiledSubDomain(
@@ -63,7 +65,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         )
 
         ## Pinball
-        
+
         radius = self.params_flow.user_data["D"] / 2
         close_to_cylinder_top_cpp = (
                between_cpp("x[0]", "-radius", "radius")
@@ -88,96 +90,82 @@ class PinballFlowSolver(flowsolver.FlowSolver):
                on_boundary_cpp + and_cpp + close_to_cylinder_bot_cpp
         )
         cylinder_boundary_charm_cpp = (
-               on_boundary_cpp + and_cpp + close_to_cylinder_charm_cpp
+            on_boundary_cpp + and_cpp + close_to_cylinder_charm_cpp
         )
-        
+
         boundaries_names = ["inlet", "outlet", "walls"]
         subdomains_list = [inlet, outlet, walls]
-        
-        if mode_actuation == 'suc':
-           
-           ldelta = self.params_control.actuator_list[0].width
-              
-           cone_charm_act_cpp = between_cpp(
-               "x[0]", "-ldelta-1.5*cos(pi/6)", "-1.5*cos(pi/6)+ldelta"
-           )
-           cone_top_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
-           cone_bot_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
 
-           cylinder_top = dolfin.CompiledSubDomain(
-               cylinder_boundary_top_cpp, radius=radius, ldelta=ldelta
-           )
-           cylinder_bot = dolfin.CompiledSubDomain(
-               cylinder_boundary_bot_cpp, radius=radius, ldelta=ldelta
-           )
-           cylinder_charm = dolfin.CompiledSubDomain(
-               cylinder_boundary_charm_cpp, radius=radius, ldelta=ldelta
-           )
+        if mode_actuation == CYLINDER_ACTUATION_MODE.BLOWING:
+            ldelta = self.params_control.actuator_list[0].width
 
-           actuator_top = dolfin.CompiledSubDomain(
-               cylinder_boundary_top_cpp + and_cpp + cone_top_act_cpp,
-               radius=radius,
-               ldelta=ldelta,
-           )
-           actuator_bot = dolfin.CompiledSubDomain(
-               cylinder_boundary_bot_cpp + and_cpp + cone_bot_act_cpp,
-               radius=radius,
-               ldelta=ldelta,
-           )
-           actuator_charm = dolfin.CompiledSubDomain(
-               cylinder_boundary_charm_cpp + and_cpp + cone_charm_act_cpp,
-               radius=radius,
-               ldelta=ldelta,
-           )
+            cone_charm_act_cpp = between_cpp(
+                "x[0]", "-ldelta-1.5*cos(pi/6)", "-1.5*cos(pi/6)+ldelta"
+            )
+            cone_top_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
+            cone_bot_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
 
-        # assign boundaries as pd.DataFrame
-           boundaries_names += [
-            "cylinder_top", "cylinder_bot", "cylinder_charm",
-            "actuator_charm", "actuator_top", "actuator_bot"
-           ]
-           subdomains_list += [
-            cylinder_top, cylinder_bot, cylinder_charm,
-            actuator_charm, actuator_top, actuator_bot
-           ]
-           
-           
-        else:
-            
-            
-            #actuator_top = dolfin.CompiledSubDomain(
-            #   cylinder_boundary_top_cpp + and_cpp + '(x[0]*x[0] + (x[1] - 3*radius/2)*(x[1] - 3*radius/2) <= radius*radius + 1e-9)',
-            #   radius=radius,
-            #)
+            cylinder_top = dolfin.CompiledSubDomain(
+                cylinder_boundary_top_cpp, radius=radius, ldelta=ldelta
+            )
+            cylinder_bot = dolfin.CompiledSubDomain(
+                cylinder_boundary_bot_cpp, radius=radius, ldelta=ldelta
+            )
+            cylinder_charm = dolfin.CompiledSubDomain(
+                cylinder_boundary_charm_cpp, radius=radius, ldelta=ldelta
+            )
+
             actuator_top = dolfin.CompiledSubDomain(
-               cylinder_boundary_top_cpp,
-               radius=radius,
+                cylinder_boundary_top_cpp + and_cpp + cone_top_act_cpp,
+                radius=radius,
+                ldelta=ldelta,
             )
-            #actuator_bot = dolfin.CompiledSubDomain(
-            #   cylinder_boundary_bot_cpp + and_cpp + '(x[0]*x[0] + (x[1] + 3*radius/2)*(x[1] + 3*radius/2) <= radius*radius + 1e-9)',
-            #   radius=radius,
-            #)
             actuator_bot = dolfin.CompiledSubDomain(
-               cylinder_boundary_bot_cpp,
-               radius=radius,
+                cylinder_boundary_bot_cpp + and_cpp + cone_bot_act_cpp,
+                radius=radius,
+                ldelta=ldelta,
             )
-            #actuator_charm = dolfin.CompiledSubDomain(
-            #    cylinder_boundary_charm_cpp + and_cpp + '((x[0]+1.5*cos(pi/6))*(x[0]+1.5*cos(pi/6)) + x[1]*x[1] <= radius*radius + 1e-9)',
-            #    radius=radius,
-            #)
+            actuator_charm = dolfin.CompiledSubDomain(
+                cylinder_boundary_charm_cpp + and_cpp + cone_charm_act_cpp,
+                radius=radius,
+                ldelta=ldelta,
+            )
+
+            # assign boundaries as pd.DataFrame
+            boundaries_names += [
+                "cylinder_top",
+                "cylinder_bot",
+                "cylinder_charm",
+                "actuator_charm",
+                "actuator_top",
+                "actuator_bot",
+            ]
+            subdomains_list += [
+                cylinder_top,
+                cylinder_bot,
+                cylinder_charm,
+                actuator_charm,
+                actuator_top,
+                actuator_bot,
+            ]
+
+        else:
+            actuator_top = dolfin.CompiledSubDomain(
+                cylinder_boundary_top_cpp,
+                radius=radius,
+            )
+            actuator_bot = dolfin.CompiledSubDomain(
+                cylinder_boundary_bot_cpp,
+                radius=radius,
+            )
             actuator_charm = dolfin.CompiledSubDomain(
                 cylinder_boundary_charm_cpp,
                 radius=radius,
             )
-             # assign boundaries as pd.DataFrame
-            boundaries_names += [
-            "actuator_charm", "actuator_top", "actuator_bot"
-            ]
-            subdomains_list += [
-            actuator_charm, actuator_top, actuator_bot
-            ]
-        
-                 
-        
+            # assign boundaries as pd.DataFrame
+            boundaries_names += ["actuator_charm", "actuator_top", "actuator_bot"]
+            subdomains_list += [actuator_charm, actuator_top, actuator_bot]
+
         boundaries_df = pd.DataFrame(
             index=boundaries_names, data={"subdomain": subdomains_list}
         )
@@ -189,29 +177,29 @@ class PinballFlowSolver(flowsolver.FlowSolver):
 
     def _make_bcs(self):
         # Free boundaries
-        mode_actuation = self.params_flow.user_data["mode_actuation"]
-        
+        mode_actuation = self.params_control.user_data["mode_actuation"]
+
         bcu_inlet = dolfin.DirichletBC(
                 self.W.sub(0),
                 dolfin.Constant((0, 0)),
                 self.get_subdomain("inlet"),
         )
         bcu_walls = dolfin.DirichletBC(
-                self.W.sub(0).sub(1),
-                dolfin.Constant(0),
-                self.get_subdomain("walls"),
+            self.W.sub(0).sub(1),
+            dolfin.Constant(0),
+            self.get_subdomain("walls"),
         )
         bcu = [
             bcu_inlet,
-            bcu_walls,]
-        
-        if mode_actuation == 'suc':
-            
+            bcu_walls,
+        ]
+
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
             bcu_cylinder_top = dolfin.DirichletBC(
                 self.W.sub(0),
                 dolfin.Constant((0, 0)),
                 self.get_subdomain("cylinder_top"),
-                )
+            )
             bcu_cylinder_bot = dolfin.DirichletBC(
                 self.W.sub(0),
                 dolfin.Constant((0, 0)),
@@ -221,7 +209,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
                 self.W.sub(0),
                 dolfin.Constant((0, 0)),
                 self.get_subdomain("cylinder_charm"),
-            )   
+            )
             bcu += [
                 bcu_cylinder_top,
                 bcu_cylinder_bot,
@@ -295,19 +283,26 @@ class PinballFlowSolver(flowsolver.FlowSolver):
     # Additional, case-specific func
     def compute_force_coefficients(
         self, u: dolfin.Function, p: dolfin.Function
-    ) -> tuple[float, float]:  # keep this one in here
+    ) -> tuple[float, float]:
         """Compute lift & drag coefficients acting on the cylinder."""
         D = self.params_flow.user_data["D"]
         nu = self.params_flow.uinf * D / self.params_flow.Re
-        mode_actuation = self.params_flow.user_data["mode_actuation"]
+        mode_actuation = self.params_control.user_data["mode_actuation"]
 
         sigma = flu2.stress_tensor(nu, u, p)
         facet_normals = dolfin.FacetNormal(self.mesh)
         Fo = -dolfin.dot(sigma, facet_normals)
 
         # integration surfaces names
-        if mode_actuation == 'suc':
-            surfaces_names = ["cylinder_charm", "actuator_charm", "cylinder_top", "actuator_top", "cylinder_bot", "actuator_bot"]
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
+            surfaces_names = [
+                "cylinder_charm",
+                "actuator_charm",
+                "cylinder_top",
+                "actuator_top",
+                "cylinder_bot",
+                "actuator_bot",
+            ]
         else:
             surfaces_names = ["actuator_charm", "actuator_top", "actuator_bot"]
         # integration surfaces indices
