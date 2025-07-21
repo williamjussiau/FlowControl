@@ -10,7 +10,12 @@ import numpy as np
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.pinball.pinballflowsolver import PinballFlowSolver
-from flowcontrol.actuator import ActuatorBCParabolicV, ActuatorBCRotation
+
+from flowcontrol.actuator import (
+    CYLINDER_ACTUATION_MODE,
+    ActuatorBCParabolicV,
+    ActuatorBCRotation,
+)
 from flowcontrol.controller import Controller
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
@@ -29,10 +34,11 @@ def main():
     params_flow = flowsolverparameters.ParamFlow(Re=50, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
+
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=2, path_out=cwd / "data_output"
+        save_every=10, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -49,46 +55,50 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-    mode_actuation = "rot"  # or "rot"
-    params_flow.user_data["mode_actuation"] = mode_actuation
-    
-    if mode_actuation == "suc":
+
+    mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
+    cylinder_diameter = params_flow.user_data["D"]
+    position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
+    position_top = [0.0, +0.75]
+
+    if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
         angular_size_deg = 10
+        actuator_width = ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg=angular_size_deg,
+            cylinder_radius=cylinder_diameter / 2,
+        )
         actuator_charm_bc = ActuatorBCParabolicV(
-            width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg, params_flow.user_data["D"] / 2
-            ),
-            position_x=-1.5 * np.cos(np.pi / 6),
+            width=actuator_width,
+            position_x=position_mid[0],
         )
         actuator_top_bc = ActuatorBCParabolicV(
-            width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg, params_flow.user_data["D"] / 2
-            ),
-            position_x=0.0,
+            width=actuator_width,
+            position_x=position_top[0],
         )
         actuator_bottom_bc = ActuatorBCParabolicV(
-            width=ActuatorBCParabolicV.angular_size_deg_to_width(
-            angular_size_deg, params_flow.user_data["D"] / 2
-            ),
-            position_x=0.0,
+            width=actuator_width,
+            position_x=position_top[0],
         )
-    elif mode_actuation == "rot":
+    elif mode_actuation == CYLINDER_ACTUATION_MODE.ROTATION:
         actuator_charm_bc = ActuatorBCRotation(
-            position_x=-1.5 * np.cos(np.pi / 6),
-            position_y=0.0,
+            position_x=position_mid[0],
+            position_y=position_mid[1],
+            diameter=cylinder_diameter,
         )
         actuator_top_bc = ActuatorBCRotation(
-            position_x=0.0,
-            position_y=+0.75,
+            position_x=position_top[0],
+            position_y=+position_top[1],
+            diameter=cylinder_diameter,
         )
         actuator_bottom_bc = ActuatorBCRotation(
-            position_x=0.0,
-            position_y=-0.75,
+            position_x=position_top[0],
+            position_y=-position_top[1],
+            diameter=cylinder_diameter,
         )
 
     else:
         raise ValueError(f"Unknown actuation mode : {mode_actuation}")
-    
+
     logger.info(f"Actuation mode : {mode_actuation.upper()}")
     # Sensors
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8, 0]))
@@ -97,6 +107,7 @@ def main():
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
         actuator_list=[actuator_charm_bc, actuator_top_bc, actuator_bottom_bc],
+        user_data={"mode_actuation": mode_actuation},
     )
 
     # IC
@@ -140,7 +151,9 @@ def main():
     tlen = 0.10  # characteristic length of gaussian bump
     tpeak = [0.25, 0.5, 0.75]  # peaking time
     u0peak = [1.0, -1.5, 2.0]  # peaking amplitude
-    #fs.get_B(export='true',)
+
+
+    # fs.get_B(export='true',)
     def gaussian_bump(t, tpeak):
         return np.exp(-1 / 2 * (t - tpeak) ** 2 / tlen**2)
 
