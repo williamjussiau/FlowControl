@@ -125,6 +125,7 @@ class OperatorGetter:
                             boundary=actuator_list[ii].boundary,
                             W=self.flowsolver.W,
                             mesh=self.flowsolver.mesh,
+                            regularization=1e-11,
                         )
                     else:
                         Bproj = flu.projectm(actuator_expression, self.flowsolver.W)
@@ -303,7 +304,13 @@ class RestrictFunctionToBoundary(dolfin.UserExpression):
         return (3,)
 
 
-def project_on_boundary(actuator_expression, boundary, W, mesh):
+def project_on_boundary(
+    actuator_expression: dolfin.UserExpression,
+    boundary: dolfin.SubDomain | dolfin.CompiledSubDomain,
+    W: dolfin.FunctionSpace,
+    mesh: dolfin.Mesh,
+    regularization: float = 1e-11,
+):
     v = dolfin.TestFunction(W)
     u = dolfin.TrialFunction(W)
     SUBD_IDX = 33
@@ -311,7 +318,7 @@ def project_on_boundary(actuator_expression, boundary, W, mesh):
         mesh=mesh, subdomain=boundary, SUBDOMAIN_INDEX=SUBD_IDX
     )
     ds = dolfin.Measure("ds", domain=mesh, subdomain_data=boundary_markers)
-    aB = dolfin.inner(u, v) * ds(SUBD_IDX) + 1e-10 * dolfin.inner(u, v) * dx
+    aB = dolfin.inner(u, v) * ds(SUBD_IDX) + regularization * dolfin.inner(u, v) * dx
     LB = dolfin.inner(actuator_expression, v) * ds(SUBD_IDX)
     Bproj = dolfin.Function(W)
     dolfin.solve(aB == LB, Bproj)
