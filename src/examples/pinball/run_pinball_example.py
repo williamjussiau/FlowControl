@@ -35,7 +35,7 @@ def main():
     params_flow.user_data["D"] = 1.0
 
 
-    params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=20, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=10, path_out=cwd / "data_output"
@@ -55,10 +55,8 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-    print(list(CYLINDER_ACTUATION_MODE))
     
-    mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
-    print(mode_actuation.name)
+    mode_actuation = CYLINDER_ACTUATION_MODE.SUCTION
 
     
     cylinder_diameter = params_flow.user_data["D"]
