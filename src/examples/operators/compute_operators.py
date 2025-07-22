@@ -9,8 +9,11 @@ import utils.utils_flowsolver as flu
 from examples.cavity.cavityflowsolver import CavityFlowSolver
 from examples.cylinder.cylinderflowsolver import CylinderFlowSolver
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
+from examples.pinball.pinballflowsolver import PinballFlowSolver
 from flowcontrol.actuator import (
+    CYLINDER_ACTUATION_MODE,
     ActuatorBCParabolicV,
+    ActuatorBCRotation,
     ActuatorBCUniformU,
     ActuatorForceGaussianV,
 )
@@ -23,8 +26,8 @@ logger = logging.getLogger(__name__)
 cwd = Path(__file__).parent
 
 
-def export_operators(path, operators, operators_names):
-    """Export given operators as png and sparse npz"""
+def export_square_operators(path, operators, operators_names):
+    """Export given square operators as png and sparse npz"""
     path.mkdir(parents=True, exist_ok=True)
     for Mat, Matname in zip(operators, operators_names):
         # Export as png only
@@ -36,6 +39,11 @@ def export_operators(path, operators, operators_names):
         Acoo = Acsr.tocoo()
         spr.save_npz(path / f"{Matname}.npz", Acsr)
         spr.save_npz(path / f"{Matname}_coo.npz", Acoo)
+
+
+def export_column_operators(path, operators, operators_names):
+    """Export given column operators as xdmf"""
+    return 1
 
 
 ####################################################################################
@@ -85,9 +93,7 @@ def make_cylinder(Re=100):
         actuator_list=[actuator_bc_1, actuator_bc_2],
     )
 
-    params_ic = flowsolverparameters.ParamIC(
-        xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
-    )
+    params_ic = flowsolverparameters.ParamIC()
 
     fscyl = CylinderFlowSolver(
         params_flow=params_flow,
@@ -159,9 +165,7 @@ def make_cavity(Re=7500):
         actuator_list=[actuator_force],
     )
 
-    params_ic = flowsolverparameters.ParamIC(
-        xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
-    )
+    params_ic = flowsolverparameters.ParamIC()
 
     fscav = CavityFlowSolver(
         params_flow=params_flow,
@@ -219,9 +223,7 @@ def make_lidcavity(Re=4000):
         actuator_list=[actuator_bc_up],
     )
 
-    params_ic = flowsolverparameters.ParamIC(
-        xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1
-    )
+    params_ic = flowsolverparameters.ParamIC()
 
     fslid = LidCavityFlowSolver(
         params_flow=params_flow,
@@ -271,9 +273,100 @@ def make_lidcavity(Re=4000):
 ####################################################################################
 # Get Pinball operators
 ####################################################################################
-def make_pinball(Re=50):
-    raise NotImplementedError()
-    return None
+def make_pinball(Re=50, mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION):
+    # All parameters
+    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1.0)
+    params_flow.user_data["D"] = 1.0
+
+    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
+
+    params_save = flowsolverparameters.ParamSave(
+        save_every=10, path_out=cwd / "data_output"
+    )
+
+    params_solver = flowsolverparameters.ParamSolver(
+        throw_error=True, is_eq_nonlinear=True, shift=0.0
+    )
+
+    params_mesh = flowsolverparameters.ParamMesh(
+        meshpath=cwd / "data_input" / "mesh_middle_gmsh.xdmf"
+    )
+    params_mesh.user_data["xinf"] = 20
+    params_mesh.user_data["xinfa"] = -6
+    params_mesh.user_data["yinf"] = 6
+
+    params_restart = flowsolverparameters.ParamRestart()
+
+    # Actuators
+    mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
+    cylinder_diameter = params_flow.user_data["D"]
+    position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
+    position_top = [0.0, +0.75]
+
+    if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
+        angular_size_deg = 10
+        actuator_width = ActuatorBCParabolicV.angular_size_deg_to_width(
+            angular_size_deg=angular_size_deg,
+            cylinder_radius=cylinder_diameter / 2,
+        )
+        actuator_charm_bc = ActuatorBCParabolicV(
+            width=actuator_width,
+            position_x=position_mid[0],
+        )
+        actuator_top_bc = ActuatorBCParabolicV(
+            width=actuator_width,
+            position_x=position_top[0],
+        )
+        actuator_bottom_bc = ActuatorBCParabolicV(
+            width=actuator_width,
+            position_x=position_top[0],
+        )
+    elif mode_actuation == CYLINDER_ACTUATION_MODE.ROTATION:
+        actuator_charm_bc = ActuatorBCRotation(
+            position_x=position_mid[0],
+            position_y=position_mid[1],
+            diameter=cylinder_diameter,
+        )
+        actuator_top_bc = ActuatorBCRotation(
+            position_x=position_top[0],
+            position_y=+position_top[1],
+            diameter=cylinder_diameter,
+        )
+        actuator_bottom_bc = ActuatorBCRotation(
+            position_x=position_top[0],
+            position_y=-position_top[1],
+            diameter=cylinder_diameter,
+        )
+    else:
+        raise ValueError(f"Unknown actuation mode : {mode_actuation}")
+
+    logger.info(f"Actuation mode : {mode_actuation.upper()}")
+    # Sensors
+    sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8, 0]))
+    sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([10, 0]))
+    sensor_perf_2 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([12, 0]))
+    params_control = flowsolverparameters.ParamControl(
+        sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
+        actuator_list=[actuator_charm_bc, actuator_top_bc, actuator_bottom_bc],
+        user_data={"mode_actuation": mode_actuation},
+    )
+
+    # IC
+    params_ic = flowsolverparameters.ParamIC()
+
+    fspinball = PinballFlowSolver(
+        params_flow=params_flow,
+        params_time=params_time,
+        params_save=params_save,
+        params_solver=params_solver,
+        params_mesh=params_mesh,
+        params_restart=params_restart,
+        params_control=params_control,
+        params_ic=params_ic,
+        verbose=10,
+    )
+
+    return fspinball
 
 
 ####################################################################################
@@ -289,13 +382,21 @@ def compute_operators_flowsolver(flowsolver, export):
     E = opget.get_mass_matrix()
 
     # Could also compute B, C
+    B = opget.get_B(interpolate=False)
+    # C = opget.get_C(fast=True)
 
     # Export
     if export:
-        export_operators(
-            path=cwd / "lidcavity" / "data_output",
+        export_path = cwd / "lidcavity" / "data_output"
+        export_square_operators(
+            path=export_path,
             operators=[A0, E],
             operators_names=["A", "E"],
+        )
+        export_column_operators(
+            path=export_path,
+            operators=[B],
+            operators_names=["B.xdmf"],
         )
 
 
@@ -303,9 +404,9 @@ def compute_operators_flowsolver(flowsolver, export):
 # Main
 ####################################################################################
 if __name__ == "__main__":
-    COMPUTE_OPERATORS_CYLINDER = False
+    COMPUTE_OPERATORS_CYLINDER = True
     COMPUTE_OPERATORS_CAVITY = False
-    COMPUTE_OPERATORS_LIDCAVITY = True
+    COMPUTE_OPERATORS_LIDCAVITY = False
     COMPUTE_OPERATORS_PINBALL = False  # not implemented yet
 
     if COMPUTE_OPERATORS_CYLINDER:
@@ -318,4 +419,7 @@ if __name__ == "__main__":
         compute_operators_flowsolver(make_lidcavity(Re=8000), export=True)
 
     if COMPUTE_OPERATORS_PINBALL:
-        compute_operators_flowsolver(make_pinball(Re=50), export=True)
+        compute_operators_flowsolver(
+            make_pinball(Re=50, mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION),
+            export=True,
+        )
