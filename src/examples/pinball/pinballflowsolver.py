@@ -270,9 +270,8 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         return BC
 
     def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
-        """Default initial guess for computing steady state. The method may
-        be overriden to propose an initial guess deemed closer to the steady state."""
-        logger.info(">>> Using custom initial guess in PinballFlowSolver")
+        ""Initial guess for computing steady state."""
+        logger.info("Using custom initial guess in PinballFlowSolver")
         class default_initial_guess(dolfin.UserExpression):
             def eval(self, value, x):
                 value[0] = 1.0    # 1 for symmetric baseflow    1/np.sqrt(2)  for antisymmetric baseflow
