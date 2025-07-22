@@ -55,11 +55,7 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-    print(list(CYLINDER_ACTUATION_MODE))
-    
     mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
-    print(mode_actuation.name)
-
     
     cylinder_diameter = params_flow.user_data["D"]
     position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
