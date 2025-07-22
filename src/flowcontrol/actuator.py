@@ -90,7 +90,6 @@ class ActuatorBCParabolicV(ActuatorBC):
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
     def load_expression(self, flowsolver):
-        
         expression = dolfin.Expression(
             [
                 "0",
@@ -111,7 +110,6 @@ class ActuatorBCParabolicV(ActuatorBC):
 
 @dataclass(kw_only=True)
 class ActuatorBCRotation(ActuatorBC):
-
     """Cylinder actuator: tangential velocity at a radius D around a center (x0, y0).
     Typically used to model a rotating cylinder.
     """
