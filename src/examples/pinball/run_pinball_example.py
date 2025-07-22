@@ -31,7 +31,7 @@ def main():
     logger.info("Trying to instantiate FlowSolver...")
 
     # All parameters
-    params_flow = flowsolverparameters.ParamFlow(Re=50, uinf=1.0)
+    params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
 
@@ -142,7 +142,7 @@ def main():
     logger.info("Compute steady state...")
     uctrl0 = [0.0, 0.0, 0.0]
 
-    fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
+    fs.compute_steady_state(method="picard", max_iter=15, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
