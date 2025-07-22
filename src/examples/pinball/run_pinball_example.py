@@ -5,12 +5,9 @@ from pathlib import Path
 import dolfin
 import numpy as np
 
-
-
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.pinball.pinballflowsolver import PinballFlowSolver
-
 from flowcontrol.actuator import (
     CYLINDER_ACTUATION_MODE,
     ActuatorBCParabolicV,
@@ -22,7 +19,7 @@ from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
 def main():
     # LOG
-    
+
     dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
     logger = logging.getLogger(__name__)
     t000 = time.time()
@@ -33,7 +30,6 @@ def main():
     # All parameters
     params_flow = flowsolverparameters.ParamFlow(Re=50, uinf=1.0)
     params_flow.user_data["D"] = 1.0
-
 
     params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
 
@@ -56,7 +52,7 @@ def main():
 
     # Actuators
     mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
-    
+
     cylinder_diameter = params_flow.user_data["D"]
     position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
     position_top = [0.0, +0.75]
@@ -155,7 +151,6 @@ def main():
     tpeak = [0.25, 0.5, 0.75]  # peaking time
     u0peak = [+2.0, -1.5, -2.0]  # peaking amplitude
 
-
     # fs.get_B(export='true',)
     def gaussian_bump(t, tpeak):
         return np.exp(-1 / 2 * (t - tpeak) ** 2 / tlen**2)
@@ -174,6 +169,8 @@ def main():
 
     cl_cd_dict = fs.compute_force_coefficients(fs.fields.u_, fs.fields.p_)
     for surface, (cl, cd) in cl_cd_dict.items():
-        print(f"Surface: {surface} | Cl: {cl:.4f}, Cd: {cd:.4f}")    
+        print(f"Surface: {surface} | Cl: {cl:.4f}, Cd: {cd:.4f}")
+
+
 if __name__ == "__main__":
     main()
