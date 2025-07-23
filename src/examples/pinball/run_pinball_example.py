@@ -7,7 +7,10 @@ import numpy as np
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
-from examples.pinball.pinballflowsolver import PinballFlowSolver
+from examples.pinball.pinballflowsolver import (
+    PinballCustomInitialGuess,
+    PinballFlowSolver,
+)
 from flowcontrol.actuator import (
     CYLINDER_ACTUATION_MODE,
     ActuatorBCParabolicV,
@@ -28,10 +31,10 @@ def main():
     logger.info("Trying to instantiate FlowSolver...")
 
     # All parameters
-    params_flow = flowsolverparameters.ParamFlow(Re=50, uinf=1.0)
+    params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=200, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=20, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
         save_every=10, path_out=cwd / "data_output"
@@ -51,8 +54,7 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-    mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
-
+    mode_actuation = CYLINDER_ACTUATION_MODE.SUCTION
     cylinder_diameter = params_flow.user_data["D"]
     position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
     position_top = [0.0, +0.75]
@@ -136,7 +138,16 @@ def main():
     logger.info("Compute steady state...")
     uctrl0 = [0.0, 0.0, 0.0]
 
-    fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
+    initial_guess = PinballCustomInitialGuess(mode="antisymmetric_bot")
+
+    fs.compute_steady_state(
+        method="picard",
+        max_iter=15,
+        tol=1e-7,
+        u_ctrl=uctrl0,
+        initial_guess=initial_guess.as_dolfin_function(fs.W),
+    )
+
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
