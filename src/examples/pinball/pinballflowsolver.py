@@ -26,6 +26,31 @@ FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
 logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
 
+class PinballCustomInitialGuess(dolfin.UserExpression):
+    def __init__(self, mode="symmetric", **kwargs):
+        self.mode = mode
+        super().__init__(**kwargs)
+
+    def eval(self, value, x):
+        if self.mode == "symmetric":
+            value[0] = 1.0
+            value[1] = 0.0
+            value[2] = 0.0
+        elif self.mode == "antisymmetric_top":
+            value[0] = 1.0/np.sqrt(2)
+            value[1] = +1.0/np.sqrt(2)
+            value[2] = 0.0
+        elif self.mode == "antisymmetric_bot":
+            value[0] = 1.0/np.sqrt(2)
+            value[1] = -1.0/np.sqrt(2)
+            value[2] = 0.0
+        else:
+            raise ValueError(f"Unknown mode '{self.mode}'")
+
+    def value_shape(self):
+        return (3,)
+
+
 class PinballFlowSolver(flowsolver.FlowSolver):
     """Flow past 3 cylinders"""
 
@@ -269,20 +294,20 @@ class PinballFlowSolver(flowsolver.FlowSolver):
 
         return BC
 
-    def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
+   # def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
         """Default initial guess for computing steady state. The method may
         be overriden to propose an initial guess deemed closer to the steady state."""
-        logger.info(">>> Using custom initial guess in PinballFlowSolver")
-        class default_initial_guess(dolfin.UserExpression):
-            def eval(self, value, x):
-                value[0] = 1.0    # 1 for symmetric baseflow    1/np.sqrt(2)  for antisymmetric baseflow
-                value[1] = 0.0    # 0 for symmetric baseflow   +-1/np.sqrt(2) for antisymmetric baseflow
-                value[2] = 0.0
+    #    logger.info(">>> Using custom initial guess in PinballFlowSolver")
+    #    class default_initial_guess(dolfin.UserExpression):
+    #        def eval(self, value, x):
+    #            value[0] = 1.0    # 1 for symmetric baseflow    1/np.sqrt(2)  for antisymmetric baseflow
+    #            value[1] = 0.0    # 0 for symmetric baseflow   +-1/np.sqrt(2) for antisymmetric baseflow
+    #             value[2] = 0.0
 
-            def value_shape(self):
-                return (3,)
+    #        def value_shape(self):
+    #            return (3,)
 
-        return default_initial_guess()
+   #     return default_initial_guess()
 
     # Steady state
     def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
