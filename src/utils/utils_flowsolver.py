@@ -79,6 +79,19 @@ projectm = functools.partial(dolfin.project, solver_type="mumps")
 #     return dolfin.project(**kwargs, solver_type="mumps")
 
 
+def expression_to_dolfin_function(
+    expression: dolfin.Expression, functionSpace: dolfin.FunctionSpace, interp=True
+) -> dolfin.Function:
+    """Simple conversion from dolfin.Expression to dolfin.Function
+    by interpolation"""
+    if interp:
+        f = dolfin.Function(functionSpace)
+        f.interpolate(expression)
+    else:
+        f = projectm(expression, functionSpace)
+    return f
+
+
 ###############################################################################
 
 
