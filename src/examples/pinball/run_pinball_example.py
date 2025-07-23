@@ -4,7 +4,6 @@ from pathlib import Path
 
 import dolfin
 import numpy as np
-import pdb
 
 from pinballflowsolver import PinballCustomInitialGuess
 import flowcontrol.flowsolverparameters as flowsolverparameters
@@ -141,7 +140,6 @@ def main():
     logger.info("Compute steady state...")
     uctrl0 = [0.0, 0.0, 0.0]
 
-# Initialisation du contrôle (exemple : vecteur nul)
 
     initial_guess_expr = PinballCustomInitialGuess(mode="antisymmetric_bot", degree=2)
     initial_guess_func = dolfin.Function(fs.W)
@@ -149,8 +147,7 @@ def main():
 
     fs.compute_steady_state(method="picard", max_iter=15, tol=1e-7, u_ctrl=uctrl0, initial_guess=initial_guess_func)
 
-    #initial_guess = PinballCustomInitialGuess(mode="symmetric", degree=2)
-  #  fs.compute_steady_state(method="picard", max_iter=15, tol=1e-7, u_ctrl=uctrl0, initial_guess=initial_guess)
+
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
