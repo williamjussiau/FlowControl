@@ -54,9 +54,7 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-
     mode_actuation = CYLINDER_ACTUATION_MODE.SUCTION
-
     cylinder_diameter = params_flow.user_data["D"]
     position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
     position_top = [0.0, +0.75]
