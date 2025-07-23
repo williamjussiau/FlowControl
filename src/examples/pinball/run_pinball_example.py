@@ -5,11 +5,12 @@ from pathlib import Path
 import dolfin
 import numpy as np
 
-from pinballflowsolver import PinballCustomInitialGuess
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
-from examples.pinball.pinballflowsolver import PinballFlowSolver
-
+from examples.pinball.pinballflowsolver import (
+    PinballCustomInitialGuess,
+    PinballFlowSolver,
+)
 from flowcontrol.actuator import (
     CYLINDER_ACTUATION_MODE,
     ActuatorBCParabolicV,
@@ -18,9 +19,10 @@ from flowcontrol.actuator import (
 from flowcontrol.controller import Controller
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
+
 def main():
     # LOG
-    
+
     dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
     logger = logging.getLogger(__name__)
     t000 = time.time()
@@ -31,7 +33,6 @@ def main():
     # All parameters
     params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
     params_flow.user_data["D"] = 1.0
-
 
     params_time = flowsolverparameters.ParamTime(num_steps=20, dt=0.005, Tstart=0.0)
 
@@ -53,10 +54,9 @@ def main():
     params_restart = flowsolverparameters.ParamRestart()
 
     # Actuators
-    
+
     mode_actuation = CYLINDER_ACTUATION_MODE.SUCTION
 
-    
     cylinder_diameter = params_flow.user_data["D"]
     position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
     position_top = [0.0, +0.75]
@@ -140,13 +140,15 @@ def main():
     logger.info("Compute steady state...")
     uctrl0 = [0.0, 0.0, 0.0]
 
+    initial_guess = PinballCustomInitialGuess(mode="antisymmetric_bot")
 
-    initial_guess_expr = PinballCustomInitialGuess(mode="antisymmetric_bot", degree=2)
-    initial_guess_func = dolfin.Function(fs.W)
-    initial_guess_func.interpolate(initial_guess_expr)
-
-    fs.compute_steady_state(method="picard", max_iter=15, tol=1e-7, u_ctrl=uctrl0, initial_guess=initial_guess_func)
-
+    fs.compute_steady_state(
+        method="picard",
+        max_iter=15,
+        tol=1e-7,
+        u_ctrl=uctrl0,
+        initial_guess=initial_guess.as_dolfin_function(fs.W),
+    )
 
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
@@ -161,7 +163,6 @@ def main():
     tlen = 0.10  # characteristic length of gaussian bump
     tpeak = [0.25, 0.5, 0.75]  # peaking time
     u0peak = [+2.0, -1.5, -2.0]  # peaking amplitude
-
 
     # fs.get_B(export='true',)
     def gaussian_bump(t, tpeak):
@@ -181,6 +182,8 @@ def main():
 
     cl_cd_dict = fs.compute_force_coefficients(fs.fields.u_, fs.fields.p_)
     for surface, (cl, cd) in cl_cd_dict.items():
-        print(f"Surface: {surface} | Cl: {cl:.4f}, Cd: {cd:.4f}")    
+        print(f"Surface: {surface} | Cl: {cl:.4f}, Cd: {cd:.4f}")
+
+
 if __name__ == "__main__":
     main()
