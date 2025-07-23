@@ -350,11 +350,11 @@ class PinballCustomInitialGuess(dolfin.UserExpression):
         return (3,)
 
     def as_dolfin_function(
-        self, functionSpace: dolfin.FunctionSpace
+        self, functionSpace: dolfin.FunctionSpace, interp=True
     ) -> dolfin.Function:
-        f = dolfin.Function(functionSpace)
-        f.interpolate(self)
-        return f
+        return flu.expression_to_dolfin_function(
+            self, functionSpace=functionSpace, interp=interp
+        )
 
 
 ###############################################################################
