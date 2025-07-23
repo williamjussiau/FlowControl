@@ -10,6 +10,7 @@ Recommended Re<100
 import logging
 
 import dolfin
+import numpy as np
 import pandas as pd
 
 import flowcontrol.flowsolver as flowsolver
@@ -322,6 +323,38 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             cl_cd_dict[name] = (cl, cd)
 
         return cl_cd_dict
+
+
+class PinballCustomInitialGuess(dolfin.UserExpression):
+    def __init__(self, mode="symmetric", **kwargs):
+        self.mode = mode
+        super().__init__(**kwargs)
+
+    def eval(self, value, x):
+        if self.mode == "symmetric":
+            value[0] = 1.0
+            value[1] = 0.0
+            value[2] = 0.0
+        elif self.mode == "antisymmetric_top":
+            value[0] = 1.0 / np.sqrt(2)
+            value[1] = +1.0 / np.sqrt(2)
+            value[2] = 0.0
+        elif self.mode == "antisymmetric_bot":
+            value[0] = 1.0 / np.sqrt(2)
+            value[1] = -1.0 / np.sqrt(2)
+            value[2] = 0.0
+        else:
+            raise ValueError(f"Unknown mode '{self.mode}'")
+
+    def value_shape(self):
+        return (3,)
+
+    def as_dolfin_function(
+        self, functionSpace: dolfin.FunctionSpace, interp=True
+    ) -> dolfin.Function:
+        return flu.expression_to_dolfin_function(
+            self, functionSpace=functionSpace, interp=interp
+        )
 
 
 ###############################################################################
