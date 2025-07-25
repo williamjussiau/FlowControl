@@ -24,7 +24,7 @@ if __name__ == "__main__":
     phase_angles = np.linspace(0, 2*np.pi, 1)
     # eigenvector_amplitudes = [0.001]  # Post hopf
     eigenvector_amplitudes = [0.05]  # Pre hopf
-    forcing_frequencies = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]  
+    forcing_frequencies = np.linspace(0,6,7)
     forcing_amplitudes = [0.01]
     num_steps = 60000
 
