@@ -184,10 +184,10 @@ def run_lidcavity_with_eigenvector_ic(Re, phase_angle, eigenvector_amplitude, fo
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         # This is still for unforced simulations
         # TODO: Add forcing to the workflow
-        if fs.t < 50:
+        if fs.t < 100:
             u_ctrl = [0 * y_meas[0]]
         else:
-            u_ctrl = [forcing_amplitude * np.sin(forcing_frequency * np.pi * fs.t) + 0 * y_meas[0]]
+            u_ctrl = [forcing_amplitude * np.sin(forcing_frequency * fs.t) + 0 * y_meas[0]]
         
         fs.step(u_ctrl=[u_ctrl[0]])
 

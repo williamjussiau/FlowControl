@@ -18,15 +18,17 @@ def run_single_simulation(args):
 
 if __name__ == "__main__":
     base_dir = Path("/Users/jaking/Desktop/PhD/lid_driven_cavity")
-    parent_dir = base_dir / f"Re{Re}_forced_"
+    parent_dir = base_dir / f"Re{Re}"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
-    phase_angles = np.linspace(0, 2*np.pi, 1)
-    # eigenvector_amplitudes = [0.001]  # Post hopf
-    eigenvector_amplitudes = [0.05]  # Pre hopf
-    forcing_frequencies = [0.5, 1.0, 2.0]  
-    forcing_amplitudes = [0.01, 0.1]
-    num_steps = 60000
+    phase_angles = np.linspace(0, 2*np.pi, 9)
+    eigenvector_amplitudes = [0.001]  # Post hopf
+    # eigenvector_amplitudes = [0.05]  # Pre hopf
+    # forcing_frequencies = np.linspace(0,6,7)
+    forcing_frequencies = [0]
+    # forcing_amplitudes = [0.001]
+    forcing_amplitudes = [0.0]
+    num_steps = 80000
 
     simulation_args = []
     count = 1
