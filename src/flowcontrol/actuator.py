@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 
 class ACTUATOR_TYPE(IntEnum):
-    """Enumeration of actuator types
+    """Enumeration of actuator types.
 
     Args:
         BC: boundary condition actuation
@@ -18,6 +18,19 @@ class ACTUATOR_TYPE(IntEnum):
 
     BC = 1
     FORCE = 2
+
+
+class CYLINDER_ACTUATION_MODE(IntEnum):
+    """Modes for actuation on cylinders. This IntEnum is intended to be used
+    by the user, it is never called by the original FlowSolver.
+
+    Args:
+        SUCTION: blowing & suction devices at the poles (ex. ActuatorBCParabolicV)
+        ROTATION: rotation of whole cylinder (= ActuatorBCRotation)
+    """
+
+    SUCTION = 1
+    ROTATION = 2
 
 
 @dataclass(kw_only=True)
@@ -51,8 +64,11 @@ class ActuatorBC(Actuator):
     """Boundary condition actuator, inherits from abstract base class Actuator
     This actuators features an attribute _boundary_ that links the boundary to the
     actuator automatically
-    --> this is only required for operator B computation, we can probably do better
+    --> this attribute is only required for operator B computation, we can probably do better
     See https://github.com/williamjussiau/FlowControl/issues/7
+
+    All BC actuators are closely linked to the definition of boundaries
+    (i.e. FlowSolver._make_boundaries() and FlowSolver._make_bcs())
 
     Args:
         boundary (dolfin.Expression): boundary on which the boundary condition is enforced
@@ -67,9 +83,7 @@ class ActuatorBCParabolicV(ActuatorBC):
     coordinate only. Usually located at the poles of a cylinder.
     The width of the actuator can be computed with the static method, given
     the radius of a cylinder and an angular size in degrees.
-    This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
-    to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
-    FlowSolver._make_bcs())"""
+    """
 
     width: float = 0.0
     position_x: float = 0.0
@@ -92,6 +106,32 @@ class ActuatorBCParabolicV(ActuatorBC):
     @staticmethod
     def angular_size_deg_to_width(angular_size_deg, cylinder_radius):
         return cylinder_radius * np.sin(1 / 2 * angular_size_deg * dolfin.pi / 180)
+
+
+@dataclass(kw_only=True)
+class ActuatorBCRotation(ActuatorBC):
+    """Cylinder actuator: tangential velocity at a radius D around a center (x0, y0).
+    Typically used to model a rotating cylinder.
+    """
+
+    position_x: float = 0.0
+    position_y: float = 0.0
+    diameter: float = 1.0
+    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
+
+    def load_expression(self, flowsolver):
+        expression = dolfin.Expression(
+            [
+                "-sin(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2",
+                "cos(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2",
+            ],
+            element=flowsolver.V.ufl_element(),
+            y0=self.position_y,
+            x0=self.position_x,
+            u_ctrl=0.0,
+            d=self.diameter,
+        )
+        self.expression = expression
 
 
 @dataclass(kw_only=True)
