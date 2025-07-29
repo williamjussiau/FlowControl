@@ -24,6 +24,7 @@ from examples.cavity.cavityflowsolver import CavityFlowSolver
 from flowcontrol.actuator import ActuatorForceGaussianV
 from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
 
+Re = 7500
 
 def main():
     # LOG
@@ -37,7 +38,7 @@ def main():
 
     logger.info("Trying to instantiate FlowSolver...")
 
-    params_flow = flowsolverparameters.ParamFlow(Re=7500, uinf=1.0)
+    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1.0)
     params_flow.user_data["L"] = 1.0
     params_flow.user_data["D"] = 1.0
 
@@ -109,20 +110,8 @@ def main():
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
-
-    logger.info("Init time-stepping")
-    fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
-
-    logger.info("Step several times")
-    for _ in range(fs.params_time.num_steps):
-        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = [0.3 + 0.1 * y_meas[0]]
-        fs.step(u_ctrl=u_ctrl)
-
-    flu.summarize_timings(fs, t000)
-    fs.write_timeseries()
-
-    logger.info(fs.timeseries)
+    with open(params_save.path_out / "current_Re.txt", "w") as f:
+        f.write(f"{Re}\n")
 
 
 if __name__ == "__main__":
