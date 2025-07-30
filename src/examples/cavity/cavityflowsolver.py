@@ -223,15 +223,30 @@ class CavityFlowSolver(flowsolver.FlowSolver):
                 MESH_TOL=MESH_TOL,
             )
 
+            actuator_start_x = -7.0 / 20
+
             lower_wall_left_ns = dolfin.CompiledSubDomain(
                 on_boundary_cpp
                 + and_cpp
                 + "x[0] >= x0ns_left - 10*MESH_TOL"
                 + and_cpp
-                + "x[0] <= 0"
+                + "x[0] <= actuator_start_x"
                 + and_cpp
                 + near_cpp("x[1]", 0),
                 x0ns_left=x0ns_left,
+                actuator_start_x=actuator_start_x,
+                MESH_TOL=MESH_TOL,
+            )
+
+            actuated_bc = dolfin.CompiledSubDomain(
+                on_boundary_cpp
+                + and_cpp
+                + "x[0] >= actuator_start_x"
+                + and_cpp
+                + "x[0] <= 0"
+                + and_cpp
+                + near_cpp("x[1]", 0),
+                actuator_start_x=actuator_start_x,
                 MESH_TOL=MESH_TOL,
             )
 
@@ -267,6 +282,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             cavity_right,
             lower_wall_left_sf,
             lower_wall_left_ns,
+            actuated_bc,
             lower_wall_right_ns,
             lower_wall_right_sf,
         ]
@@ -280,6 +296,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             "cavity_right",
             "lower_wall_left_sf",
             "lower_wall_left_ns",
+            "actuated_bc",
             "lower_wall_right_ns",
             "lower_wall_right_sf",
         ]
@@ -316,6 +333,15 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             dolfin.Constant((0, 0)),
             self.get_subdomain("lower_wall_left_ns"),
         )
+        # actuated bc
+        bcu_actuated = dolfin.DirichletBC(
+        self.W.sub(0),
+        self.params_control.actuator_list[0].expression,
+        self.get_subdomain("actuated_bc"),
+        )
+        # additional line required for actuated boundary
+        self.params_control.actuator_list[0].boundary = self.get_subdomain("actuated_bc")
+
         # lower wall right ns : u=0; v=0
         bcu_lower_wall_right_ns = dolfin.DirichletBC(
             self.W.sub(0),
@@ -350,6 +376,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             bcu_upper_wall,
             bcu_lower_wall_left_sf,
             bcu_lower_wall_left_ns,
+            bcu_actuated,
             bcu_lower_wall_right_ns,
             bcu_lower_wall_right_sf,
             bcu_cavity_left,
