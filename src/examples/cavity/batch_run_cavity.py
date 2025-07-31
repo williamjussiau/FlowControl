@@ -152,8 +152,6 @@ def main():
     # y_vals = np.linspace(0.2, 0.2, 1)
     x_vals = [2.0]
     y_vals = [0.0]
-    # x_vals = [-2.0]
-    # y_vals = [0.0]
     radius = 0.5
     amplitude = 1.0
     num_steps = 20000
