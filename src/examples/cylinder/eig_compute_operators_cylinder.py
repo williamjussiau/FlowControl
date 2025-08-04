@@ -4,6 +4,8 @@ from pathlib import Path
 
 import dolfin
 import numpy as np
+import scipy.sparse as spr
+import scipy.io
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
@@ -12,13 +14,16 @@ from flowcontrol.actuator import ActuatorBCParabolicV
 from flowcontrol.controller import Controller
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 from examples.cylinder.compute_steady_state import Re
+from flowcontrol.operatorgetter import OperatorGetter
+from examples.cylinder.compute_steady_state import Re
 
-def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps=100):
+
+def main():
     # LOG
     dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
     logger = logging.getLogger(__name__)
     FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-    logging.basicConfig(format=FORMAT, level=logging.INFO)
+    logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
     t000 = time.time()
     cwd = Path(__file__).parent
@@ -28,10 +33,10 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
     params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=100, path_out=save_dir
+        save_every=5, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -70,7 +75,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
     )
 
     params_ic = flowsolverparameters.ParamIC(
-        xloc=xloc, yloc=yloc, radius=radius, amplitude=amplitude
+        xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
     )
 
     fs = CylinderFlowSolver(
@@ -87,11 +92,20 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
 
     logger.info("__init__(): successful!")
 
-    logger.info("Exporting subdomains...")
-    flu.export_subdomains(
-        fs.mesh, fs.boundaries.subdomain, save_dir / "subdomains.xdmf"
-    )
-
+    # logger.info("Compute steady state...")
+    # # U00 = dolfin.Function(fs.V)
+    # # P00 = dolfin.Function(fs.P)
+    # # steady_state_filename_U0 = params_save.path_out / "steady" / f"U0_Re={Re}.xdmf"
+    # # steady_state_filename_P0 = params_save.path_out / "steady" / f"P0_Re={Re}.xdmf"
+    # # flu.read_xdmf(steady_state_filename_U0, U00, "U0")
+    # # flu.read_xdmf(steady_state_filename_P0, P00, "P0")
+    # # initial_guess = fs.merge(U00, P00)
+    # uctrl0 = [0.0]
+    # fs.compute_steady_state(method="picard", max_iter=20, tol=3e-7, u_ctrl=uctrl0, initial_guess=None)
+    # fs.compute_steady_state(
+    #     method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+    # )
+    # or load
     logger.info("Load steady state...")
     fs.load_steady_state(
         path_u_p=[
@@ -100,51 +114,40 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
         ]
     )
 
-    logger.info("Init time-stepping")
-    fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
+    # Compute operator: A
+    logger.info("Now computing operators...")
+    opget = OperatorGetter(fs)
+    A0 = opget.get_A(UP0=fs.fields.UP0, autodiff=True)
 
-    logger.info("Step several times")
-    Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=0)
+    # Compute operator: E
+    E = opget.get_mass_matrix()
 
-    for _ in range(fs.params_time.num_steps):
-        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-        fs.step(u_ctrl=[0*u_ctrl[0], 0*u_ctrl[0]])
-        # or
-        # fs.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
+    export = True
+    if export:
+        path_out = cwd / "data_output" / "operators"
+        path_out.mkdir(parents=True, exist_ok=True)
+        for Mat, Matname in zip([A0, E], ["A", "E"]):
+            # Export as png only
+            flu.export_sparse_matrix(Mat, path_out / f"{Matname}.png")
 
-    flu.summarize_timings(fs, t000)
-    logger.info(fs.timeseries)
-    fs.write_timeseries()
+            # Export as npz
+            Matc, Mats, Matr = Mat.mat().getValuesCSR()
+            Acsr = spr.csr_matrix((Matr, Mats, Matc))
+            spr.save_npz(path_out / f"{Matname}.npz", Acsr)
 
-    return
+            # Export as mat
+            scipy.io.savemat(
+                path_out / f"{Matname}_sparse.mat",
+                {
+                    f"{Matname}_data": Acsr.data,
+                    f"{Matname}_indices": Acsr.indices,
+                    f"{Matname}_indptr": Acsr.indptr,
+                    f"{Matname}_shape": Acsr.shape,
+                },
+            )
 
-
-def main():
-
-    base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")
-    parent_dir = base_dir / f"Re{Re}_test"
-    parent_dir.mkdir(parents=True, exist_ok=True)
-
-    # x_vals = np.linspace(0.2, 0.8, 3)
-    # y_vals = np.linspace(0.2, 0.8, 3)
-    # x_vals = np.linspace(0.2, 0.2, 1)
-    # y_vals = np.linspace(0.2, 0.2, 1)
-    x_vals = [2.0]
-    y_vals = [0.0]
-    radius = 0.5
-    amplitude = 1.0
-    num_steps = 2000
-    count = 1
-    for xloc in x_vals:
-        for yloc in y_vals:
-            save_dir = parent_dir / f"run{count}"
-            save_dir.mkdir(parents=True, exist_ok=True)
-
-            print(f"Running simulation {count} with xloc={xloc:.3f}, yloc={yloc:.3f}, radius={radius:.3f}, amplitude={amplitude:.3f}")
-            run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps)
-            print(f"Finished simulation {count}, results saved in {save_dir}")
-            count += 1
+    logger.info("Lidcavity -- Finished properly.")
+    logger.info("*" * 50)
 
 
 if __name__ == "__main__":
