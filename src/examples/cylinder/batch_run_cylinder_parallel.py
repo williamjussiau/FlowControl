@@ -21,14 +21,14 @@ def run_single_simulation(args):
 
 if __name__ == "__main__":
     base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")
-    parent_dir = base_dir / f"Re{Re}_parallel"
+    parent_dir = base_dir / f"Re{Re}"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     x_vals = np.linspace(4.0, 5.0, 3)
     y_vals = np.linspace(0.0, 0.1, 3)
     radius = 0.5
     amplitude = 0.1
-    num_steps = 80000
+    num_steps = 40000
     # x_vals = [2.0]
     # y_vals = [0.0]
 
