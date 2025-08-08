@@ -21,14 +21,14 @@ def run_single_simulation(args):
 
 if __name__ == "__main__":
     base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")
-    parent_dir = base_dir / f"Re{Re}_forced"
+    parent_dir = base_dir / f"Re{Re}_forced_0p5"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     # Path to your autonomous simulation results
     autonomous_dir = base_dir / f"Re{Re}_autonomous" / "run1"
 
-    forcing_frequencies = np.linspace(0, 6, 7)
-    forcing_amplitudes = [0.1]
+    forcing_frequencies = np.linspace(0, np.pi, 8)
+    forcing_amplitudes = [0.5]
     num_steps = 20000
 
     # Prepare all simulation parameters

@@ -27,6 +27,7 @@ from examples.cylinder.cylinderflowsolver import CylinderFlowSolver
 from flowcontrol.actuator import ActuatorBCParabolicV
 from flowcontrol.controller import Controller
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
+from dolfin import div, grad, project
 
 Re = 100
 
@@ -110,13 +111,44 @@ def main():
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = [0.0, 0.0]
+    uctrl0 = [1.0, 1.0]
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
         method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
     )
     # Expected:
     # Newton iteration 4: r (abs) = 6.901e-14 (tol = 1.000e-10) r (rel) = 1.109e-11 (tol = 1.000e-09)
+
+    point = dolfin.Point(3.0, 0.0)
+
+    # Split mixed function into velocity and pressure
+    u, p = fs.fields.UP0.split()
+
+    # Evaluate at the point
+    u_val = u(point)
+    p_val = p(point)
+
+    print(f"Velocity at (3, 0): {u_val}")
+    print(f"Pressure at (3, 0): {p_val}")
+
+    mesh = u.function_space().mesh()
+    family = u.function_space().ufl_element().family()
+    degree = u.function_space().ufl_element().degree()
+
+    # Project gradient (if you want)
+    from dolfin import TensorFunctionSpace
+    W = TensorFunctionSpace(mesh, family, degree)
+    grad_u_proj = project(grad(u), W)
+    grad_u_val = grad_u_proj(point)
+    print(f"Gradient of u at (3, 0): {grad_u_val}")
+
+    # Project Laplacian
+    from dolfin import VectorFunctionSpace
+
+    V_vec = VectorFunctionSpace(mesh, family, degree)
+    laplace_u_proj = project(div(grad(u)), V_vec)
+    laplace_u_val = laplace_u_proj(point)
+    print(f"Laplacian of u at (3, 0): {laplace_u_val}")
 
 
 if __name__ == "__main__":
