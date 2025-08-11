@@ -1,5 +1,6 @@
 from pathlib import Path
 import numpy as np
+from scipy.io import loadmat
 import dolfin
 import logging
 import time
@@ -59,7 +60,7 @@ def run_forced_simulation(Re, save_dir, num_steps, autonomous_dir, forcing_ampli
     params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=0.005*20000)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=100, path_out=save_dir
+        save_every=10, path_out=save_dir
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -140,10 +141,22 @@ def run_forced_simulation(Re, save_dir, num_steps, autonomous_dir, forcing_ampli
     fs.load_steady_state()
     fs.initialize_time_stepping(Tstart=fs.params_time.Tstart)
 
-    for _ in range(fs.params_time.num_steps):
+    # --- HOTFIX: Load u_optimal.mat and prepare control signal ---
+    u_optimal_path = Path("/Users/jaking/Desktop/PhD/cylinder/u_optimal.mat")
+    mat = loadmat(u_optimal_path)
+    # t_interp = mat['t_recovered'].flatten()
+    u_optimal = mat['u_interp'].flatten()
+    # sim_times = np.arange(fs.params_time.Tstart, 
+    #                      fs.params_time.Tstart + fs.params_time.dt * fs.params_time.num_steps, 
+    #                      fs.params_time.dt)
+    # u_optimal_interp = np.interp(sim_times, t_interp, u_optimal)
+    # ------------------------------------------------------------
+
+    for i in range(fs.params_time.num_steps):
         # y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         # u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-        u_ctrl = forcing_amplitude * np.sin(forcing_frequency * fs.t)
+        u_ctrl = u_optimal[i]
+        # u_ctrl = forcing_amplitude * np.sin(forcing_frequency * fs.t)
         fs.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
 
     fs.write_timeseries()
@@ -155,12 +168,12 @@ if __name__ == "__main__":
     base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    num_steps_forced = 1000
+    num_steps_forced = 4000
     forcing_amplitude = 0.1
     forcing_frequency = 1.0
 
     autonomous_dir = base_dir / f"Re{Re}_autonomous" / "run1"
-    forced_dir = base_dir / f"Re{Re}_forced" / "run1"
+    forced_dir = base_dir / f"Re{Re}_control3" / "run1"
     forced_dir.mkdir(parents=True, exist_ok=True)
 
     # Run autonomous simulation

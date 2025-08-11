@@ -111,7 +111,7 @@ def main():
     )
 
     logger.info("Compute steady state...")
-    uctrl0 = [1.0, 1.0]
+    uctrl0 = [0.0, 0.0]
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
     fs.compute_steady_state(
         method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
