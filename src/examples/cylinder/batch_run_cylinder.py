@@ -12,6 +12,35 @@ from flowcontrol.actuator import ActuatorBCParabolicV
 from flowcontrol.controller import Controller
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 from examples.cylinder.compute_steady_state import Re
+from scipy.spatial import cKDTree
+
+def cleanup_redundant_files(save_dir):
+    """Delete redundant Uprev files to save disk space"""
+    import os
+    from pathlib import Path
+    
+    patterns_to_delete = [
+        "Uprev_restart0,0.h5",
+        "Uprev_restart0,0.xdmf", 
+        "Pprev_restart0,0.h5",
+        "Pprev_restart0,0.xdmf"
+    ]
+    
+    deleted_files = []
+    for pattern in patterns_to_delete:
+        file_path = save_dir / pattern
+        if file_path.exists():
+            try:
+                os.remove(file_path)
+                deleted_files.append(pattern)
+                print(f"✓ Deleted redundant file: {pattern}")
+            except Exception as e:
+                print(f"⚠ Failed to delete {pattern}: {e}")
+    
+    if deleted_files:
+        print(f"Cleaned up {len(deleted_files)} redundant files")
+    else:
+        print("No redundant files found to clean up")
 
 def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps=100):
     # LOG
@@ -117,13 +146,222 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
     logger.info(fs.timeseries)
     fs.write_timeseries()
 
+    xdmf_files = [
+    save_dir / "@_restart0,0.xdmf",
+    # cwd / "data_output" / "@_restart0,0.xdmf",
+    ]
+
+    logger.info("Cleanung up redundant prev files")
+    cleanup_redundant_files(save_dir)
+    logger.info("Finished cleaning up")
+
+    def make_file_name_for_field(field_name, original_file_name):
+        "Make file name for field U or P, using provided original"
+        "file name with placeholder @"
+        return str(original_file_name).replace("@", field_name)
+
+    # Data will be stored as 3D arrays
+    # of size [ndof*, nsnapshots, nfiles]
+    nsnapshots = fs.params_time.num_steps // fs.params_save.save_every
+    ndof_u = fs.V.dim()
+    ndof_p = fs.P.dim()
+    ndof = fs.W.dim()
+    nfiles = len(xdmf_files)
+
+    # Allocate arrays for 1 trajectory (= 1 file)
+    U_field_data = np.empty((ndof_u, nsnapshots))
+    P_field_data = np.empty((ndof_p, nsnapshots))
+    UP_field_data = np.empty((ndof, nsnapshots))
+
+    # Allocate arrays for all data (stack files on axis 2)
+    U_field_alldata = np.empty((ndof_u, nsnapshots, nfiles))
+    P_field_alldata = np.empty((ndof_p, nsnapshots, nfiles))
+    UP_field_alldata = np.empty((ndof, nsnapshots, nfiles))
+
+    # Allocate empty dolfin.Function
+    U_field = dolfin.Function(fs.V)
+    P_field = dolfin.Function(fs.P)
+    UP_field = dolfin.Function(fs.W)
+
+    for jfile in range(nfiles):
+        print(f"* Reading file nr={jfile}, name={xdmf_files[jfile]}")
+
+        file_name_U = make_file_name_for_field("U", xdmf_files[jfile])
+        file_name_P = make_file_name_for_field("P", xdmf_files[jfile])
+
+        for icounter in range(nsnapshots):
+            print(f"\t counter={icounter}")
+
+            try:
+                flu.read_xdmf(file_name_U, U_field, "U", counter=icounter)
+                flu.read_xdmf(file_name_P, P_field, "P", counter=icounter)
+                UP_field = fs.merge(U_field, P_field)
+            except RuntimeError:
+                print("\t *** EOF -- Reached End Of File")
+                break
+
+            U_field_data[:, icounter] = np.copy(U_field.vector().get_local())
+            P_field_data[:, icounter] = np.copy(P_field.vector().get_local())
+            UP_field_data[:, icounter] = np.copy(UP_field.vector().get_local())
+
+        U_field_alldata[:, :, jfile] = np.copy(U_field_data)
+        P_field_alldata[:, :, jfile] = np.copy(P_field_data)
+        UP_field_alldata[:, :, jfile] = np.copy(UP_field_data)
+
+        print(f"\t -> Reached snapshot = {icounter} - Fetching next file")
+
+    print("Finished reading trajectores")
+
+    ##########################################################
+    # Steady-state
+    ##########################################################
+    U0 = dolfin.Function(fs.V)
+    P0 = dolfin.Function(fs.P)
+
+    file_name_U0 = cwd / "data_output" / "steady" / "U0.xdmf"
+    file_name_P0 = cwd / "data_output" / "steady" / "P0.xdmf"
+
+    print(f"* Reading steady-states at {file_name_U0}, {file_name_P0}")
+    flu.read_xdmf(file_name_U0, U0, "U0")
+    flu.read_xdmf(file_name_P0, P0, "P0")
+    UP0 = fs.merge(U0, P0)
+
+    U0_field_data = U0.vector().get_local()
+    P0_field_data = P0.vector().get_local()
+    UP0_field_data = UP0.vector().get_local()
+
+    print("Finished reading steady-states")
+
+    np.save(save_dir / "U_field_alldata.npy", U_field_alldata)
+    np.save(save_dir / "P_field_alldata.npy", P_field_alldata)
+    np.save(save_dir / "UP_field_alldata.npy", UP_field_alldata)
+
+    np.save(save_dir / "U0_field_data.npy", U0_field_data)
+    np.save(save_dir / "P0_field_data.npy", P0_field_data)
+    np.save(save_dir / "UP0_field_data.npy", UP0_field_data)
+
+    ##########################################################
+    # Extract mesh coordinates corresponding to DOF ordering
+    ##########################################################
+    print("Extracting mesh coordinates...")
+    
+    # Get DOF coordinates for velocity space (V)
+    V_coords = fs.V.tabulate_dof_coordinates()
+    
+    # Get DOF coordinates for pressure space (P)
+    P_coords = fs.P.tabulate_dof_coordinates()
+    
+    # Get DOF coordinates for mixed space (W)
+    W_coords = fs.W.tabulate_dof_coordinates()
+    
+    print(f"V DOF coordinates shape: {V_coords.shape}")
+    print(f"P DOF coordinates shape: {P_coords.shape}")
+    print(f"W DOF coordinates shape: {W_coords.shape}")
+
+    # Save mesh coordinates
+    np.save(save_dir / "V_dof_coordinates.npy", V_coords)
+    np.save(save_dir / "P_dof_coordinates.npy", P_coords)
+    np.save(save_dir / "W_dof_coordinates.npy", W_coords)
+
+    ##########################################################
+    # DOF Indices and Mixed Space Mapping
+    ##########################################################
+    print("Computing DOF indices and mixed space mappings...")
+
+    # Get velocity and pressure DOF indices in the mixed space
+    vel_dofs_in_mixed = np.array(fs.W.sub(0).dofmap().dofs())
+    pres_dofs_in_mixed = np.array(fs.W.sub(1).dofmap().dofs())
+
+    # Get component DOFs for both spaces
+    V_u_dofs = fs.V.sub(0).dofmap().dofs()
+    V_v_dofs = fs.V.sub(1).dofmap().dofs()
+    W_u_dofs = fs.W.sub(0).sub(0).dofmap().dofs()
+    W_v_dofs = fs.W.sub(0).sub(1).dofmap().dofs()
+
+    # Build coordinate-based mapping between V and W velocity spaces
+    V_u_coords = V_coords[V_u_dofs]
+    V_v_coords = V_coords[V_v_dofs]
+    W_u_coords = W_coords[W_u_dofs]
+    W_v_coords = W_coords[W_v_dofs]
+
+    # Create KDTrees for coordinate matching
+    tree_u = cKDTree(W_u_coords)
+    tree_v = cKDTree(W_v_coords)
+
+    # Find coordinate mappings
+    _, u_mapping = tree_u.query(V_u_coords, k=1)
+    _, v_mapping = tree_v.query(V_v_coords, k=1)
+
+    # Create full mapping from V to W velocity DOFs
+    V_to_W_vel_mapping = np.zeros(len(U_field.vector().get_local()), dtype=int)
+
+    # Map u-components
+    for i, v_dof in enumerate(V_u_dofs):
+        V_to_W_vel_mapping[v_dof] = W_u_dofs[u_mapping[i]]
+
+    # Map v-components  
+    for i, v_dof in enumerate(V_v_dofs):
+        V_to_W_vel_mapping[v_dof] = W_v_dofs[v_mapping[i]]
+
+    # Test the mapping
+    UP_test_vec = UP_field.vector().get_local()
+    U_extracted_mapped = UP_test_vec[V_to_W_vel_mapping]
+    U_direct = U_field.vector().get_local()
+
+    mapping_test = np.allclose(U_extracted_mapped, U_direct, atol=1e-12)
+    print(f"Velocity extraction test passed: {mapping_test}")
+    print(f"Max difference: {np.max(np.abs(U_extracted_mapped - U_direct))}")
+
+    if mapping_test:
+        print("✓ Velocity extraction from mixed space works correctly!")
+        
+        # Save all DOF mappings and indices
+        np.save(save_dir / "V_to_W_vel_mapping.npy", V_to_W_vel_mapping)
+        np.save(save_dir / "vel_dofs_in_mixed.npy", vel_dofs_in_mixed)
+        np.save(save_dir / "pres_dofs_in_mixed.npy", pres_dofs_in_mixed)
+        # np.save(save_dir / "W_u_dofs.npy", W_u_dofs)
+        # np.save(save_dir / "W_v_dofs.npy", W_v_dofs)
+        # np.save(save_dir / "V_u_dofs.npy", V_u_dofs)
+        # np.save(save_dir / "V_v_dofs.npy", V_v_dofs)
+        
+        # Create utility functions file
+        utility_code = '''# Utility functions for velocity extraction/insertion
+    import numpy as np
+
+    def extract_velocity_from_mixed(mixed_vector, V_to_W_mapping):
+        """Extract velocity components from mixed vector using correct mapping"""
+        return mixed_vector[V_to_W_mapping]
+
+    def insert_velocity_into_mixed(mixed_vector, velocity_vector, V_to_W_mapping):
+        """Insert velocity components into mixed vector using correct mapping"""
+        mixed_copy = mixed_vector.copy()
+        mixed_copy[V_to_W_mapping] = velocity_vector
+        return mixed_copy
+
+    # Example usage:
+    # V_to_W_mapping = np.load("V_to_W_vel_mapping.npy")
+    # mixed_data = np.load("UP_field_alldata.npy")
+    # velocity_data = extract_velocity_from_mixed(mixed_data[:, 0, 0], V_to_W_mapping)
+    '''
+        
+        with open(save_dir / "velocity_extraction_utils.py", "w") as f:
+            f.write(utility_code)
+        
+        print("✓ DOF mappings and utility functions saved!")
+        
+    else:
+        raise RuntimeError("Velocity extraction mapping failed!")
+
+    print(f"Velocity DOFs in mixed space: {len(vel_dofs_in_mixed)}")
+    print(f"Pressure DOFs in mixed space: {len(pres_dofs_in_mixed)}")
+
     return
 
 
 def main():
 
-    base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")
-    parent_dir = base_dir / f"Re{Re}_test"
+    base_dir = Path("/Users/james/Desktop/PhD/cylinder")
+    parent_dir = base_dir / f"Re{Re}_try_saving"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     # x_vals = np.linspace(0.2, 0.8, 3)

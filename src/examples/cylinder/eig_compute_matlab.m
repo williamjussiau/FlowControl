@@ -70,10 +70,10 @@ opts.tol = 1e-8;
 opts.maxit = 1000;
 
 % Frequencies to scan along imaginary axis
-% omega_list = linspace(0, 5, 20);
-omega_list1 = 1i * linspace(0, 5, 10);
-omega_list2 = -1 + 1i * linspace(0, 5, 10);
-omega_list = [omega_list1, omega_list2];
+omega_list = 1i * linspace(0, 5, 10);
+% omega_list1 = 1i * linspace(0, 5, 10);
+% omega_list2 = -1 + 1i * linspace(0, 5, 10);
+% omega_list = [omega_list1, omega_list2];
 
 % all_lambda = [];      % store all eigenvalues found
 % all_vecs = {};        % store eigenvectors in cell array, aligned with all_lambda entries
