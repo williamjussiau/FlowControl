@@ -60,7 +60,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
     params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=0.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=100, path_out=save_dir
+        save_every=10, path_out=save_dir
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -264,6 +264,45 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
     np.save(save_dir / "W_dof_coordinates.npy", W_coords)
 
     ##########################################################
+    # Extract Actuator Boundary DOFs
+    ##########################################################
+    print("Extracting actuator boundary DOFs...")
+    
+    # Get actuator boundary conditions directly from the flow solver
+    bcu_actuation_up = dolfin.DirichletBC(
+        fs.W.sub(0),
+        dolfin.Constant((0, 0)),
+        fs.get_subdomain("actuator_up"),
+    )
+    bcu_actuation_lo = dolfin.DirichletBC(
+        fs.W.sub(0),
+        dolfin.Constant((0, 0)),
+        fs.get_subdomain("actuator_lo"),
+    )
+    
+    # Extract DOF indices from boundary conditions
+    actuator_up_dofs = list(bcu_actuation_up.get_boundary_values().keys())
+    actuator_lo_dofs = list(bcu_actuation_lo.get_boundary_values().keys())
+    actuator_dofs_W = np.array(actuator_up_dofs + actuator_lo_dofs)
+    
+    print(f"Actuator up DOFs: {len(actuator_up_dofs)}")
+    print(f"Actuator lo DOFs: {len(actuator_lo_dofs)}")
+    print(f"Total actuator DOFs in W space: {len(actuator_dofs_W)}")
+    
+    # Save actuator DOF information
+    np.save(save_dir / "actuator_up_dofs_W.npy", np.array(actuator_up_dofs))
+    np.save(save_dir / "actuator_lo_dofs_W.npy", np.array(actuator_lo_dofs))
+    np.save(save_dir / "actuator_dofs_W.npy", actuator_dofs_W)
+
+    # For velocity space DOFs only
+    # bcu_actuation_up_V = dolfin.DirichletBC(
+    #     fs.V,
+    #     dolfin.Constant((0, 0)),
+    #     fs.get_subdomain("actuator_up"),
+    # )
+    # actuator_up_dofs_V = list(bcu_actuation_up_V.get_boundary_values().keys())
+
+    ##########################################################
     # DOF Indices and Mixed Space Mapping
     ##########################################################
     print("Computing DOF indices and mixed space mappings...")
@@ -360,8 +399,8 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
 
 def main():
 
-    base_dir = Path("/Users/james/Desktop/PhD/cylinder")
-    parent_dir = base_dir / f"Re{Re}_try_saving"
+    base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")
+    parent_dir = base_dir / f"Re{Re}_short"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     # x_vals = np.linspace(0.2, 0.8, 3)
@@ -372,7 +411,7 @@ def main():
     y_vals = [0.0]
     radius = 0.5
     amplitude = 1.0
-    num_steps = 2000
+    num_steps = 200
     count = 1
     for xloc in x_vals:
         for yloc in y_vals:
