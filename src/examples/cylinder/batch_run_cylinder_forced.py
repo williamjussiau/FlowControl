@@ -1,6 +1,7 @@
 from pathlib import Path
 import numpy as np
 from scipy.io import loadmat
+from scipy.signal import chirp
 import dolfin
 import logging
 import time
@@ -10,6 +11,7 @@ from flowcontrol.actuator import ActuatorBCParabolicV
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 import utils.utils_flowsolver as flu
 from examples.cylinder.compute_steady_state import Re
+from examples.cylinder.batch_run_cylinder import save_data
 
 # def run_autonomous_simulation(Re, xloc, yloc, radius, amplitude, save_dir, num_steps):
 #     # Autonomous simulation (no forcing)
@@ -61,7 +63,7 @@ def run_forced_simulation(Re, save_dir, num_steps, autonomous_dir, forcing_ampli
     params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=0.005*20000)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=100, path_out=save_dir
+        save_every=10, path_out=save_dir
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -120,45 +122,47 @@ def run_forced_simulation(Re, save_dir, num_steps, autonomous_dir, forcing_ampli
         verbose=5,
     )
 
-    # fs.paths = {
-    #     # Reading from autonomous run
-    #     "U": autonomous_dir / "U_restart0,0.xdmf",
-    #     "P": autonomous_dir / "P_restart0,0.xdmf",
-    #     "Uprev": autonomous_dir / "Uprev_restart0,0.xdmf",
-    #     "Pprev": autonomous_dir / "Pprev_restart0,0.xdmf",
-    #     "U0": cwd / "data_output" / "steady" / "U0.xdmf",
-    #     "P0": cwd / "data_output" / "steady" / "P0.xdmf",
-    #     "mesh": params_mesh.meshpath,
-    #     # Writing to forced run
-    #     "U_restart": save_dir / "U_restart0,0.xdmf",
-    #     "P_restart": save_dir / "P_restart0,0.xdmf",
-    #     "Uprev_restart": save_dir / "Uprev_restart0,0.xdmf",
-    #     "Pprev_restart": save_dir / "Pprev_restart0,0.xdmf",
-    #     "timeseries": save_dir / "timeseries1D_restart0,0.csv",
-    # }
-
-    # logger.info("__init__(): successful!")
-
-    # fs.load_steady_state()
-    # fs.initialize_time_stepping(Tstart=fs.params_time.Tstart)
+    # When starting at limit cycle: 
+    fs.paths = {
+        # Reading from autonomous run
+        "U": autonomous_dir / "U_restart0,0.xdmf",
+        "P": autonomous_dir / "P_restart0,0.xdmf",
+        "Uprev": autonomous_dir / "Uprev_restart0,0.xdmf",
+        "Pprev": autonomous_dir / "Pprev_restart0,0.xdmf",
+        "U0": cwd / "data_output" / "steady" / "U0.xdmf",
+        "P0": cwd / "data_output" / "steady" / "P0.xdmf",
+        "mesh": params_mesh.meshpath,
+        # Writing to forced run
+        "U_restart": save_dir / "U_restart0,0.xdmf",
+        "P_restart": save_dir / "P_restart0,0.xdmf",
+        "Uprev_restart": save_dir / "Uprev_restart0,0.xdmf",
+        "Pprev_restart": save_dir / "Pprev_restart0,0.xdmf",
+        "timeseries": save_dir / "timeseries1D_restart0,0.csv",
+    }
 
     logger.info("__init__(): successful!")
 
-    logger.info("Exporting subdomains...")
-    flu.export_subdomains(
-        fs.mesh, fs.boundaries.subdomain, save_dir / "subdomains.xdmf"
-    )
+    fs.load_steady_state()
+    fs.initialize_time_stepping(Tstart=fs.params_time.Tstart)
 
-    logger.info("Load steady state...")
-    fs.load_steady_state(
-        path_u_p=[
-            cwd / "data_output" / "steady" / f"U0.xdmf",
-            cwd / "data_output" / "steady" / f"P0.xdmf",
-        ]
-    )
+    # When starting from beginning:
+    # logger.info("__init__(): successful!")
 
-    logger.info("Init time-stepping")
-    fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
+    # logger.info("Exporting subdomains...")
+    # flu.export_subdomains(
+    #     fs.mesh, fs.boundaries.subdomain, save_dir / "subdomains.xdmf"
+    # )
+
+    # logger.info("Load steady state...")
+    # fs.load_steady_state(
+    #     path_u_p=[
+    #         cwd / "data_output" / "steady" / f"U0.xdmf",
+    #         cwd / "data_output" / "steady" / f"P0.xdmf",
+    #     ]
+    # )
+
+    # logger.info("Init time-stepping")
+    # fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
 
     # --- HOTFIX: Load u_optimal.mat and prepare control signal ---
     # u_optimal_path = Path("/Users/jaking/Desktop/PhD/cylinder/u_optimal.mat")
@@ -170,18 +174,21 @@ def run_forced_simulation(Re, save_dir, num_steps, autonomous_dir, forcing_ampli
     #                      fs.params_time.dt)
     # u_optimal_interp = np.interp(sim_times, t_interp, u_optimal)
     # ------------------------------------------------------------
+    
 
     for i in range(fs.params_time.num_steps):
         # y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         # u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
         # u_ctrl = u_optimal[i]
-        u_ctrl = forcing_amplitude * np.sin(forcing_frequency * fs.t)
+        # u_ctrl = forcing_amplitude * np.sin(forcing_frequency * fs.t)
+        u_ctrl = forcing_amplitude * chirp(fs.t, f0=0.0, f1=forcing_frequency/(2 * np.pi), t1=fs.params_time.Tfinal, method='linear')
         fs.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
 
     fs.write_timeseries()
 
     logger.info(fs.timeseries)
     print(f"Forced simulation finished and saved in {save_dir}")
+    save_data(fs, save_dir, cwd, logger)
 
 if __name__ == "__main__":
     base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")

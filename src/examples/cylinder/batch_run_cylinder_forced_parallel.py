@@ -21,21 +21,23 @@ def run_single_simulation(args):
 
 if __name__ == "__main__":
     base_dir = Path("/Users/jaking/Desktop/PhD/cylinder")
-    parent_dir = base_dir / f"Re{Re}_forced_0p1_from_beginning"
+    parent_dir = base_dir / f"Re{Re}_forced_sweep"
     parent_dir.mkdir(parents=True, exist_ok=True)
 
     # Path to your autonomous simulation results
     autonomous_dir = base_dir / f"Re{Re}_autonomous" / "run1"
 
-    forcing_frequencies = np.linspace(0, np.pi, 8)
-    forcing_amplitudes = [0.1]
+    forcing_frequencies = [0.5, 0.77, 1.0, 1.3] # In rad/s
+    forcing_amplitudes = [0.2, 0.5, 0.8]
+    # forcing_frequencies = np.linspace(0, np.pi, 8)
+    # forcing_amplitudes = [0.5]
     num_steps = 20000
 
     # Prepare all simulation parameters
     simulation_args = []
     count = 1
-    for freq in forcing_frequencies:
-        for f_amp in forcing_amplitudes:
+    for f_amp in forcing_amplitudes:
+        for freq in forcing_frequencies:
             save_dir = parent_dir / f"run{count}"
             save_dir.mkdir(parents=True, exist_ok=True)
             

@@ -121,24 +121,24 @@ def main():
 
     point = dolfin.Point(3.0, 0.0)
 
-    # Split mixed function into velocity and pressure
-    u, p = fs.fields.UP0.split()
+    # Split mixed function into velocity and pressure (they still live in the larger mixed function space!)
+    U0, P0 = fs.fields.UP0.split()
 
     # Evaluate at the point
-    u_val = u(point)
-    p_val = p(point)
+    u_val = U0(point)
+    p_val = P0(point)
 
     print(f"Velocity at (3, 0): {u_val}")
     print(f"Pressure at (3, 0): {p_val}")
 
-    mesh = u.function_space().mesh()
-    family = u.function_space().ufl_element().family()
-    degree = u.function_space().ufl_element().degree()
+    mesh = U0.function_space().mesh()
+    family = U0.function_space().ufl_element().family()
+    degree = U0.function_space().ufl_element().degree()
 
     # Project gradient (if you want)
     from dolfin import TensorFunctionSpace
     W = TensorFunctionSpace(mesh, family, degree)
-    grad_u_proj = project(grad(u), W)
+    grad_u_proj = project(grad(U0), W)
     grad_u_val = grad_u_proj(point)
     print(f"Gradient of u at (3, 0): {grad_u_val}")
 
@@ -146,9 +146,23 @@ def main():
     from dolfin import VectorFunctionSpace
 
     V_vec = VectorFunctionSpace(mesh, family, degree)
-    laplace_u_proj = project(div(grad(u)), V_vec)
+    laplace_u_proj = project(div(grad(U0)), V_vec)
     laplace_u_val = laplace_u_proj(point)
     print(f"Laplacian of u at (3, 0): {laplace_u_val}")
+
+    # Extract only velocity DOFs
+    velocity_dofs = U0.function_space().dofmap().dofs()
+    U0_field_data = U0.vector().get_local()[velocity_dofs]
+
+    # Extract only pressure DOFs
+    pressure_dofs = P0.function_space().dofmap().dofs()
+    P0_field_data = P0.vector().get_local()[pressure_dofs]
+    UP0_field_data = fs.fields.UP0.vector().get_local()
+
+    # np.save(cwd / "data_output" / "U0_field_data_unit_control.npy", U0_field_data)
+    # np.save(cwd / "data_output" / "P0_field_data_unit_control.npy", P0_field_data)
+    # np.save(cwd / "data_output" / "UP0_field_data_unit_control.npy", UP0_field_data)
+
 
 
 if __name__ == "__main__":
