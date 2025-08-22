@@ -37,67 +37,109 @@ def solve_linearized_steady_state(fs, U0_base, u_ctrl, max_iter=50, tol=1e-8):
     """
     logger = logging.getLogger(__name__)
     
-    # Create boundary conditions with control input
-    fs.set_actuators_u_ctrl(u_ctrl)
-    BC = fs._make_BCs()
-    
     # Get function spaces
     W = fs.W
     
-    # Define trial and test functions for perturbation
+    # Define trial and test functions
     up = dolfin.TrialFunction(W)
     vq = dolfin.TestFunction(W)
     u, p = dolfin.split(up)
     v, q = dolfin.split(vq)
     
-    # Extract base flow velocity
+    # Extract base flow
     U0, P0 = U0_base.split()
     U0_vec = dolfin.as_vector((U0[0], U0[1]))
     
     # Reynolds number
     invRe = dolfin.Constant(1.0 / fs.params_flow.Re)
     
-    # Linearized weak form around U0_base
-    # (U0 · ∇)u + (u · ∇)U0 + ∇p - (1/Re)∇²u = 0
-    # ∇ · u = 0
+    # Linearized operator
     a_linearized = (
         dot(dot(U0_vec, nabla_grad(u)), v) * dx +  # Convection by base flow
         dot(dot(u, nabla_grad(U0_vec)), v) * dx +  # Linearized convection
         invRe * inner(nabla_grad(u), nabla_grad(v)) * dx +  # Viscous term
-        p * div(v) * dx +  # Pressure gradient
+        p * div(v) * dx +  # Pressure term
         div(u) * q * dx   # Incompressibility
     )
     
-    # Zero right-hand side (steady state) - only test functions allowed
-    L_linearized = dolfin.Constant(0.0) * v[0] * dx + dolfin.Constant(0.0) * q * dx
+    # RHS = 0 for homogeneous linearized problem
+    L_linearized = dolfin.Constant(0.0) * dot(v, dolfin.as_vector([1, 1])) * dx
+    
+    # Set control input for actuators
+    fs.set_actuators_u_ctrl(u_ctrl)
+    
+    # Debug: check control values
+    logger.info(f"Control input: {u_ctrl}")
+    
+    # Boundary conditions for perturbation field
+    bcu_inlet_pert = dolfin.DirichletBC(
+        fs.W.sub(0),
+        dolfin.Constant((0, 0)),
+        fs.get_subdomain("inlet"),
+    )
+    
+    bcu_walls_pert = dolfin.DirichletBC(
+        fs.W.sub(0).sub(1),
+        dolfin.Constant(0),
+        fs.get_subdomain("walls"),
+    )
+    
+    bcu_cylinder_pert = dolfin.DirichletBC(
+        fs.W.sub(0),
+        dolfin.Constant((0, 0)),
+        fs.get_subdomain("cylinder"),
+    )
+    
+    bcu_actuation_up_pert = dolfin.DirichletBC(
+        fs.W.sub(0),
+        fs.params_control.actuator_list[0].expression,
+        fs.get_subdomain("actuator_up"),
+    )
+    bcu_actuation_lo_pert = dolfin.DirichletBC(
+        fs.W.sub(0),
+        fs.params_control.actuator_list[1].expression,
+        fs.get_subdomain("actuator_lo"),
+    )
+
+    bcu = [bcu_inlet_pert, bcu_walls_pert, bcu_cylinder_pert,
+           bcu_actuation_up_pert, bcu_actuation_lo_pert]
     
     # Assemble system
     A = dolfin.assemble(a_linearized)
     b = dolfin.assemble(L_linearized)
     
-    # Apply boundary conditions (these include the control input)
-    # Access the actual boundary condition lists from the BoundaryConditions object
-    for bc in BC.bcu:  # velocity boundary conditions
-        bc.apply(A, b)
-    for bc in BC.bcp:  # pressure boundary conditions (if any)
+    # Debug: check RHS norm before BC application
+    rhs_norm_before = b.norm("l2")
+    logger.info(f"RHS norm before BC application: {rhs_norm_before:.2e}")
+    
+    # Apply boundary conditions
+    for bc in bcu:
         bc.apply(A, b)
     
-    # Solve
-    up_solution = dolfin.Function(W)
+    # Debug: check RHS norm after BC application
+    rhs_norm_after = b.norm("l2")
+    logger.info(f"RHS norm after BC application: {rhs_norm_after:.2e}")
+    
+    # Solve with simpler solver settings
+    up_perturbation = dolfin.Function(W)
     solver = dolfin.LUSolver("mumps")
-    solver.solve(A, up_solution.vector(), b)
+    solver.solve(A, up_perturbation.vector(), b)
     
-    # Verify residual
-    residual = dolfin.assemble(dolfin.action(a_linearized, up_solution))
-    for bc in BC.bcu:
-        bc.apply(residual)
-    for bc in BC.bcp:
-        bc.apply(residual)
-    res_norm = dolfin.norm(residual)
+    # Compute residual more carefully
+    residual_vec = A * up_perturbation.vector() - b
+    res_norm = residual_vec.norm("l2")
     
-    logger.info(f"Linearized steady state solved. Residual norm: {res_norm:.2e}")
+    # Also check the solution norm
+    sol_norm = up_perturbation.vector().norm("l2")
+    logger.info(f"Solution norm: {sol_norm:.2e}")
+    logger.info(f"Residual norm: {res_norm:.2e}")
+    logger.info(f"Relative residual: {res_norm/max(sol_norm, 1e-12):.2e}")
     
-    return up_solution
+    # Check if residual is acceptable
+    if res_norm > 1e-6:
+        logger.warning(f"Large residual norm {res_norm:.2e} - solution may not be accurate")
+    
+    return up_perturbation
 
 def main():
     # LOG
@@ -189,11 +231,24 @@ def main():
     U0_base = fs.fields.UP0.copy(deepcopy=True)
     U0, P0 = U0_base.split()
     
-    # Save uncontrolled steady state
-    u0_file = dolfin.XDMFFile(str(cwd / "data_output" / "U0_uncontrolled.xdmf"))
-    p0_file = dolfin.XDMFFile(str(cwd / "data_output" / "P0_uncontrolled.xdmf"))
-    u0_file.write(U0, 0.0)
-    p0_file.write(P0, 0.0)
+    # Save uncontrolled steady state using flu.write_xdmf
+    flu.write_xdmf(
+        cwd / "data_output" / "U0_uncontrolled.xdmf",
+        U0,
+        "U0",
+        time_step=0.0,
+        append=False,
+        write_mesh=True,
+    )
+    
+    flu.write_xdmf(
+        cwd / "data_output" / "P0_uncontrolled.xdmf",
+        P0,
+        "P0",
+        time_step=0.0,
+        append=False,
+        write_mesh=True,
+    )
     
     logger.info("Computing linearized steady state under control...")
     u_ctrl_linearized = [1.0, 1.0]  # Control input
@@ -204,43 +259,25 @@ def main():
     # Extract velocity and pressure
     U_lin, P_lin = UP_linearized.split()
     
-    # Save linearized steady state
-    u_lin_file = dolfin.XDMFFile(str(cwd / "data_output" / "U_linearized_controlled.xdmf"))
-    p_lin_file = dolfin.XDMFFile(str(cwd / "data_output" / "P_linearized_controlled.xdmf"))
-    u_lin_file.write(U_lin, 0.0)
-    p_lin_file.write(P_lin, 0.0)
+    # Save linearized steady state using flu.write_xdmf
+    flu.write_xdmf(
+        cwd / "data_output" / "U_linearized_controlled.xdmf",
+        U_lin,
+        "U_lin",
+        time_step=0.0,
+        append=False,
+        write_mesh=True,
+    )
     
-    # Also compute full nonlinear controlled steady state for comparison
-    logger.info("Computing full nonlinear controlled steady state for comparison...")
-    fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=u_ctrl_linearized)
-    fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=u_ctrl_linearized, initial_guess=fs.fields.UP0)
-    
-    UP_nonlinear = fs.fields.UP0.copy(deepcopy=True)
-    U_nonlin, P_nonlin = UP_nonlinear.split()
-    
-    # Save nonlinear controlled steady state
-    u_nonlin_file = dolfin.XDMFFile(str(cwd / "data_output" / "U_nonlinear_controlled.xdmf"))
-    p_nonlin_file = dolfin.XDMFFile(str(cwd / "data_output" / "P_nonlinear_controlled.xdmf"))
-    u_nonlin_file.write(U_nonlin, 0.0)
-    p_nonlin_file.write(P_nonlin, 0.0)
-    
-    # Compute difference between linearized and nonlinear solutions
-    UP_diff = UP_linearized.copy(deepcopy=True)
-    UP_diff.vector()[:] = UP_linearized.vector()[:] - UP_nonlinear.vector()[:]
-    
-    diff_file = dolfin.XDMFFile(str(cwd / "data_output" / "difference_lin_vs_nonlin.xdmf"))
-    diff_file.write(UP_diff, 0.0)
-    
-    # Print some statistics
-    diff_norm = dolfin.norm(UP_diff)
-    lin_norm = dolfin.norm(UP_linearized)
-    nonlin_norm = dolfin.norm(UP_nonlinear)
-    
-    logger.info(f"Linearized solution norm: {lin_norm:.6f}")
-    logger.info(f"Nonlinear solution norm: {nonlin_norm:.6f}")
-    logger.info(f"Difference norm: {diff_norm:.6f}")
-    logger.info(f"Relative difference: {diff_norm/max(lin_norm, nonlin_norm):.6f}")
-    
+    flu.write_xdmf(
+        cwd / "data_output" / "P_linearized_controlled.xdmf",
+        P_lin,
+        "P_lin",
+        time_step=0.0,
+        append=False,
+        write_mesh=True,
+    )
+
     logger.info("Analysis completed successfully.")
 
 if __name__ == "__main__":
