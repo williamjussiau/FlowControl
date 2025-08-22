@@ -378,7 +378,7 @@ def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir, num_steps
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-        fs.step(u_ctrl=[0*u_ctrl[0], 0*u_ctrl[0]])
+        fs.step(u_ctrl=[u_ctrl[0], u_ctrl[0]])
         # or
         # fs.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
 

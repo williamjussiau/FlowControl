@@ -113,51 +113,89 @@ def main():
     logger.info("Compute steady state...")
     uctrl0 = [0, 0]
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl0)
-    fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
-    )
-    # Expected:
-    # Newton iteration 4: r (abs) = 6.901e-14 (tol = 1.000e-10) r (rel) = 1.109e-11 (tol = 1.000e-09)
+    fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0)
+    UP0 = fs.fields.UP0.copy(deepcopy=True)  # Save unactuated steady state
 
-    point = dolfin.Point(3.0, 0.0)
+    # Compute and store the actuated steady state
+    uctrl1 = [0.1, 0.1]  # Example constant actuation
+    fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=uctrl1)
+    fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=uctrl1, initial_guess=fs.fields.UP0)
+    UP01 = fs.fields.UP0.copy(deepcopy=True)  # Save actuated steady state
 
     # Split mixed function into velocity and pressure (they still live in the larger mixed function space!)
-    U0, P0 = fs.fields.UP0.split()
+    U0, _ = UP0.split()
+    U01, _ = UP01.split()
 
-    # Evaluate at the point
-    u_val = U0(point)
-    p_val = P0(point)
+    from dolfin import project
 
-    print(f"Velocity at (3, 0): {u_val}")
-    print(f"Pressure at (3, 0): {p_val}")
+    V_vec = U01.function_space().collapse()  # or U0.function_space()
+    U1 = project(10*U01 - 10*U0, V_vec)
 
-    mesh = U0.function_space().mesh()
-    family = U0.function_space().ufl_element().family()
-    degree = U0.function_space().ufl_element().degree()
+    # Now you can use U1 as a Function
+    mesh = U1.function_space().mesh()
+
+    from dolfin import project, div, grad, dot, FunctionSpace
+
+    # Laplacian of U1
+    laplaceU1 = project(div(grad(U1)), V_vec)
+    laplaceU1_array = laplaceU1.vector().get_local()
+    max_laplaceU1 = np.max(np.abs(laplaceU1_array))
+
+    # Convection mixed: (U1 · ∇)U0
+    convectionU1U0 = project(dot(U1, grad(U0)), V_vec)
+    convectionU1U0_array = convectionU1U0.vector().get_local()
+    max_convectionU1U0 = np.max(np.abs(convectionU1U0_array))
+    # Convection mixed: (U0 · ∇)U1
+    convectionU0U1 = project(dot(U0, grad(U1)), V_vec)
+    convectionU0U1_array = convectionU0U1.vector().get_local()
+    max_convectionU0U1 = np.max(np.abs(convectionU0U1_array))
+
+    # Magnitude of U1
+    U1_array = U1.vector().get_local()
+    max_U1 = np.max(np.abs(U1_array))
+
+    # Convection operator: (U1 · ∇)U1
+    convection_expr = dot(U1, grad(U1))
+    convectionU1 = project(convection_expr, V_vec)
+    convectionU1_array = convectionU1.vector().get_local()
+    max_convectionU1 = np.max(np.abs(convectionU1_array))
+
+    print(f"Max |U1|: {max_U1:.6e}")
+    print(f"Max |laplaceU1|: {max_laplaceU1:.6e}")
+    print(f"Max |(U1 · ∇)U0|: {max_convectionU1U0:.6e}")
+    print(f"Max |(U0 · ∇)U1|: {max_convectionU0U1:.6e}")
+    print(f"Max |(U1 · ∇)U1|: {max_convectionU1:.6e}")
+
+    # print(f"Velocity at (3, 0): {u_val}")
+    # print(f"Pressure at (3, 0): {p_val}")
+
+    # mesh = U0.function_space().mesh()
+    # family = U0.function_space().ufl_element().family()
+    # degree = U0.function_space().ufl_element().degree()
 
     # Project gradient (if you want)
-    from dolfin import TensorFunctionSpace
-    W = TensorFunctionSpace(mesh, family, degree)
-    grad_u_proj = project(grad(U0), W)
-    grad_u_val = grad_u_proj(point)
-    print(f"Gradient of u at (3, 0): {grad_u_val}")
+    # from dolfin import TensorFunctionSpace
+    # W = TensorFunctionSpace(mesh, family, degree)
+    # grad_u_proj = project(grad(U0), W)
+    # grad_u_val = grad_u_proj(point)
+    # print(f"Gradient of u at (3, 0): {grad_u_val}")
 
-    # Project Laplacian
-    from dolfin import VectorFunctionSpace
+    # # Project Laplacian
+    # from dolfin import VectorFunctionSpace
 
-    V_vec = VectorFunctionSpace(mesh, family, degree)
-    laplace_u_proj = project(div(grad(U0)), V_vec)
-    laplace_u_val = laplace_u_proj(point)
-    print(f"Laplacian of u at (3, 0): {laplace_u_val}")
+    # V_vec = VectorFunctionSpace(mesh, family, degree)
+    # laplace_u_proj = project(div(grad(U0)), V_vec)
+    # laplace_u_val = laplace_u_proj(point)
+    # print(f"Laplacian of u at (3, 0): {laplace_u_val}")
 
-    # Extract only velocity DOFs
-    velocity_dofs = U0.function_space().dofmap().dofs()
-    U0_field_data = U0.vector().get_local()[velocity_dofs]
+    # # Extract only velocity DOFs
+    # velocity_dofs = U0.function_space().dofmap().dofs()
+    # U0_field_data = U0.vector().get_local()[velocity_dofs]
 
-    # Extract only pressure DOFs
-    pressure_dofs = P0.function_space().dofmap().dofs()
-    P0_field_data = P0.vector().get_local()[pressure_dofs]
-    UP0_field_data = fs.fields.UP0.vector().get_local()
+    # # Extract only pressure DOFs
+    # pressure_dofs = P0.function_space().dofmap().dofs()
+    # P0_field_data = P0.vector().get_local()[pressure_dofs]
+    # UP0_field_data = fs.fields.UP0.vector().get_local()
 
     # np.save(cwd / "data_output" / "U0_field_data_unit_control.npy", U0_field_data)
     # np.save(cwd / "data_output" / "P0_field_data_unit_control.npy", P0_field_data)

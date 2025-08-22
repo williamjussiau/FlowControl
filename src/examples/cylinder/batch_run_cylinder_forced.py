@@ -11,6 +11,7 @@ from flowcontrol.actuator import ActuatorBCParabolicV
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 import utils.utils_flowsolver as flu
 from examples.cylinder.compute_steady_state import Re
+from flowcontrol.controller import Controller
 from examples.cylinder.batch_run_cylinder import save_data
 
 # def run_autonomous_simulation(Re, xloc, yloc, radius, amplitude, save_dir, num_steps):
@@ -60,10 +61,13 @@ def run_forced_simulation(Re, save_dir, num_steps, autonomous_dir, forcing_ampli
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=0.005*20000)
+    # This is what controls where in the autonomous simulation we restart from
+    # To start from limit cylce, set Tstart=0.005*20000
+    # params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=0.005*20000)
+    params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.005, Tstart=10.0)
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=10, path_out=save_dir
+        save_every=100, path_out=save_dir
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -165,24 +169,41 @@ def run_forced_simulation(Re, save_dir, num_steps, autonomous_dir, forcing_ampli
     # fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
 
     # --- HOTFIX: Load u_optimal.mat and prepare control signal ---
-    # u_optimal_path = Path("/Users/jaking/Desktop/PhD/cylinder/u_optimal.mat")
-    # mat = loadmat(u_optimal_path)
-    # # t_interp = mat['t_recovered'].flatten()
-    # u_optimal = mat['u_interp'].flatten()
-    # sim_times = np.arange(fs.params_time.Tstart, 
-    #                      fs.params_time.Tstart + fs.params_time.dt * fs.params_time.num_steps, 
-    #                      fs.params_time.dt)
+    u_optimal_path = Path("/Users/jaking/Desktop/PhD/cylinder/u_ctrl_lqr.mat")
+    mat = loadmat(u_optimal_path)
+    # t_interp = mat['t_recovered'].flatten()
+    u_optimal = mat['u_ctrl_lqr_interp'].flatten()
+    sim_times = np.arange(fs.params_time.Tstart, 
+                         fs.params_time.Tstart + fs.params_time.dt * fs.params_time.num_steps, 
+                         fs.params_time.dt)
     # u_optimal_interp = np.interp(sim_times, t_interp, u_optimal)
     # ------------------------------------------------------------
     
-
+    # Chirp:
+    # Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=0)
     for i in range(fs.params_time.num_steps):
-        # y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
+        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
         # u_ctrl = Kss.step(y=-y_meas[0], dt=fs.params_time.dt)
-        # u_ctrl = u_optimal[i]
+        u_ctrl = u_optimal[i]
         # u_ctrl = forcing_amplitude * np.sin(forcing_frequency * fs.t)
-        u_ctrl = forcing_amplitude * chirp(fs.t, f0=0.0, f1=forcing_frequency/(2 * np.pi), t1=fs.params_time.Tfinal, method='linear')
+        # u_ctrl = forcing_amplitude * chirp(fs.t, f0=0.0, f1=forcing_frequency/(2 * np.pi), t1=fs.params_time.Tfinal, method='linear')
         fs.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
+
+    # # Multisine parameters
+    # N = 8  # Number of harmonics
+    # Phi_k = np.random.uniform(0, 2*np.pi, N)  # Random phases
+
+    # # Normalization factor
+    # norm_factor = 2 / np.sqrt(N)
+
+    # for i in range(fs.params_time.num_steps):
+    #     t = fs.t
+    #     # Multisine excitation
+    #     u_ctrl = norm_factor * np.sum([
+    #         forcing_amplitude * np.sin((k+1) * forcing_frequency * t + Phi_k[k])
+    #         for k in range(N)
+    #     ])
+    #     fs.step(u_ctrl=np.repeat(u_ctrl, repeats=2, axis=0))
 
     fs.write_timeseries()
 
@@ -199,7 +220,7 @@ if __name__ == "__main__":
     forcing_frequency = 1.0
 
     autonomous_dir = base_dir / f"Re{Re}_autonomous" / "run1"
-    forced_dir = base_dir / f"Re{Re}_control3" / "run1"
+    forced_dir = base_dir / f"Re{Re}_control_try" / "run1"
     forced_dir.mkdir(parents=True, exist_ok=True)
 
     # Run autonomous simulation
