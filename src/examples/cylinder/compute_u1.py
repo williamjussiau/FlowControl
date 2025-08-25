@@ -6,11 +6,7 @@ Supercritical Hopf bifurcation at Re_c=46
 Suggested Re=100
 ----------------------------------------------------------------------
 This file demonstrates the following possibilites:
-    - Initialize CylinderFlowSolver object
-    - Compute steady-state
-    - Load controller from file
-    - Perform closed-loop time simulation
-    - Restart simulation
+    - Solve the linearized steady-state Navier-Stokes equations around a base flow
 ----------------------------------------------------------------------
 """
 
@@ -55,11 +51,11 @@ def solve_linearized_steady_state(fs, U0_base, u_ctrl, max_iter=50, tol=1e-8):
     
     # Linearized operator
     a_linearized = (
-        dot(dot(U0_vec, nabla_grad(u)), v) * dx +  # Convection by base flow
-        dot(dot(u, nabla_grad(U0_vec)), v) * dx +  # Linearized convection
-        invRe * inner(nabla_grad(u), nabla_grad(v)) * dx +  # Viscous term
-        p * div(v) * dx +  # Pressure term
-        div(u) * q * dx   # Incompressibility
+        dot(dot(U0_vec, nabla_grad(u)), v) * dx  # Convection by base flow
+        + dot(dot(u, nabla_grad(U0_vec)), v) * dx  # Linearized convection
+        + invRe * inner(nabla_grad(u), nabla_grad(v)) * dx  # Viscous term
+        - p * div(v) * dx  # Pressure term
+        - div(u) * q * dx  # Incompressibility
     )
     
     # RHS = 0 for homogeneous linearized problem
@@ -232,32 +228,32 @@ def main():
     U0, P0 = U0_base.split()
     
     # Save uncontrolled steady state using flu.write_xdmf
-    flu.write_xdmf(
-        cwd / "data_output" / "U0_uncontrolled.xdmf",
-        U0,
-        "U0",
-        time_step=0.0,
-        append=False,
-        write_mesh=True,
-    )
+    # flu.write_xdmf(
+    #     cwd / "data_output" / "U0_uncontrolled.xdmf",
+    #     U0,
+    #     "U0",
+    #     time_step=0.0,
+    #     append=False,
+    #     write_mesh=True,
+    # )
     
-    flu.write_xdmf(
-        cwd / "data_output" / "P0_uncontrolled.xdmf",
-        P0,
-        "P0",
-        time_step=0.0,
-        append=False,
-        write_mesh=True,
-    )
+    # flu.write_xdmf(
+    #     cwd / "data_output" / "P0_uncontrolled.xdmf",
+    #     P0,
+    #     "P0",
+    #     time_step=0.0,
+    #     append=False,
+    #     write_mesh=True,
+    # )
     
     logger.info("Computing linearized steady state under control...")
-    u_ctrl_linearized = [1.0, 1.0]  # Control input
+    u_ctrl = [1.0, 1.0]  # Control input
     
     # Solve linearized system
-    UP_linearized = solve_linearized_steady_state(fs, U0_base, u_ctrl_linearized)
+    UP_lin = solve_linearized_steady_state(fs, U0_base, u_ctrl)
     
     # Extract velocity and pressure
-    U_lin, P_lin = UP_linearized.split()
+    U_lin, P_lin = UP_lin.split()
     
     # Save linearized steady state using flu.write_xdmf
     flu.write_xdmf(
@@ -279,6 +275,20 @@ def main():
     )
 
     logger.info("Analysis completed successfully.")
+
+    # Extract only velocity DOFs
+    velocity_dofs = U_lin.function_space().dofmap().dofs()
+    U_lin_field_data = U_lin.vector().get_local()[velocity_dofs]
+
+    # Extract only pressure DOFs
+    pressure_dofs = P_lin.function_space().dofmap().dofs()
+    P_lin_field_data = P_lin.vector().get_local()[pressure_dofs]
+    UP_lin_field_data = UP_lin.vector().get_local()
+
+    np.save(cwd / "data_output" / "U_lin_field_data_unit_control.npy", U_lin_field_data)
+    np.save(cwd / "data_output" / "P_lin_field_data_unit_control.npy", P_lin_field_data)
+    np.save(cwd / "data_output" / "UP_lin_field_data_unit_control.npy", UP_lin_field_data)
+
 
 if __name__ == "__main__":
     main()
