@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Xdmf Version="3.0">
+  <Domain>
+    <Grid GridType="Collection" CollectionType="Temporal" Name="P0">
+      <Grid Name="P0_0" GridType="Uniform">
+        <Topology NumberOfElements="12284" TopologyType="Triangle" NodesPerElement="3">
+          <DataItem Dimensions="12284 3" NumberType="UInt" Format="HDF">P0.h5:P0/P0_0/mesh/topology</DataItem>
+        </Topology>
+        <Geometry GeometryType="XY">
+          <DataItem Dimensions="6327 2" Format="HDF">P0.h5:P0/P0_0/mesh/geometry</DataItem>
+        </Geometry>
+        <Time Value="0.000000" />
+        <Attribute ItemType="FiniteElementFunction" ElementFamily="CG" ElementDegree="1" ElementCell="triangle" Name="P0" Center="Other" AttributeType="Scalar">
+          <DataItem Dimensions="36852 1" NumberType="UInt" Format="HDF">P0.h5:P0/P0_0/cell_dofs</DataItem>
+          <DataItem Dimensions="6327 1" NumberType="Float" Format="HDF">P0.h5:P0/P0_0/vector</DataItem>
+          <DataItem Dimensions="12285 1" NumberType="UInt" Format="HDF">P0.h5:P0/P0_0/x_cell_dofs</DataItem>
+          <DataItem Dimensions="12284 1" NumberType="UInt" Format="HDF">P0.h5:P0/P0_0/cells</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+  </Domain>
+</Xdmf>

@@ -23,6 +23,7 @@ import scipy.signal as ss
 import scipy.sparse as spr
 import scipy.sparse.linalg as spr_la
 from dolfin import dot, inner
+from joblib import Parallel, delayed
 from matplotlib import cm
 from mpi4py import MPI as mpi
 from petsc4py import PETSc
@@ -268,6 +269,30 @@ def sparse_to_petscmat(A):
 def array_to_petscmat(A, eliminate_zeros=True):
     """Cast np array A to PETSc.Matrix()"""
     return sparse_to_petscmat(dense_to_sparse(A, eliminate_zeros))
+
+
+def numpy_to_petsc(M: np.ndarray):
+    """Cast np array M to petsc matrix"""
+    mat = PETSc.Mat().createAIJ(size=M.shape, comm=PETSc.COMM_WORLD)
+    mat.setValues(range(M.shape[0]), range(M.shape[1]), M.flatten())
+    mat.assemble()
+    return mat
+
+
+def numpy_to_scipy_csr(M: np.ndarray):
+    """Cast np array M to scipy.sparse.csr_matrix"""
+    return spr.csr_matrix(M)
+
+
+def dolfin_petsc_to_petsc(M: dolfin.cpp.la.PETScMatrix):
+    """Cast dolfin PETSc matrix to regular PETSc matrix"""
+    return dolfin.as_backend_type(M).mat()
+
+
+def petsc_to_scipy(mat: PETSc.Mat) -> spr.csr_matrix:
+    """Convert a PETSc.Mat to a scipy CSR matrix."""
+    indptr, indices, data = mat.getValuesCSR()
+    return spr.csr_matrix((data, indices, indptr), shape=mat.getSize())
 
 
 ###############################################################################
@@ -1145,6 +1170,323 @@ def write_optim_csv(fs, x, J, diverged, write=True):
 ###############################################################################
 
 
+def _setup_frequency_response_matrices(
+    A: PETSc.Mat,
+    B: np.ndarray,
+    C: np.ndarray,
+    Q: PETSc.Mat,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Setup matrices for frequency response computation"""
+    logger.info("Converting PETSc matrices to scipy...")
+    Acsr = petsc_to_scipy(A)
+    Qcsr = petsc_to_scipy(Q)
+
+    n = Acsr.shape[0]
+    B = np.atleast_2d(B) if B.ndim > 1 else B.reshape(n, 1)
+
+    n = Acsr.shape[0]
+    nu = B.shape[1] if B.ndim > 1 else 1
+    ny = C.shape[0]
+    n_nu_ny = (n, nu, ny)
+
+    return Acsr, Qcsr, B, C, n_nu_ny
+
+
+def get_frequency_response(
+    A: PETSc.Mat,
+    B: np.ndarray,
+    C: np.ndarray,
+    Q: PETSc.Mat,
+    ww: np.ndarray,
+    verbose: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute frequency response H(w) = C * inv(jwQ - A) * B.
+
+    Uses real arithmetic only: solves the equivalent 2n x 2n real block
+    system at each frequency, yielding real and imaginary parts of H.
+
+    Args:
+        A:       System matrix,     PETSc.Mat, shape (n, n).
+        B:       Input matrix,      np.ndarray, shape (n, nu).
+        C:       Output matrix,     np.ndarray, shape (ny, n).
+        Q:       Mass matrix,       PETSc.Mat, shape (n, n).
+        ww:      Frequency array,   np.ndarray, shape (nw,).
+        verbose: If True, log progress at each frequency step.
+
+    Returns:
+        H:  Frequency response, np.ndarray complex, shape (ny, nu, nw).
+        ww: Frequency array,    np.ndarray, shape (nw,).
+    """
+    # Convert PETSc matrices to scipy once, outside the loop
+    Acsr, Qcsr, B, C, n_nu_ny = _setup_frequency_response_matrices(A=A, B=B, C=C, Q=Q)
+    n, nu, ny = n_nu_ny
+
+    nw = ww.shape[0]
+    logwmin = np.log10(ww[0])
+    logwmax = np.log10(ww[-1])
+    logger.info(
+        "System dimensions: n=%d, nu=%d, ny=%d | Frequency points: nw=%d, "
+        "w in [1e%g, 1e%g]",
+        n,
+        nu,
+        ny,
+        nw,
+        logwmin,
+        logwmax,
+    )
+
+    H = np.zeros((ny, nu, nw), dtype=complex)
+
+    # RHS is fixed across frequencies: [B; 0]
+    rhs = np.vstack([B, np.zeros_like(B)])  # (2n, nu)
+
+    t_start = time.time()
+    for ii, w in enumerate(ww):
+        t_step = time.time()
+
+        # Build 2n x 2n real block matrix
+        Ablk = spr.bmat(
+            [[-Acsr, -w * Qcsr], [w * Qcsr, -Acsr]],
+            format="csc",
+        )
+
+        # Factorize once, solve for all nu right-hand sides simultaneously
+        lu = spr_la.splu(Ablk)
+        x = lu.solve(rhs)  # (2n, nu)
+
+        xr = x[:n, :]  # (n, nu) real part of resolvent
+        xi = x[n:, :]  # (n, nu) imag part of resolvent
+
+        H[:, :, ii] = C @ xr + 1j * C @ xi
+
+        if verbose:
+            logger.info(
+                "  [%d/%d] w=%.4e | max|H|=%.4e | elapsed: %.3fs",
+                ii + 1,
+                nw,
+                w,
+                np.max(np.abs(H[:, :, ii])),
+                time.time() - t_step,
+            )
+
+    logger.info("Frequency response computed in %.3fs total.", time.time() - t_start)
+
+    return H, ww
+
+
+def _solve_at_frequency(w, Acsr, Qcsr, rhs, C, n):
+    """Solve the block system at a single frequency w."""
+    Ablk = spr.bmat(
+        [[-Acsr, -w * Qcsr], [w * Qcsr, -Acsr]],
+        format="csc",
+    )
+    lu = spr_la.splu(Ablk)
+    x = lu.solve(rhs)
+    return C @ x[:n, :] + 1j * C @ x[n:, :]  # (ny, nu)
+
+
+def get_frequency_response_parallel(
+    A: PETSc.Mat,
+    B: np.ndarray,
+    C: np.ndarray,
+    Q: PETSc.Mat,
+    ww: np.ndarray,
+    verbose: bool = True,
+    n_jobs: int = 1,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute frequency response H(w) = C * inv(jwQ - A) * B.
+    Each frequency is computed in a parallel job, but matrices are copied to each process.
+
+    Uses real arithmetic only: solves the equivalent 2n x 2n real block
+    system at each frequency, yielding real and imaginary parts of H.
+
+    Args:
+        A:       System matrix,     PETSc.Mat, shape (n, n).
+        B:       Input matrix,      np.ndarray, shape (n, nu).
+        C:       Output matrix,     np.ndarray, shape (ny, n).
+        Q:       Mass matrix,       PETSc.Mat, shape (n, n).
+        ww:      Frequency array,   np.ndarray, shape (nw,).
+        verbose: If True, log progress at each frequency step.
+
+    Returns:
+        H:  Frequency response, np.ndarray complex, shape (ny, nu, nw).
+        ww: Frequency array,    np.ndarray, shape (nw,).
+    """
+    # Convert PETSc matrices to scipy once, outside the loop
+    Acsr, Qcsr, B, C, n_nu_ny = _setup_frequency_response_matrices(A=A, B=B, C=C, Q=Q)
+    n, nu, ny = n_nu_ny
+
+    nw = ww.shape[0]
+    logwmin = np.log10(ww[0])
+    logwmax = np.log10(ww[-1])
+    logger.info(
+        "System dimensions: n=%d, nu=%d, ny=%d | Frequency points: nw=%d, "
+        "w in [1e%g, 1e%g]",
+        n,
+        nu,
+        ny,
+        nw,
+        logwmin,
+        logwmax,
+    )
+
+    H = np.zeros((ny, nu, nw), dtype=complex)
+
+    # RHS is fixed across frequencies: [B; 0]
+    rhs = np.vstack([B, np.zeros_like(B)])  # (2n, nu)
+
+    results = Parallel(n_jobs=n_jobs, return_as="generator")(
+        delayed(_solve_at_frequency)(w, Acsr, Qcsr, rhs, C, n) for w in ww
+    )
+
+    t_start = time.time()
+    for ii, (w, H_w) in enumerate(zip(ww, results)):
+        H[:, :, ii] = H_w
+        if verbose:
+            logger.info(
+                "  [%d/%d] w=%.4e | max|H|=%.4e | elapsed: %.3fs",
+                ii + 1,
+                nw,
+                w,
+                np.max(np.abs(H_w)),
+                time.time() - t_start,
+            )
+
+    logger.info("Frequency response computed in %.3fs total.", time.time() - t_start)
+
+    return H, ww
+
+
+def save_Hw(
+    H: np.ndarray,
+    ww: np.ndarray,
+    save_dir: str,
+    save_suffix: str = "",
+    input_labels: list[str] | None = None,
+    output_labels: list[str] | None = None,
+) -> None:
+    """Save frequency response data to .mat files.
+    Saves one combined file (full H) and one file per (output, input) pair.
+
+    Args:
+        H:             Frequency response, shape (ny, nu, nw), complex.
+        ww:            Frequency array, shape (nw,).
+        save_dir:      Directory to save files into.
+        save_suffix:   Optional suffix appended to filenames.
+        input_labels:  Names for each input channel, length nu.
+                       Defaults to ['u0', 'u1', ...].
+        output_labels: Names for each output channel, length ny.
+                       Defaults to ['y0', 'y1', ...].
+    """
+    ny, nu, nw = H.shape
+    save_path = Path(save_dir)
+
+    if input_labels is None:
+        input_labels = [f"u{i}" for i in range(nu)]
+    if output_labels is None:
+        output_labels = [f"y{i}" for i in range(ny)]
+
+    # Save full combined file
+    combined_path = save_path / f"Hw_nw{nw}_ny{ny}_nu{nu}{save_suffix}.mat"
+    sio.savemat(
+        combined_path,
+        {
+            "H": H,
+            "w": ww,
+            "input_labels": input_labels,
+            "output_labels": output_labels,
+            "comment": "H has shape (ny, nu, nw)",
+        },
+    )
+    logger.info("Saving combined frequency response to: %s", combined_path)
+
+    # Save one file per (output, input) pair
+    for iy in range(ny):
+        for iu in range(nu):
+            suffix_i = f"_{output_labels[iy]}_to_{input_labels[iu]}"
+            pair_path = save_path / f"Hw_nw{nw}{save_suffix}{suffix_i}.mat"
+            sio.savemat(
+                pair_path,
+                {
+                    "H": H[iy, iu, :],
+                    "w": ww,
+                    "input_label": input_labels[iu],
+                    "output_label": output_labels[iy],
+                },
+            )
+            logger.info(
+                "Saving H[%s -> %s] to: %s",
+                input_labels[iu],
+                output_labels[iy],
+                pair_path,
+            )
+
+
+def plot_Hw(
+    H: np.ndarray,
+    ww: np.ndarray,
+    save_dir: str,
+    save_suffix: str = "",
+    input_labels: list[str] | None = None,
+    output_labels: list[str] | None = None,
+) -> None:
+    """Plot and save Bode diagrams for each (output, input) pair.
+    Produces one figure per input channel, with ny subplots (one per output).
+
+    Args:
+        H:             Frequency response, shape (ny, nu, nw), complex.
+        ww:            Frequency array, shape (nw,).
+        save_dir:      Directory to save figures into.
+        save_suffix:   Optional suffix appended to filenames.
+        input_labels:  Names for each input channel, length nu.
+                       Defaults to ['u0', 'u1', ...].
+        output_labels: Names for each output channel, length ny.
+                       Defaults to ['y0', 'y1', ...].
+    """
+    ny, nu, nw = H.shape
+    save_path = Path(save_dir)
+
+    if input_labels is None:
+        input_labels = [f"u{i}" for i in range(nu)]
+    if output_labels is None:
+        output_labels = [f"y{i}" for i in range(ny)]
+
+    for iu in range(nu):
+        # One figure per input: ny rows (magnitude + phase stacked), 2 columns
+        fig, axs = plt.subplots(ny, 2, figsize=(10, 3 * ny), squeeze=False)
+        fig.suptitle(f"Bode plot — input: {input_labels[iu]}")
+
+        for iy in range(ny):
+            H_iy_iu = H[iy, iu, :]
+
+            ax_mag = axs[iy, 0]
+            ax_phase = axs[iy, 1]
+
+            ax_mag.scatter(ww, 20 * np.log10(np.abs(H_iy_iu)), marker=".")
+            ax_mag.set_ylabel(f"|H| (dB)\n{output_labels[iy]}")
+            ax_mag.set_xscale("log")
+            ax_mag.grid(which="both")
+
+            ax_phase.scatter(
+                ww,
+                (180 / np.pi) * np.unwrap(np.angle(H_iy_iu)),
+                marker=".",
+            )
+            ax_phase.set_ylabel(f"Phase (deg)\n{output_labels[iy]}")
+            ax_phase.set_xscale("log")
+            ax_phase.grid(which="both")
+
+        # Only label x-axis on bottom row
+        axs[-1, 0].set_xlabel("Frequency")
+        axs[-1, 1].set_xlabel("Frequency")
+
+        fig.tight_layout()
+        fig_path = save_path / f"bodeplot_{input_labels[iu]}{save_suffix}.png"
+        fig.savefig(fig_path)
+        plt.close(fig)
+        logger.info("Saving Bode plot for input %s to: %s", input_labels[iu], fig_path)
+
+
 # FlowSolver frequency response utility # GOTO ################################
 def get_Hw(
     fs,
@@ -1167,7 +1509,7 @@ def get_Hw(
 
     # solve: given w, (jwQ-A)x=B, then y=Cx
     ww = np.logspace(logwmin, logwmax, num=nw)
-    ns = fs.sensor_nr
+    ns = fs.params_control.sensor_number
     # 1 line per sensor
     # 1 column per freq
     Hw = np.zeros((ns, len(ww)), dtype=complex)
@@ -1183,14 +1525,14 @@ def get_Hw(
         D = 0
     if Q is None:
         Q = fs.get_mass_matrix()
-    Q = dense_to_sparse(Q)
 
     # Sub blocks (before loop)
     if verbose:
         logger.info("Defining sub-blocks (A, E)")
+
     Acsr = dense_to_sparse(A)
-    sz = Acsr.shape[0]  # fs.W.dim()
-    # print('size of acsr is:', sz)
+    Q = dense_to_sparse(Q)
+    sz = Acsr.shape[0]
 
     petsc4py.init()
     Rb = PETSc.Mat().create()
@@ -1199,20 +1541,14 @@ def get_Hw(
     Rb.assemble()
 
     rstart, rend = Rb.getOwnershipRange()
-    # print('my ownership range is: ', rstart, rend)
 
     # B, C
-    # C0 = np.zeros_like(C)
     B0 = np.zeros_like(B)
-    # Czero = np.hstack([C, C0])
-    # zeroC = np.hstack([C0, C])
     Bzero = np.vstack([B, B0])
     CjC = np.hstack([C, 1j * C])
 
     # solver
     solvR = dolfin.LUSolver("mumps")
-    # solvR = PETSc.KSP().create()
-    # setup ksp here
 
     hw_timings = {
         "stack": 0,
@@ -1236,7 +1572,6 @@ def get_Hw(
         # from here to......
         Ablk = spr.bmat([[-Acsr, -w * Q], [w * Q, -Acsr]])  # TODO convert to PETSc
         Ablk = Ablk.tocsr()
-        # Ablk_csr = (Ablk.indptr, Ablk.indices, Ablk.data)
 
         Ablk_csr = (
             Ablk.indptr[rstart : rend + 1] - Ablk.indptr[rstart],
@@ -1248,7 +1583,6 @@ def get_Hw(
 
         t01 = time.time()
         Rb.createAIJ(size=(2 * sz, 2 * sz), csr=Ablk_csr, comm=PETSc.COMM_WORLD)
-        # Rb.createAIJWithArrays(size=[2*sz, 2*sz], csr=Ablk_csr, comm=PETSc.COMM_WORLD)
 
         Rb.assemblyBegin()
         Rb.assemblyEnd()
@@ -1257,34 +1591,19 @@ def get_Hw(
         # Create solution (in LHS) & RHS
         t02 = time.time()
         vecx, vecb = Rb.createVecs()
-        # vecx = Rb.createVecRight()
-        # print('size of vx after createvec: ', vecx.size)
-        # print('size of vb after createvec: ', vecb.size)
-        # print('size of bzero: ', Bzero.shape)
-        # vecb = PETSc.Vec().createWithArray(Bzero, comm=PETSc.COMM_WORLD)
         rbstart, rbend = vecb.getOwnershipRange()
-        # print('ownership range is: ', rbstart, rbend)
-        # vecb.createWithArray(Bzero, comm=PETSc.COMM_WORLD)
         localidx = list(range(rbstart, rbend))
         vecb.setValues(localidx, Bzero[localidx])
-        # print('size of vb after createarray: ', vecb.size)
         vecx, vecb = dolfin.PETScVector(vecx), dolfin.PETScVector(vecb)
-        # print('size of vx after convert: ', vecx.size())
-        # print('size of vb after convert: ', vecb.size())
 
         # Casting matrix
         ############################## warning: this is back to dolfin
-        # Rmat = Rb
-        # solvR.setOperators(Rmat)
-        # solvR.setFromOptions()
         Rmat = dolfin.PETScMatrix(Rb)
         hw_timings["createmat"] += -t02 + time.time()
 
         # Solving system
         t03 = time.time()
-        # exitFlag = solvR.solve(Rmat, vecx, vecb)
         solvR.solve(Rmat, vecx, vecb)
-        # solvR.solve(vecb, vecx)
         hw_timings["solve"] += -t03 + time.time()
         # .............. here
         # the function determines the field response x = inv(jwQ-A)*B for given w
@@ -1292,25 +1611,14 @@ def get_Hw(
         ########################################################
         # this part has to take into account the nr of sensors #
         ########################################################
-        # print('max of x is:', max(vecx.get_local()))
         t04 = time.time()
 
         rxstart, rxend = vecx.vec().getOwnershipRange()
         localidx = list(range(rxstart, rxend))
-        # print('size of vecx local: ', vecx.get_local().shape)
-        # print('size of vecx local slice: ', vecx.get_local()[:sz].shape)
-        # print('size of C: ', C.shape)
 
         vecy = spr.csr_matrix(CjC[:, localidx]).dot(vecx.get_local())
-        # vecy = spr.csr_matrix(C).dot(vecx.get_local()[:sz]) + D
-        # ivecy = spr.csr_matrix(C).dot(vecx.get_local()[sz:])
         hw_timings["decompose"] += -t04 + time.time()
 
-        # print('  --- y is:', vecy)
-        # print('  --- iy is:', ivecy)
-
-        # Hw[:, ii] = vecy + 1j * ivecy
-        # Hw[:, ii] = vecy # mpi.allgather ?
         Hw[:, ii] = dolfin.MPI.comm_world.reduce(vecy, root=0)  # mpi.allgather ?
 
         if verbose:
