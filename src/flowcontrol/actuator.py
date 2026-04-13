@@ -74,7 +74,7 @@ class ActuatorBC(Actuator):
         boundary (dolfin.Expression): boundary on which the boundary condition is enforced
     """
 
-    boundary: Optional[dolfin.Expression] = None
+    boundary: Optional[dolfin.SubDomain] = None
 
 
 @dataclass(kw_only=True)

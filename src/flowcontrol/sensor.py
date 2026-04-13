@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 import utils.utils_flowsolver as flu
 
-SENSOR_INDEX_DEFAULT = 100
+SENSOR_INDEX_DEFAULT = 10000
 
 
 class SENSOR_TYPE(IntEnum):
@@ -93,7 +93,7 @@ class SensorIntegral(Sensor):
     require_loading: bool = True
 
     @abstractmethod
-    def load(self) -> None:
+    def load(self, flowsolver) -> None:
         """Define and mark subdomain, define integration element ds or dx."""
         pass
 
@@ -128,9 +128,6 @@ class SensorHorizontalWallShear(SensorIntegral):
         sensor_mark = dolfin.MeshFunction(
             "size_t", flowsolver.mesh, flowsolver.mesh.topology().dim() - 1
         )
-
-        if self.sensor_index is None:
-            self.sensor_index = SENSOR_INDEX_DEFAULT
 
         sensor_subdomain.mark(sensor_mark, self.sensor_index)
         self.subdomain = sensor_subdomain
