@@ -19,10 +19,6 @@ from flowcontrol.actuator import ACTUATOR_TYPE
 from flowcontrol.flowfield import BoundaryConditions, FlowField, FlowFieldCollection
 
 logger = logging.getLogger(__name__)
-FORMAT = (
-    "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]%(levelname)s: %(message)s"
-)
-logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 class FlowSolver(ABC):
@@ -53,7 +49,7 @@ class FlowSolver(ABC):
         setup FlowSolver object.
 
         Args:
-            params_flow (flowsolverparameters.ParamControl): see flowsolverparameters
+            params_flow (flowsolverparameters.ParamFlow): see flowsolverparameters
             params_time (flowsolverparameters.ParamTime): see flowsolverparameters
             params_save (flowsolverparameters.ParamSave): see flowsolverparameters
             params_solver (flowsolverparameters.ParamSolver): see flowsolverparameters
@@ -101,6 +97,7 @@ class FlowSolver(ABC):
         self._load_sensors()
         self.bc = self._make_bcs()  # @abstract
         self.BC = self._make_BCs()
+        self._function_assigner = dolfin.FunctionAssigner(self.W, [self.V, self.P])
 
     def _define_paths(self) -> dict[str, Path]:
         """Define dictionary of file names for import/export.
@@ -595,7 +592,7 @@ class FlowSolver(ABC):
 
         return 1
 
-    def step(self, u_ctrl: NDArray[np.float64]) -> NDArray[np.float64]:
+    def step(self, u_ctrl: NDArray[np.float64]) -> Optional[NDArray[np.float64]]:
         """Simulate the system on one time-step: up(t)->up(t+dt).
         The first time this method is run, it calls _prepare_systems.
 
@@ -607,7 +604,8 @@ class FlowSolver(ABC):
             e: any other exception
 
         Returns:
-            NDArray[float64]: value of measurement y after step
+            NDArray[float64]: value of measurement y after step, or None if solver diverged
+                and params_solver.throw_error is False.
         """
         v, q = dolfin.TestFunctions(self.W)
         up = dolfin.TrialFunction(self.W)
@@ -642,7 +640,7 @@ class FlowSolver(ABC):
             logger.critical("*** Solver diverged, Inf found ***")
             if not self.params_solver.throw_error:
                 logger.critical("*** Exiting step() ***")
-                return -1  # -1 is error code
+                return None
             else:
                 raise RuntimeError("Failed solving: Inf found in solution")
         except Exception as e:
@@ -695,7 +693,7 @@ class FlowSolver(ABC):
             bool: True if solver failed, False else
         """
 
-        return not np.isfinite(field.vector().get_local()[0])
+        return not np.all(np.isfinite(field.vector().get_local()))
 
     def _niter_multiple_of(self, iter: int, divider: int) -> bool:
         """Check multiplicity for outputting verbose information
@@ -721,9 +719,8 @@ class FlowSolver(ABC):
         Returns:
             dolfin.Function: mixed field (pert or full) in self.W
         """
-        fa = dolfin.FunctionAssigner(self.W, [self.V, self.P])
         up = dolfin.Function(self.W)
-        fa.assign(up, [u, p])
+        self._function_assigner.assign(up, [u, p])
         return up
 
     def set_actuators_u_ctrl(self, u_ctrl: Iterable) -> None:
@@ -772,7 +769,7 @@ class FlowSolver(ABC):
             adjust_baseflow (float, optional): adjust fields with base flow (e.g. add or subtract). Defaults to 0.
         """
 
-        if not (hasattr(self.fields, "Psave_n")):
+        if not (hasattr(self.fields, "Usave")):
             self.fields.Usave = dolfin.Function(self.V)
             self.fields.Usave_n = dolfin.Function(self.V)
             self.fields.Psave = dolfin.Function(self.P)
@@ -981,7 +978,9 @@ class FlowSolver(ABC):
             solverp.solve(Ap, UP1.vector(), bp)
 
             UP0.assign(UP1)
-            u, p = UP1.split()
+            u_split, p_split = (
+                UP1.split()
+            )  # split result for inspection; does not shadow trial functions u, p
 
             # Residual computation
             res = dolfin.assemble(dolfin.action(ap, UP1))
@@ -1093,6 +1092,8 @@ class FlowSolver(ABC):
         runtime: float,
     ) -> None:
         """Fill timeseries with simulation data at given index."""
+        # u_ctrl is logged at iter-1 (it was applied at the previous step),
+        # y_meas at iter (it is the output produced by this step). Not an off-by-one bug.
         self._assign_to_df(
             df=self.timeseries, name="u_ctrl", value=u_ctrl, index=self.iter - 1
         )
@@ -1208,6 +1209,10 @@ class FlowSolver(ABC):
         """Define boundary conditions on previously defined boundaries.
         This method should return a dictionary containing two lists:
         boundary conditions for (u,v) and boundary conditions for (p).
+
+        IMPORTANT: the first entry of bcu MUST be the inlet BC. _make_BCs()
+        replaces bcu[0] with the full-field inlet BC (uniform profile). If
+        the inlet BC is not first, the wrong condition will be overwritten.
 
         Returns:
             BoundaryConditions: boundary conditions for perturbation field as dataclass object

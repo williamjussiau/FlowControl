@@ -20,8 +20,6 @@ from flowcontrol.flowfield import BoundaryConditions
 # LOG
 dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
 logger = logging.getLogger(__name__)
-FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
 
 class CylinderFlowSolver(flowsolver.FlowSolver):
