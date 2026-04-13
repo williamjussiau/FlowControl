@@ -1170,29 +1170,139 @@ def write_optim_csv(fs, x, J, diverged, write=True):
 ###############################################################################
 
 
-def _setup_frequency_response_matrices(
-    A: PETSc.Mat,
+def _get_matrix_size(
+    M: PETSc.Mat | spr.spmatrix | np.ndarray, axis: int = 0
+) -> tuple[int, int]:
+    """Get global (nrows, ncols) from a PETSc, scipy, or numpy matrix.
+
+    For PETSc.Mat, returns global size (not local/per-process size).
+
+    Args:
+        M: Matrix of any supported type.
+        axis: for numpy arrays, axis along which to get global size.
+    Returns:
+        (nrows, ncols) global dimensions.
+    Raises:
+        TypeError: If M is not a supported matrix type.
+    """
+    if isinstance(M, PETSc.Mat):
+        return M.getSize()  # global size, same on all ranks
+    elif isinstance(M, spr.spmatrix):
+        return M.shape
+    elif isinstance(M, np.ndarray):
+        if M.ndim != 2:
+            raise ValueError(f"numpy matrix must be 2D, got shape {M.shape}.")
+        global_size = mpi.COMM_WORLD.reduce(M.shape[axis], op=mpi.SUM, root=0)
+        return global_size
+    else:
+        raise TypeError(
+            f"Unsupported matrix type: {type(M)}. "
+            f"Expected PETSc.Mat, scipy sparse, or np.ndarray."
+        )
+
+
+def _get_freqresp_sizes(
+    A: PETSc.Mat | spr.spmatrix,
     B: np.ndarray,
     C: np.ndarray,
-    Q: PETSc.Mat,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Setup matrices for frequency response computation"""
-    logger.info("Converting PETSc matrices to scipy...")
-    Acsr = petsc_to_scipy(A)
-    Qcsr = petsc_to_scipy(Q)
+    ww: np.ndarray,
+) -> tuple[int, int, int, int]:
+    """Extract and validate system dimensions for frequency response computation.
 
-    n = Acsr.shape[0]
-    B = np.atleast_2d(B) if B.ndim > 1 else B.reshape(n, 1)
+    Args:
+        A:  System matrix, shape (n, n).
+        B:  Input matrix,  shape (n, nu) or (n,).
+        C:  Output matrix, shape (ny, n) or (n,).
+        ww: Frequency array, shape (nw,).
+    Returns:
+        (n, nu, ny, nw) as a tuple of ints.
+    Raises:
+        ValueError: If matrix dimensions are inconsistent.
+    """
+    B = np.asarray(B)
+    C = np.asarray(C)
 
-    n = Acsr.shape[0]
-    nu = B.shape[1] if B.ndim > 1 else 1
-    ny = C.shape[0]
-    n_nu_ny = (n, nu, ny)
+    n_A, m_A = _get_matrix_size(A)
+    n = n_A
+    nu = _get_matrix_size(B, axis=1) if B.ndim == 2 else 1
+    ny = _get_matrix_size(C, axis=0) if C.ndim == 2 else 1
+    nw = len(ww)
 
-    return Acsr, Qcsr, B, C, n_nu_ny
+    # Consistency checks
+    if n_A != m_A:
+        raise ValueError(f"A must be square, got shape ({n_A}, {m_A}).")
+    # if B.shape[0] != n:
+    #     raise ValueError(
+    #         f"B row dimension {B.shape[0]} does not match A dimension {n}."
+    #     )
+    # if C.ndim == 2 and C.shape[1] != n:
+    #     raise ValueError(
+    #         f"C column dimension {C.shape[1]} does not match A dimension {n}."
+    #     )
+    if nw < 1:
+        raise ValueError(f"ww must be non-empty, got length {nw}.")
+
+    return n, nu, ny, nw
 
 
-def get_frequency_response(
+def _format_freqresp_matrices(
+    A: PETSc.Mat | spr.spmatrix,
+    B: np.ndarray,
+    Q: PETSc.Mat | spr.spmatrix,
+) -> tuple[spr.csc_matrix, spr.csc_matrix, np.ndarray]:
+    """Convert matrices to formats required for scipy-based solvers.
+    Not needed for MPI/PETSc solvers.
+
+    Converts A and Q to scipy CSC (preferred format for splu),
+    and normalizes B to 2D.
+
+    Args:
+        A: System matrix, PETSc.Mat or scipy sparse, shape (n, n).
+        B: Input matrix,  np.ndarray, shape (n, nu) or (n,).
+        Q: Mass matrix,   PETSc.Mat or scipy sparse, shape (n, n).
+    Returns:
+        Acsc: System matrix as scipy CSC, shape (n, n).
+        Qcsc: Mass matrix as scipy CSC, shape (n, n).
+        B:    Input matrix as np.ndarray 2D, shape (n, nu).
+    Raises:
+        TypeError: If A or Q cannot be converted to scipy CSC.
+    """
+
+    def _to_csc(M: PETSc.Mat | spr.spmatrix, name: str) -> spr.csc_matrix:
+        if isinstance(M, PETSc.Mat):
+            indptr, indices, data = M.getValuesCSR()
+            return spr.csr_matrix((data, indices, indptr), shape=M.getSize()).tocsc()
+        elif isinstance(M, spr.spmatrix):
+            return M.tocsc()
+        else:
+            raise TypeError(f"{name} must be PETSc.Mat or scipy sparse, got {type(M)}.")
+
+    Acsc = _to_csc(A, "A")
+    Qcsc = _to_csc(Q, "Q")
+
+    B = np.asarray(B)
+    if B.ndim == 1:
+        B = B.reshape(-1, 1)
+    elif B.ndim != 2:
+        raise ValueError(f"B must be 1D or 2D, got shape {B.shape}.")
+
+    return Acsc, Qcsc, B
+
+
+def _show_freqresp_info(n, nu, ny, nw, ww):
+    logger.info(
+        "System dimensions: n=%d, nu=%d, ny=%d | Frequency points: nw=%d, "
+        "w in [1e%g, 1e%g]",
+        n,
+        nu,
+        ny,
+        nw,
+        np.log10(ww[0]),
+        np.log10(ww[-1]),
+    )
+
+
+def get_frequency_response_sequential(
     A: PETSc.Mat,
     B: np.ndarray,
     C: np.ndarray,
@@ -1218,22 +1328,9 @@ def get_frequency_response(
         ww: Frequency array,    np.ndarray, shape (nw,).
     """
     # Convert PETSc matrices to scipy once, outside the loop
-    Acsr, Qcsr, B, C, n_nu_ny = _setup_frequency_response_matrices(A=A, B=B, C=C, Q=Q)
-    n, nu, ny = n_nu_ny
-
-    nw = ww.shape[0]
-    logwmin = np.log10(ww[0])
-    logwmax = np.log10(ww[-1])
-    logger.info(
-        "System dimensions: n=%d, nu=%d, ny=%d | Frequency points: nw=%d, "
-        "w in [1e%g, 1e%g]",
-        n,
-        nu,
-        ny,
-        nw,
-        logwmin,
-        logwmax,
-    )
+    n, nu, ny, nw = _get_freqresp_sizes(A=A, B=B, C=C, ww=ww)
+    Acsc, Qcsc, B = _format_freqresp_matrices(A=A, B=B, Q=Q)
+    _show_freqresp_info(n, nu, ny, nw, ww)
 
     H = np.zeros((ny, nu, nw), dtype=complex)
 
@@ -1246,7 +1343,7 @@ def get_frequency_response(
 
         # Build 2n x 2n real block matrix
         Ablk = spr.bmat(
-            [[-Acsr, -w * Qcsr], [w * Qcsr, -Acsr]],
+            [[-Acsc, -w * Qcsc], [w * Qcsc, -Acsc]],
             format="csc",
         )
 
@@ -1272,17 +1369,6 @@ def get_frequency_response(
     logger.info("Frequency response computed in %.3fs total.", time.time() - t_start)
 
     return H, ww
-
-
-def _solve_at_frequency(w, Acsr, Qcsr, rhs, C, n):
-    """Solve the block system at a single frequency w."""
-    Ablk = spr.bmat(
-        [[-Acsr, -w * Qcsr], [w * Qcsr, -Acsr]],
-        format="csc",
-    )
-    lu = spr_la.splu(Ablk)
-    x = lu.solve(rhs)
-    return C @ x[:n, :] + 1j * C @ x[n:, :]  # (ny, nu)
 
 
 def get_frequency_response_parallel(
@@ -1313,22 +1399,9 @@ def get_frequency_response_parallel(
         ww: Frequency array,    np.ndarray, shape (nw,).
     """
     # Convert PETSc matrices to scipy once, outside the loop
-    Acsr, Qcsr, B, C, n_nu_ny = _setup_frequency_response_matrices(A=A, B=B, C=C, Q=Q)
-    n, nu, ny = n_nu_ny
-
-    nw = ww.shape[0]
-    logwmin = np.log10(ww[0])
-    logwmax = np.log10(ww[-1])
-    logger.info(
-        "System dimensions: n=%d, nu=%d, ny=%d | Frequency points: nw=%d, "
-        "w in [1e%g, 1e%g]",
-        n,
-        nu,
-        ny,
-        nw,
-        logwmin,
-        logwmax,
-    )
+    n, nu, ny, nw = _get_freqresp_sizes(A=A, B=B, C=C, ww=ww)
+    Acsc, Qcsc, B = _format_freqresp_matrices(A=A, B=B, Q=Q)
+    _show_freqresp_info(n, nu, ny, nw, ww)
 
     H = np.zeros((ny, nu, nw), dtype=complex)
 
@@ -1336,7 +1409,7 @@ def get_frequency_response_parallel(
     rhs = np.vstack([B, np.zeros_like(B)])  # (2n, nu)
 
     results = Parallel(n_jobs=n_jobs, return_as="generator")(
-        delayed(_solve_at_frequency)(w, Acsr, Qcsr, rhs, C, n) for w in ww
+        delayed(_solve_at_frequency)(w, Acsc, Qcsc, rhs, C, n) for w in ww
     )
 
     t_start = time.time()
@@ -1354,6 +1427,141 @@ def get_frequency_response_parallel(
 
     logger.info("Frequency response computed in %.3fs total.", time.time() - t_start)
 
+    return H, ww
+
+
+def get_frequency_response_mpi(
+    A: PETSc.Mat,
+    B: np.ndarray,
+    C: np.ndarray,
+    Q: PETSc.Mat,
+    ww: np.ndarray,
+    verbose: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute frequency response H(w) = C * inv(jwQ - A) * B
+    using PETSc/MUMPS for parallel sparse solves.
+
+    Solves the real-arithmetic 2n x 2n block system at each frequency:
+        [[-A,  -wQ],    [xr]   [B]
+         [ wQ, -A ]]  * [xi] = [0]
+    giving H(w) = C @ xr + 1j * C @ xi, shape (ny, nu).
+
+    Must be launched with mpirun:
+        mpirun -n 4 python script.py
+
+    Args:
+        A:       System matrix,  PETSc.Mat distributed, shape (n, n).
+        B:       Input matrix,   np.ndarray, shape (n, nu). Replicated.
+        C:       Output matrix,  np.ndarray, shape (ny, n). Replicated.
+        Q:       Mass matrix,    PETSc.Mat distributed, shape (n, n).
+        logwmin: log10 of minimum frequency.
+        logwmax: log10 of maximum frequency.
+        nw:      Number of frequency points.
+        verbose: If True, rank 0 logs progress at each frequency step.
+
+    Returns:
+        H:  Frequency response, shape (ny, nu, nw), complex. Rank 0 only.
+        ww: Frequency array,    shape (nw,).
+    """
+    comm = A.getComm()
+    rank = comm.getRank()
+
+    # n, nu, ny, nw = _get_freqresp_sizes(A=A, B=B, C=C, ww=ww)
+    # if rank == 0:
+    #     _show_freqresp_info(n, nu, ny, nw, ww)
+
+    n = A.getSize()[0]  # global size
+    nu = B.shape[1] if B.ndim > 1 else 1
+    ny = C.shape[0]
+    B = B.reshape(n, 1) if B.ndim == 1 else B
+
+    nw = ww.shape[0]
+    H = np.zeros((ny, nu, nw), dtype=complex)
+
+    if rank == 0:
+        _show_freqresp_info(n, nu, ny, nw, ww)
+
+    # Build distributed RHS vectors once (independent of w)
+    if rank == 0:
+        logger.info("Building RHS vectors...")
+    rhs_vecs = _build_rhs(B, n, comm)
+    H = np.zeros((ny, nu, nw), dtype=complex)
+
+    # Allocate solution vector (reused across frequencies and inputs)
+    sol = A.createVecRight()  # size n, distributed
+
+    # Configure KSP solver with MUMPS (parallel direct solver)
+    ksp = PETSc.KSP().create(comm=comm)
+    ksp.setType(PETSc.KSP.Type.PREONLY)  # direct solve: no Krylov iterations
+    pc = ksp.getPC()
+    pc.setType(PETSc.PC.Type.LU)  # LU factorization
+    pc.setFactorSolverType("mumps")  # use MUMPS as backend
+    ksp.setFromOptions()  # allow command-line overrides
+
+    t_start = time.time()
+
+    for ii, w in enumerate(ww):
+        t_step = time.time()
+
+        # Build block matrix for this frequency
+        Ablk = _build_block_matrix(A, Q, w)
+        ksp.setOperators(Ablk)
+        ksp.setUp()
+
+        # Allocate full solution vector for block system (size 2n)
+        sol_blk = Ablk.createVecRight()
+
+        for iu in range(nu):
+            # Solve block system
+            ksp.solve(rhs_vecs[iu], sol_blk)
+
+            # Extract xr (rows 0..n) and xi (rows n..2n) from sol_blk
+            # Each process gathers its local portion
+            local_vals = sol_blk.getArray()  # local chunk of 2n vec
+            rstart, rend = sol_blk.getOwnershipRange()
+
+            # Determine which local indices fall in xr vs xi
+            local_size = rend - rstart
+            xr_local = np.zeros(n)
+            xi_local = np.zeros(n)
+
+            for local_i, global_i in enumerate(range(rstart, rend)):
+                if global_i < n:
+                    xr_local[global_i] = local_vals[local_i]
+                else:
+                    xi_local[global_i - n] = local_vals[local_i]
+
+            # Allreduce to assemble global xr, xi on all processes
+            xr = np.zeros(n)
+            xi = np.zeros(n)
+            comm.tompi4py().Allreduce(xr_local, xr)
+            comm.tompi4py().Allreduce(xi_local, xi)
+
+            # Apply output matrix C (replicated on all processes)
+            H[:, iu, ii] = C @ xr + 1j * C @ xi
+
+        # Only rank 0 logs and will later save/plot
+        if verbose and rank == 0:
+            logger.info(
+                "  [%d/%d] w=%.4e | max|H|=%.4e | step: %.3fs | total: %.3fs",
+                ii + 1,
+                nw,
+                w,
+                np.max(np.abs(H[:, :, ii])),
+                time.time() - t_step,
+                time.time() - t_start,
+            )
+
+        Ablk.destroy()  # free memory explicitly at each step
+
+    ksp.destroy()
+
+    if rank == 0:
+        logger.info(
+            "Frequency response computed in %.3fs total.", time.time() - t_start
+        )
+
+    # H is meaningful on all ranks but typically only used on rank 0
     return H, ww
 
 
@@ -1485,6 +1693,112 @@ def plot_Hw(
         fig.savefig(fig_path)
         plt.close(fig)
         logger.info("Saving Bode plot for input %s to: %s", input_labels[iu], fig_path)
+
+
+def _solve_at_frequency(w, Acsr, Qcsr, rhs, C, n):
+    """Solve the block system at a single frequency w."""
+    Ablk = spr.bmat(
+        [[-Acsr, -w * Qcsr], [w * Qcsr, -Acsr]],
+        format="csc",
+    )
+    lu = spr_la.splu(Ablk)
+    x = lu.solve(rhs)
+    return C @ x[:n, :] + 1j * C @ x[n:, :]  # (ny, nu)
+
+
+def _build_rhs_mat(B: np.ndarray, n: int, comm: PETSc.Comm) -> PETSc.Mat:
+    """Build distributed PETSc Mat from B for the block system RHS.
+    Shape (2n, nu): upper block is B, lower block is zeros.
+
+    Args:
+        B:    Input matrix, np.ndarray, shape (n, nu).
+        n:    System dimension.
+        comm: MPI communicator.
+    Returns:
+        PETSc.Mat of shape (2n, nu).
+    """
+    nu = B.shape[1]
+    rhs_mat = PETSc.Mat().create(comm=comm)
+    rhs_mat.setSizes([2 * n, nu])
+    rhs_mat.setType(PETSc.Mat.Type.DENSE)
+    rhs_mat.setUp()
+
+    rstart, rend = rhs_mat.getOwnershipRange()
+    for i in range(rstart, rend):
+        if i < n:
+            for iu in range(nu):
+                rhs_mat.setValue(i, iu, B[i, iu])
+        # rows n..2n remain zero
+
+    rhs_mat.assemblyBegin()
+    rhs_mat.assemblyEnd()
+    return rhs_mat
+
+
+def _build_block_matrix(A: PETSc.Mat, Q: PETSc.Mat, w: float) -> PETSc.Mat:
+    """Build the 2n x 2n real block matrix for frequency w:
+        [[-A,   -wQ],
+         [ wQ,  -A ]]
+
+    Args:
+        A: System matrix, PETSc.Mat, shape (n, n), distributed.
+        Q: Mass matrix,   PETSc.Mat, shape (n, n), distributed.
+        w: Angular frequency (scalar).
+    Returns:
+        Block matrix, PETSc.Mat, shape (2n, 2n), distributed.
+    """
+    # Scale Q by w: wQ = w * Q (does not modify Q in place)
+    wQ = Q.copy()
+    wQ.scale(w)
+
+    # Negate A: mA = -A
+    mA = A.copy()
+    mA.scale(-1.0)
+
+    # Negate wQ: mwQ = -wQ
+    mwQ = wQ.copy()
+    mwQ.scale(-1.0)
+
+    # PETSc nest matrix: assembles block structure without copying data
+    # Layout: [[mA, mwQ], [wQ, mA]]
+    block = PETSc.Mat().createNest(
+        [[mA, mwQ], [wQ, mA]],
+        comm=A.getComm(),
+    )
+    block.setUp()
+    block.assemble()
+    return block
+
+
+def _build_rhs(B: np.ndarray, n: int, comm: PETSc.Comm) -> list[PETSc.Vec]:
+    """Build list of distributed PETSc Vec from numpy B columns.
+    RHS for the block system is [B[:, iu]; 0] for each input iu.
+
+    Args:
+        B:    Input matrix, np.ndarray, shape (n, nu).
+        n:    System dimension.
+        comm: MPI communicator.
+    Returns:
+        List of nu PETSc Vec of size 2n.
+    """
+    nu = B.shape[1]
+    vecs = []
+    for iu in range(nu):
+        rhs = PETSc.Vec().create(comm=comm)
+        rhs.setSizes(2 * n)
+        rhs.setUp()
+
+        # Each process fills only its owned rows
+        rstart, rend = rhs.getOwnershipRange()
+        for i in range(rstart, rend):
+            if i < n:
+                rhs.setValue(i, B[i, iu])
+            # rows n..2n are zero (imag part of RHS)
+
+        rhs.assemblyBegin()
+        rhs.assemblyEnd()
+        vecs.append(rhs)
+    return vecs
 
 
 # FlowSolver frequency response utility # GOTO ################################

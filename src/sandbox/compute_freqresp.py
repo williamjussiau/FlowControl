@@ -141,24 +141,25 @@ if __name__ == "__main__":
 
     logwmin = -2
     logwmax = 2
-    nw = 100
+    nw = 200
     ww = np.logspace(logwmin, logwmax, nw)
-    # H, ww = flu.get_frequency_response(A, B, C, Q, ww)
-    H, ww = flu.get_frequency_response_parallel(
-        A, B, C, Q, ww, n_jobs=12
-    )  # 14 logical procs
+    # H, ww = flu.get_frequency_response_sequential(A, B, C, Q, ww)
+    H, ww = flu.get_frequency_response_parallel(A, B, C, Q, ww, n_jobs=8)
+    # H, ww = flu.get_frequency_response_mpi(A, B, C, Q, ww)
 
-    flu.save_Hw(
-        H,
-        ww,
-        save_dir=cwd / "frequency_response/",
-        input_labels=["up", "lo"],
-        output_labels=["fb", "perf1", "perf2"],
-    )
-    flu.plot_Hw(
-        H,
-        ww,
-        save_dir=cwd / "frequency_response/",
-        input_labels=["up", "lo"],
-        output_labels=["fb", "perf1", "perf2"],
-    )
+    if flu.MpiUtils.get_rank() == 0:
+        # Save and plot
+        flu.save_Hw(
+            H,
+            ww,
+            save_dir=cwd / "frequency_response/",
+            input_labels=["up", "lo"],
+            output_labels=["fb", "perf1", "perf2"],
+        )
+        flu.plot_Hw(
+            H,
+            ww,
+            save_dir=cwd / "frequency_response/",
+            input_labels=["up", "lo"],
+            output_labels=["fb", "perf1", "perf2"],
+        )
