@@ -180,11 +180,11 @@ class OperatorGetter:
         dofs_to_parse_global = dolfin.MPI.comm_world.allgather(dofs_to_parse)
         dofs_to_parse_global = sorted(set().union(*dofs_to_parse_global))
 
-        dofs_to_parse_global_dummy = set()
-        for ii, elem in enumerate(dofs_to_parse_global):
-            dofs_to_parse_global_dummy.add(elem)
-            if ii == 200:
-                break
+        # dofs_to_parse_global_dummy = set()
+        # for ii, elem in enumerate(dofs_to_parse_global):
+        #     dofs_to_parse_global_dummy.add(elem)
+        #     if ii == 200:
+        #         break
 
         logger.info(
             f"Process {mpi_rank} - dofs GLOBAL has size: {len(dofs_to_parse_global)}"

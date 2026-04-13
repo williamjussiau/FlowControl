@@ -15,3 +15,5 @@ flowcontrol.egg-info/
 *.vtu
 *.pvd
 *.pvtu
+src/sandbox/*.mat
+src/sandbox/*.png

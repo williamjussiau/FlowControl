@@ -41,10 +41,12 @@ def main():
     params_flow.user_data["L"] = 1.0
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10, dt=0.0004, Tstart=0.0)
+    params_time = flowsolverparameters.ParamTime(
+        num_steps=2_500_000, dt=0.0004, Tstart=42.0
+    )
 
     params_save = flowsolverparameters.ParamSave(
-        save_every=5, path_out=cwd / "data_output"
+        save_every=1000, path_out=cwd / "data_output"
     )
 
     params_solver = flowsolverparameters.ParamSolver(
@@ -52,7 +54,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "cavity_coarse.xdmf"
+        meshpath=cwd / "data_input" / "cavity_fine.xdmf"  # coarse or fine
     )
     params_mesh.user_data["xinf"] = 2.5
     params_mesh.user_data["xinfa"] = -1.2
@@ -93,7 +95,7 @@ def main():
         params_restart=params_restart,
         params_control=params_control,
         params_ic=params_ic,
-        verbose=5,
+        verbose=50,
     )
 
     logger.info("__init__(): successful!")
@@ -105,18 +107,22 @@ def main():
 
     logger.info("Compute steady state...")
     uctrl0 = [0.0]
-    fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
-    fs.compute_steady_state(
-        method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
-    )
+    # fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
+    # fs.compute_steady_state(
+    #     method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+    # )
+    fs.load_steady_state()
 
     logger.info("Init time-stepping")
-    fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
+    fs.initialize_time_stepping(
+        Tstart=fs.params_time.Tstart, ic=None
+    )  # or ic=dolfin.Function(fs.W)
 
     logger.info("Step several times")
     for _ in range(fs.params_time.num_steps):
-        y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        u_ctrl = [0.3 + 0.1 * y_meas[0]]
+        # y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
+        # u_ctrl = [0.3 + 0.1 * y_meas[0]]
+        u_ctrl = [0.0]
         fs.step(u_ctrl=u_ctrl)
 
     flu.summarize_timings(fs, t000)
