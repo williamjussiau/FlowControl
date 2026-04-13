@@ -41,7 +41,7 @@ class ParamMesh(ParamFlowSolver):
     meshpath: Path
 
 
-@dataclass(init=False)
+@dataclass
 class ParamControl(ParamFlowSolver):
     """Parameters related to control.
 
@@ -53,20 +53,17 @@ class ParamControl(ParamFlowSolver):
     """
 
     sensor_list: list[Sensor]
-    sensor_number: int
+    sensor_number: int = field(init=False)
 
     actuator_list: list[Actuator]
-    actuator_number: int
+    actuator_number: int = field(init=False)
 
-    def __init__(self, sensor_list=[], actuator_list=[], user_data={}):
-        self.sensor_list = sensor_list
-        self.sensor_number = len(sensor_list)
-        self.actuator_list = actuator_list
-        self.actuator_number = len(actuator_list)
-        self.user_data = user_data
+    def __post_init__(self):
+        self.sensor_number = len(self.sensor_list)
+        self.actuator_number = len(self.actuator_list)
 
 
-@dataclass(init=False)
+@dataclass
 class ParamTime(ParamFlowSolver):
     """Parameters related to time-stepping.
 
@@ -80,14 +77,10 @@ class ParamTime(ParamFlowSolver):
     num_steps: int
     dt: float
     Tstart: float
-    Tfinal: float
+    Tfinal: float = field(init=False)
 
-    def __init__(self, num_steps, dt, Tstart=0.0, user_data={}):
-        self.num_steps = num_steps
-        self.dt = dt
-        self.Tstart = Tstart
-        self.Tfinal = num_steps * dt
-        self.user_data = user_data
+    def __post_init__(self):
+        self.Tfinal = self.num_steps * self.dt
 
 
 @dataclass
@@ -153,5 +146,4 @@ class ParamIC(ParamFlowSolver):
     xloc: float = 0.0
     yloc: float = 0.0
     radius: float = 0.0
-    amplitude: float = 1.0
     amplitude: float = 1.0

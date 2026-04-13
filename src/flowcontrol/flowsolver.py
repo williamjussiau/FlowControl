@@ -769,9 +769,11 @@ class FlowSolver(ABC):
             adjust_baseflow (float, optional): adjust fields with base flow (e.g. add or subtract). Defaults to 0.
         """
 
-        if not (hasattr(self.fields, "Usave")):
+        if self.fields.Usave is None:
             self.fields.Usave = dolfin.Function(self.V)
+        if self.fields.Usave_n is None:
             self.fields.Usave_n = dolfin.Function(self.V)
+        if self.fields.Psave is None:
             self.fields.Psave = dolfin.Function(self.P)
 
         # Reconstruct full field
