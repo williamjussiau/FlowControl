@@ -30,7 +30,6 @@ from petsc4py import PETSc
 from slepc4py import SLEPc
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
 logger.debug("Importing or running: %s", __name__)
 
 

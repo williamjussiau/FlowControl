@@ -15,8 +15,6 @@ from flowcontrol.actuator import ACTUATOR_TYPE
 from flowcontrol.sensor import Sensor, SensorIntegral, SensorPoint
 
 logger = logging.getLogger(__name__)
-FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-logging.basicConfig(format=FORMAT, level=logging.INFO)
 
 
 class OperatorGetter:
