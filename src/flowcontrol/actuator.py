@@ -46,7 +46,8 @@ class Actuator(ABC):
     expression: Optional[dolfin.Expression] = None
     # only on (u,v) not p if type is force, for BC on syntax of DirichletBC
 
-    def load_expression(self, flowsolver) -> dolfin.Expression:
+    @abstractmethod
+    def _load_expression(self, flowsolver) -> dolfin.Expression:
         """Load actuator expression projected on flowsolver function spaces. The reason
         behind this method is to be able to instantiate an Actuator independently from a
         FlowSolver object; then to be able to attach the first to the second and load the
@@ -55,14 +56,12 @@ class Actuator(ABC):
         Args:
             flowsolver (FlowSolver): FlowSolver that is using the actuator
         """
-        expression = self._load_expression(flowsolver)
-        self.expression = expression
-        return expression
-
-    @abstractmethod
-    def _load_expression(self, flowsolver) -> dolfin.Expression:
-        """Actual implementation by subclasses."""
         pass
+
+    def load_expression(self, flowsolver) -> dolfin.Expression:
+        """Shortcut to _load_expression with additional attribute setting"""
+        self.expression = self._load_expression(flowsolver)
+        return self.expression
 
 
 @dataclass(kw_only=True)
@@ -70,32 +69,65 @@ class ActuatorBC(Actuator):
     """Boundary condition actuator, inherits from abstract base class Actuator
     This actuators features an attribute _boundary_ that links the boundary to the
     actuator automatically
+    --> this attribute is only required for operator B computation, we can probably do better
+    See https://github.com/williamjussiau/FlowControl/issues/7
+
+    All BC actuators are closely linked to the definition of boundaries
+    (i.e. FlowSolver._make_boundaries() and FlowSolver._make_bcs())
+
+    Args:
+        boundary (dolfin.Expression): boundary on which the boundary condition is enforced
     """
 
-    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
-
-    @abstractmethod
-    def _load_expression(self, flowsolver) -> dolfin.Expression:
-        pass
+    boundary: Optional[dolfin.SubDomain] = None
 
 
 @dataclass(kw_only=True)
 class ActuatorBCParabolicV(ActuatorBC):
-    """Actuator with parabolic profile on v, located on top boundary.
-    This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
-    to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
-    FlowSolver._make_bcs())
+    """Cylinder actuator: parabolic profile depending on first spatial
+    coordinate only. Usually located at the poles of a cylinder.
+    The width of the actuator can be computed with the static method, given
+    the radius of a cylinder and an angular size in degrees.
     """
 
-    position_x: float
-    position_y: float
-    diameter: float
+    width: float = 0.0
+    position_x: float = 0.0
+    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
-    def _load_expression(self, flowsolver) -> dolfin.Expression:
+    def _load_expression(self, flowsolver):
         expression = dolfin.Expression(
             [
                 "0",
-                "u_ctrl*(((x[1]-x0)*(x[1]-x0))/(d*d/4)-(x[1]-x0)*2/d-y0*(x[0]-x0))*u_ctrl*d/2",
+                "(x[0]-x0>=L || x[0]-x0<=-L) ? 0 : u_ctrl * -1*(x[0]-x0+L)*(x[0]-x0-L) / (L*L)",
+            ],
+            element=flowsolver.V.ufl_element(),
+            L=self.width,
+            x0=self.position_x,
+            u_ctrl=0.0,
+        )
+        return expression
+
+    @staticmethod
+    def angular_size_deg_to_width(angular_size_deg, cylinder_radius):
+        return cylinder_radius * np.sin(1 / 2 * angular_size_deg * dolfin.pi / 180)
+
+
+@dataclass(kw_only=True)
+class ActuatorBCRotation(ActuatorBC):
+    """Cylinder actuator: tangential velocity at a radius D around a center (x0, y0).
+    Typically used to model a rotating cylinder.
+    """
+
+    position_x: float = 0.0
+    position_y: float = 0.0
+    diameter: float = 1.0
+    actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
+
+    def _load_expression(self, flowsolver):
+        expression = dolfin.Expression(
+            [
+                "-sin(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2",
+                "cos(atan2(x[1]-y0,x[0]-x0))*u_ctrl*d/2",
             ],
             element=flowsolver.V.ufl_element(),
             y0=self.position_y,
@@ -112,12 +144,11 @@ class ActuatorBCUniformU(ActuatorBC):
     located on top boundary.
     This Actuator has type ACTUATOR_TYPE.BC, which means it is closely linked
     to the definition of boundaries (i.e. FlowSolver._make_boundaries() and
-    FlowSolver._make_bcs())
-    """
+    FlowSolver._make_bcs())"""
 
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
-    def _load_expression(self, flowsolver) -> dolfin.Expression:
+    def _load_expression(self, flowsolver):
         expression = dolfin.Expression(
             [
                 "u_ctrl",
@@ -134,14 +165,13 @@ class ActuatorForceGaussianV(Actuator):
     """Cavity actuator: volumic force with Gaussian profile acting on
     the second component of the velocity, centered at custom position.
     This Actuator has type ACTUATOR_TYPE.FORCE, so it is taken into account
-    automatically when building equations (in FlowSolver._make_varfs()).
-    """
+    automatically when building equations (in FlowSolver._make_varfs())."""
 
     sigma: float
     position: NDArray[np.float64]
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
 
-    def _load_expression(self, flowsolver) -> dolfin.Expression:
+    def _load_expression(self, flowsolver):
         expression = dolfin.Expression(
             [
                 "0",
