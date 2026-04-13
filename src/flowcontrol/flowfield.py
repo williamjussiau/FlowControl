@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import dolfin
@@ -17,15 +17,12 @@ class FlowField:
         up (dolfin.Function): mixed field in mixed dolfin.FunctionSpace W
     """
 
-    u: dolfin.Function
-    p: dolfin.Function
+    u: dolfin.Function = field(init=False)
+    p: dolfin.Function = field(init=False)
     up: dolfin.Function
 
-    def __init__(self, up: dolfin.Function):
-        u, p = up.split(deepcopy=True)
-        self.u = u
-        self.p = p
-        self.up = up
+    def __post_init__(self):
+        self.u, self.p = self.up.split(deepcopy=True)
 
 
 @dataclass
