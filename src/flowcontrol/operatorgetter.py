@@ -306,7 +306,7 @@ def find_vertices_from_edges(mesh, edges_idx):
     return vertices_idx
 
 
-def mark_boundaries(mesh, subdomain, SUBDOMAIN_INDEX=200):
+def mark_boundaries(mesh, subdomain, SUBDOMAIN_INDEX=10000):
     boundary_markers = dolfin.MeshFunction("size_t", mesh, mesh.topology().dim() - 1, 0)
     boundary_markers.set_all(0)
     subdomain.mark(boundary_markers, SUBDOMAIN_INDEX)
