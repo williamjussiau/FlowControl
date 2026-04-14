@@ -25,7 +25,7 @@ class SENSOR_TYPE(IntEnum):
     U = 0
     V = 1
     P = 2
-    OTHER = 5
+    OTHER = 3
 
 
 @dataclass(kw_only=True)
@@ -44,7 +44,6 @@ class Sensor(ABC):
 
     @abstractmethod
     def eval(self, up):
-        # is it eval(up) or eval(u,v,p)? Absolutely AVOID split/merge in eval
         """Evaluate measurement value from sensor on (mixed) field (u,p)
         This function is going to be called a high number
         of times, so it needs to be optimized.
@@ -98,7 +97,7 @@ class SensorIntegral(Sensor):
         pass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SensorHorizontalWallShear(SensorIntegral):
     """Cavity sensor, integrating the wall shear stress (dv/dx2) on a
     portion of the channel bottom wall.
