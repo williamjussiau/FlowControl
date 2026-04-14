@@ -910,11 +910,8 @@ class FlowSolver(ABC):
         Returns:
             dolfin.Function: estimation of steady state UP0
         """
-        # Process initial guess
         UP0 = self._define_initial_guess(initial_guess=initial_guess)
-
-        # Compute
-        F0, UP0 = self._make_varf_steady(initial_guess=UP0)
+        F0 = self._make_varf_steady(UP0)
         BC = self._make_BCs()
 
         nl_solver_param = {
@@ -1007,37 +1004,26 @@ class FlowSolver(ABC):
             UP0 = initial_guess
         return UP0
 
-    def _make_varf_steady(
-        self, initial_guess: Optional[dolfin.Function] = None
-    ) -> tuple[dolfin.Form, dolfin.Function]:
-        """Make nonlinear forms for steady state computation, in mixed element space W.
+    def _make_varf_steady(self, UP0: dolfin.Function) -> dolfin.Form:
+        """Make nonlinear variational form for steady NS, linearized around UP0.
 
         Args:
-            initial_guess (dolfin.Function, optional): field UP0 around which varf is computed.
-                Defaults to None. If None, use zero dolfin.Function(self.W).
+            UP0 (dolfin.Function): field around which the form is expressed.
 
         Returns:
-            tuple[dolfin.Form, dolfin.Function]: varf and field UP0
+            dolfin.Form: nonlinear steady-state variational form F0 (F0 == 0 at steady state)
         """
         v, q = dolfin.TestFunctions(self.W)
-        if initial_guess is None:
-            UP0 = dolfin.Function(self.W)  # 0
-        else:
-            UP0 = initial_guess
         U0, P0 = dolfin.split(UP0)  # not deep copy, need the link only
         invRe = dolfin.Constant(1 / self.params_flow.Re)
-
         f = self._gather_actuators_expressions()
-
-        # Problem
-        F0 = (
+        return (
             dot(dot(U0, nabla_grad(U0)), v) * dx
             + invRe * inner(nabla_grad(U0), nabla_grad(v)) * dx
             - P0 * div(v) * dx
             - q * div(U0) * dx
             - dot(f, v) * dx
         )
-        return F0, UP0
 
     def _make_BCs(self) -> BoundaryConditions:
         """Define boundary conditions for the full field (i.e. not perturbation
