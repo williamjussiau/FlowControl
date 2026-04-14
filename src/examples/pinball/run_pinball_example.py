@@ -157,7 +157,7 @@ def main():
     fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
 
     logger.info("Step several times")
-    # Kss = Controller.from_file(file=cwd / "data_input" / "Kdx8dy0p0.mat", x0=0)
+    # Kss = Controller.from_file(file=cwd / "data_input" / "Kdx8dy0p0.mat", x0=None)
     tlen = 0.10  # characteristic length of gaussian bump
     tpeak = [0.25, 0.5, 0.75]  # peaking time
     u0peak = [+2.0, -1.5, -2.0]  # peaking amplitude

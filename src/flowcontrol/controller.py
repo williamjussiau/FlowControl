@@ -43,13 +43,11 @@ class Controller(control.StateSpace):
         """
         super().__init__(A, B, C, D)
         self.file = file
-        self.x = x0
-        if x0 is None:
-            self.x = np.zeros((self.nstates,))
+        self.x = x0 if x0 is not None else np.zeros((self.nstates,))
 
     @classmethod
     def from_file(
-        cls, file: Optional[Path] = None, x0: Optional[NDArray[np.float64]] = None
+        cls, file: Path, x0: Optional[NDArray[np.float64]] = None
     ) -> Controller:
         """Initialize Controller from file only, with given inital state x0.
 
@@ -95,10 +93,22 @@ class Controller(control.StateSpace):
         """
         return cls(A, B, C, D, x0=x0, file=file)
 
+    def _discretize(self, dt: float) -> None:
+        """Discretize Controller with ZOH at the given time step and cache the result.
+
+        Args:
+            dt (float): Discretization time step.
+        """
+        sysd = control.c2d(self, dt, method="zoh")
+        self._Ad = sysd.A
+        self._Bd = sysd.B
+        self._Cd = sysd.C
+        self._Dd = sysd.D
+        self._dt = dt
+
     def step(self, y: NDArray[np.float64], dt: float) -> NDArray[np.float64]:
-        """Simulate Controller from its current state self.x on the
-        time interval [0, dt] with input y, to produce a control
-        output u. MIMO-compatible.
+        """Advance Controller by one time step with input y using ZOH discretization.
+        The discrete matrices are computed once and cached for a given dt. MIMO-compatible.
 
         Args:
             y (NDArray[np.float64]): Controller input (e.g. Plant output).
@@ -107,18 +117,11 @@ class Controller(control.StateSpace):
         Returns:
             NDArray[np.float64]: control output u.
         """
-        y_rep = np.repeat(np.atleast_2d(y), repeats=2, axis=0).T
-        Tsim = [0, dt]
-        _, yout, xout = control.forced_response(
-            self,
-            U=y_rep,
-            T=Tsim,
-            X0=self.x,
-            interpolate=False,
-            return_x=True,
-        )
-        u = np.atleast_2d(yout)[:, 0]
-        self.x = xout[:, 1]
+        if not hasattr(self, "_dt") or self._dt != dt:
+            self._discretize(dt)
+        y = np.atleast_1d(y)
+        u = self._Cd @ self.x + self._Dd @ y
+        self.x = self._Ad @ self.x + self._Bd @ y
         return u
 
     def __add__(self, other: Controller) -> Controller:
@@ -133,7 +136,7 @@ class Controller(control.StateSpace):
     def __rmul__(self, other: Controller) -> Controller:
         return self._overload(other, super().__rmul__)
 
-    def inv(self: Controller) -> Controller:
+    def inv(self) -> Controller:
         """Attempt to invert Controller provided that self.D not 0.
         Args:
             self (Controller): Controller to invert.
@@ -155,9 +158,7 @@ class Controller(control.StateSpace):
         """
         return np.concatenate((self.x, other.x), axis=0)
 
-    def _overload(
-        self, other: Controller, binary_op: Callable[[Controller], Controller]
-    ) -> Controller:
+    def _overload(self, other: Controller, binary_op: Callable) -> Controller:
         """Shortcut for overriding all binary operations
         between Controller instances: use the super() operation
         and adapt the internal state and the file accordingly.
@@ -174,7 +175,7 @@ class Controller(control.StateSpace):
         K = Controller(A=K.A, B=K.B, C=K.C, D=K.D)
         if isinstance(other, Controller):
             K.x = self._concatenate_states_with(other)
-            K.file = self.file if (self.file == other.file) else None
+        # K.file stays None — derived controllers have no single file origin
         return K
 
 
@@ -231,7 +232,5 @@ if __name__ == "__main__":
     for _ in range(num_steps):
         print("---")
         uu = Kmimo.step(yy, dt)  # type: ignore
-        print(f"output {uu}")
-        print(f"states {Kmimo.x}")
         print(f"output {uu}")
         print(f"states {Kmimo.x}")

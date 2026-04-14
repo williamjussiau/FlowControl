@@ -121,7 +121,7 @@ def main():
     fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
 
     logger.info("Step several times")
-    Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=0)
+    Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=None)
 
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
