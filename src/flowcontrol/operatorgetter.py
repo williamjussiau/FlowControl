@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 import utils.utils_flowsolver as flu
 from flowcontrol import flowsolver
 from flowcontrol.actuator import ACTUATOR_TYPE
-from flowcontrol.sensor import Sensor, SensorIntegral, SensorPoint
+from flowcontrol.sensor import SENSOR_TYPE, Sensor, SensorIntegral, SensorPoint
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class OperatorGetter:
             UP0 = self.flowsolver.fields.UP0
 
         if autodiff:  # dolfin.derivative/ufl.derivative
-            F0, UP0 = self.flowsolver._make_varf_steady(initial_guess=UP0)
+            F0 = self.flowsolver._make_varf_steady(UP0)
             du = dolfin.TrialFunction(self.flowsolver.W)
             dF0 = dolfin.derivative(-1 * F0, u=UP0, du=du)
         else:  # linearize by hand - somehow dot(f,v) not working
@@ -128,6 +128,85 @@ class OperatorGetter:
             # Retrieve amplitude
             self.flowsolver.set_actuators_u_ctrl(u_ctrl_old)
 
+        return B
+
+    def get_B_optimized(
+        self,
+        UP0: Optional[dolfin.Function] = None,
+    ) -> NDArray[np.float64]:
+        """Get actuation matrix B.
+
+        For FORCE actuators: B column = load vector ∫ b(x)·v dx, i.e. B = -∂F/∂u_ctrl.
+        For BC actuators: B column = A_raw · w_lift, where A_raw is the Jacobian assembled
+            without BC rows zeroed, and w_lift is the unit lifting function satisfying the
+            actuator's Dirichlet BC. This is the correct lifting formulation.
+
+        Sign convention is consistent with get_A: A = -dF/dq, B = -dF/du_ctrl.
+        """
+        logger.info("Computing actuation matrix B (optimized)...")
+
+        if UP0 is None:
+            UP0 = self.flowsolver.fields.UP0
+
+        W = self.flowsolver.W
+        mpi_local_size = len(W.dofmap().dofs())
+        actuator_list = self.flowsolver.params_control.actuator_list
+        actuator_number = self.flowsolver.params_control.actuator_number
+
+        B = np.zeros((mpi_local_size, actuator_number))
+        v = dolfin.TestFunction(W)
+
+        has_bc_actuators = any(
+            a.actuator_type is ACTUATOR_TYPE.BC for a in actuator_list
+        )
+
+        u_ctrl_old = self.flowsolver.get_actuators_u_ctrl()
+
+        try:
+            # Assemble raw Jacobian (no BCs applied) — needed for BC actuator lifting
+            if has_bc_actuators:
+                self.flowsolver.flush_actuators_u_ctrl()
+                F0 = self.flowsolver._make_varf_steady(UP0)
+                du = dolfin.TrialFunction(W)
+                dF0 = dolfin.derivative(-1 * F0, u=UP0, du=du)
+                A_raw = dolfin.PETScMatrix()
+                dolfin.assemble(dF0, tensor=A_raw)
+                # intentionally no bc.apply(A_raw)
+
+            # Set u_ctrl = 1 to get unit shape functions
+            self.flowsolver.set_actuators_u_ctrl(actuator_number * [1.0])
+
+            for ii, actuator in enumerate(actuator_list):
+                if actuator.actuator_type is ACTUATOR_TYPE.FORCE:
+                    # B = -∂F/∂u_ctrl = ∫ b(x)·v dx (velocity components only)
+                    b_form = (
+                        actuator.expression[0] * v[0]
+                        + actuator.expression[1] * v[1]
+                    ) * self.flowsolver.dx
+                    B[:, ii] = dolfin.assemble(b_form).get_local()
+
+                elif actuator.actuator_type is ACTUATOR_TYPE.BC:
+                    # Lifting: zero function with unit actuator profile on boundary DOFs
+                    w = dolfin.Function(W)
+                    dolfin.DirichletBC(
+                        W.sub(0), actuator.expression, actuator.boundary
+                    ).apply(w.vector())
+
+                    # B = A_raw · w
+                    b_col = dolfin.PETScVector()
+                    A_raw.init_vector(b_col, 0)
+                    A_raw.mult(w.vector(), b_col)
+                    B[:, ii] = b_col.get_local()
+
+                else:
+                    raise NotImplementedError(
+                        f"Actuator type {actuator.actuator_type} not supported in get_B_optimized"
+                    )
+
+        finally:
+            self.flowsolver.set_actuators_u_ctrl(u_ctrl_old)
+
+        logger.info(f"Finished computing B of size {B.shape}")
         return B
 
     def get_C(self, check: bool = False, fast: bool = True) -> NDArray[np.float64]:
@@ -252,6 +331,71 @@ class OperatorGetter:
 
         return C
 
+    def get_C_optimized(self) -> NDArray[np.float64]:
+        """Get measurement matrix C using assembly rather than DOF iteration.
+
+        For SensorPoint: uses dolfin.PointSource to assemble the basis function
+            weights at the sensor location — correct even when the point falls
+            between DOFs.
+        For SensorIntegral: assembles sensor.linear_form(v) with a TestFunction,
+            giving the C row as a single dolfin.assemble call.
+
+        Both approaches are MPI-compatible and scale as O(sensor_number)
+        rather than O(n_dofs).
+        """
+        logger.info("Computing measurement matrix C (optimized)...")
+
+        W = self.flowsolver.W
+        sensor_list = self.flowsolver.params_control.sensor_list
+        sensor_number = self.flowsolver.params_control.sensor_number
+        mpi_local_size = len(W.dofmap().dofs())
+
+        C = np.zeros((sensor_number, mpi_local_size))
+        b = dolfin.Function(W).vector()
+        v = dolfin.TestFunction(W)
+
+        for ii, sensor in enumerate(sensor_list):
+            if isinstance(sensor, SensorPoint):
+                b.zero()
+                dolfin.PointSource(
+                    _point_sensor_subspace(W, sensor.sensor_type),
+                    dolfin.Point(sensor.position),
+                    1.0,
+                ).apply(b)
+                C[ii, :] = b.get_local()
+            elif isinstance(sensor, SensorIntegral):
+                C[ii, :] = dolfin.assemble(sensor.linear_form(v)).get_local()
+            else:
+                raise TypeError(
+                    f"Sensor type {type(sensor).__name__} not supported in get_C_optimized"
+                )
+
+        logger.info(f"Finished computing C of size {C.shape}")
+        return C
+
+    def compare_C(self, up: dolfin.Function) -> None:
+        """Compare get_C and get_C_optimized, and validate both against make_measurement(up).
+
+        For each implementation, checks that C @ up ≈ make_measurement(up).
+        In MPI, the matrix-vector product is reduced across all processes.
+        """
+        C_loop = self.get_C()
+        C_opt = self.get_C_optimized()
+
+        max_diff = np.max(np.abs(C_loop - C_opt))
+        logger.info(f"max|C_loop - C_opt| = {max_diff:.2e}")
+
+        y_ref = self.flowsolver.make_measurement(up)
+        x_local = up.vector().get_local()
+        comm = dolfin.MPI.comm_world
+
+        for label, C in [("C_loop", C_loop), ("C_opt", C_opt)]:
+            y_partial = C @ x_local
+            y_global = np.zeros_like(y_partial)
+            comm.Allreduce(y_partial, y_global)
+            err = np.abs(y_ref - y_global)
+            logger.info(f"{label}: make_measurement={y_ref}, C@x={y_global}, err={err}")
+
 
 ####################################################################################
 ####################################################################################
@@ -294,6 +438,25 @@ class RestrictFunctionToBoundary(dolfin.UserExpression):
 
 def sensor_is_compatible(sensor):
     return isinstance(sensor, SensorPoint) or isinstance(sensor, SensorIntegral)
+
+
+def _point_sensor_subspace(
+    W: dolfin.FunctionSpace, sensor_type: SENSOR_TYPE
+) -> dolfin.FunctionSpace:
+    """Map a SensorPoint sensor_type to the corresponding subspace of the mixed space W = V × Q.
+
+    Assumes W.sub(0) is the 2D velocity space and W.sub(1) is the pressure space.
+    """
+    mapping = {
+        SENSOR_TYPE.U: W.sub(0).sub(0),
+        SENSOR_TYPE.V: W.sub(0).sub(1),
+        SENSOR_TYPE.P: W.sub(1),
+    }
+    if sensor_type not in mapping:
+        raise ValueError(
+            f"sensor_type {sensor_type} cannot be mapped to a subspace for PointSource"
+        )
+    return mapping[sensor_type]
 
 
 def find_vertices_from_edges(mesh, edges_idx):

@@ -96,6 +96,17 @@ class SensorIntegral(Sensor):
         """Define and mark subdomain, define integration element ds or dx."""
         pass
 
+    @abstractmethod
+    def linear_form(self, v):
+        """UFL form defining this sensor's measurement. Must be linear in v.
+        - When v is a Function: assemble(linear_form(v)) returns the scalar measurement.
+        - When v is a TestFunction: assemble(linear_form(v)) returns the C matrix row.
+        Requires load() to have been called first."""
+        pass
+
+    def eval(self, up):
+        return dolfin.assemble(self.linear_form(up))
+
 
 @dataclass(kw_only=True)
 class SensorHorizontalWallShear(SensorIntegral):
@@ -112,8 +123,8 @@ class SensorHorizontalWallShear(SensorIntegral):
     x_sensor_right: float = 1.1
     y_sensor: float = 0.0
 
-    def eval(self, up):
-        return dolfin.assemble(up.dx(1)[0] * self.ds(int(self.sensor_index)))
+    def linear_form(self, v):
+        return v[0].dx(1) * self.ds(self.sensor_index)
 
     def load(self, flowsolver):
         sensor_subdomain = dolfin.CompiledSubDomain(
