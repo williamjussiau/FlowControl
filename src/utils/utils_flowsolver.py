@@ -1569,8 +1569,8 @@ def save_Hw(
     ww: np.ndarray,
     save_dir: str,
     save_suffix: str = "",
-    input_labels: list[str] | None = None,
-    output_labels: list[str] | None = None,
+    input_labels: Optional[list[str]] = None,
+    output_labels: Optional[list[str]] = None,
 ) -> None:
     """Save frequency response data to .mat files.
     Saves one combined file (full H) and one file per (output, input) pair.
@@ -1634,8 +1634,8 @@ def plot_Hw(
     ww: np.ndarray,
     save_dir: str,
     save_suffix: str = "",
-    input_labels: list[str] | None = None,
-    output_labels: list[str] | None = None,
+    input_labels: Optional[list[str]] = None,
+    output_labels: Optional[list[str]] = None,
 ) -> None:
     """Plot and save Bode diagrams for each (output, input) pair.
     Produces one figure per input channel, with ny subplots (one per output).
