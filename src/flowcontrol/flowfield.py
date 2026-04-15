@@ -1,9 +1,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 import dolfin
+
+
+@dataclass(frozen=True)
+class SimPaths:
+    """Typed container for all file paths used by FlowSolver."""
+    U0:             Path   # steady-state velocity (write/read)
+    P0:             Path   # steady-state pressure (write/read)
+    U:              Path   # velocity snapshot to load for restart (Trestartfrom)
+    P:              Path   # pressure snapshot to load for restart (Trestartfrom)
+    Uprev:          Path   # previous velocity snapshot to load for restart
+    U_restart:      Path   # velocity snapshot to write during this run (Tstart)
+    Uprev_restart:  Path   # previous velocity snapshot to write during this run
+    P_restart:      Path   # pressure snapshot to write during this run
+    timeseries:     Path   # CSV timeseries output
+    metadata:       Path   # JSON sidecar written at end of run (for restart discovery)
+    mesh:           Path   # mesh file (read-only)
 
 
 @dataclass
@@ -30,10 +47,9 @@ class FlowFieldCollection:
     """Collection of fields used for computations in FlowSolver.
 
     Args:
-        STEADY (FlowField): steady (full) U, P, UP as FlowField
-        U0 (dolfin.Function): steady (full) U
-        P0 (dolfin.Function): steady (full) P
-        UP0 (dolfin.Function): steady (full) UP
+        U0 (dolfin.Function): base flow (full) U — linearization point
+        P0 (dolfin.Function): base flow (full) P
+        UP0 (dolfin.Function): base flow (full) UP
         ic (FlowField): initial condition (pert) u, p, up as FlowField
         u_ (dolfin.Function): current (pert) field u
         p_ (dolfin.Function): current (pert) field p
@@ -46,8 +62,7 @@ class FlowFieldCollection:
         Usave_n (dolfin.Function): (full) field UP for saving -- preallocation
     """
 
-    # Base flow (full field)
-    STEADY: Optional[FlowField] = None
+    # Base flow (full field) — linearization point
     U0: Optional[dolfin.Function] = None
     P0: Optional[dolfin.Function] = None
     UP0: Optional[dolfin.Function] = None

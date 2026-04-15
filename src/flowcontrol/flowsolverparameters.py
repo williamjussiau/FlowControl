@@ -107,11 +107,14 @@ class ParamSave(ParamFlowSolver):
 
     Args:
         path_out (pathlib.Path): folder for saving files
-        save_every (int): export files every _save_every_ iteration
+        save_every (int): export XDMF fields every N iterations (0 = never)
+        energy_every (int): compute and log perturbation energy every N iterations
+            (0 = never, 1 = every step).
     """
 
     path_out: Path
     save_every: int
+    energy_every: int = 1
 
 
 @dataclass
@@ -129,6 +132,7 @@ class ParamSolver(ParamFlowSolver):
     throw_error: bool = True
     shift: float = 0.0
     is_eq_nonlinear: bool = True
+    time_scheme: str = "bdf"  # "bdf" → BDF1 ramp-up to BDF2  |  "cn" → Crank-Nicolson
 
 
 @dataclass
