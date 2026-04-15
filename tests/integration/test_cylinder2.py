@@ -123,14 +123,11 @@ class CylinderFlowSolver2(flowsolver2.FlowSolver):
             self.params_control.actuator_list[0].expression,
             self.get_subdomain("actuator_up"),
         )
-        self.params_control.actuator_list[0].boundary = self.get_subdomain("actuator_up")
-
         bcu_actuation_lo = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[1].expression,
             self.get_subdomain("actuator_lo"),
         )
-        self.params_control.actuator_list[1].boundary = self.get_subdomain("actuator_lo")
 
         return BoundaryConditions(
             bcu=[bcu_inlet, bcu_walls, bcu_cylinder, bcu_actuation_up, bcu_actuation_lo],
@@ -184,8 +181,8 @@ def _make_base_params(path_out, num_steps=3, save_every=0):
     angular_size_deg = 10
     radius = params_flow.user_data["D"] / 2
     width = ActuatorBCParabolicV.angular_size_deg_to_width(angular_size_deg, radius)
-    actuator_bc_1 = ActuatorBCParabolicV(width=width, position_x=0.0)
-    actuator_bc_2 = ActuatorBCParabolicV(width=width, position_x=0.0)
+    actuator_bc_1 = ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_up")
+    actuator_bc_2 = ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_lo")
 
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.0, 0.0]))
     sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1.0]))
