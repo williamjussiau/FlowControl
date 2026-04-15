@@ -193,5 +193,5 @@ file = dolfin.File(str(pathlib.Path(__file__).parent / "poisson.pvd"))
 file << u
 
 # Plot solution
-dolfin.plot(u)
-plt.show()
+# dolfin.plot(u)
+# plt.show()
