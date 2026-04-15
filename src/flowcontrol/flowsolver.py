@@ -1198,9 +1198,10 @@ class FlowSolver(ABC):
         This method should return a dictionary containing two lists:
         boundary conditions for (u,v) and boundary conditions for (p).
 
-        IMPORTANT: the first entry of bcu MUST be the inlet BC. _make_BCs()
-        replaces bcu[0] with the full-field inlet BC (uniform profile). If
-        the inlet BC is not first, the wrong condition will be overwritten.
+        Contract: bcu[0] MUST be the 'driving' boundary (inlet for external flows,
+        moving lid for cavity-type flows). _make_BCs() replaces bcu[0] with the
+        full-field equivalent. Override _make_BCs() if your flow has no such
+        boundary or the replacement logic differs.
 
         Returns:
             BoundaryConditions: boundary conditions for perturbation field as dataclass object
