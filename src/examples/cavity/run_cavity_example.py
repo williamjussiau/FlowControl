@@ -42,7 +42,7 @@ def main():
     params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(
-        num_steps=2_500_000, dt=0.0004, Tstart=42.0
+        num_steps=2_500_000, dt=0.0004, Tstart=0.0
     )
 
     params_save = flowsolverparameters.ParamSave(
@@ -54,7 +54,7 @@ def main():
     )
 
     params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "cavity_fine.xdmf"  # coarse or fine
+        meshpath=cwd / "data_input" / "cavity_coarse.xdmf"  # coarse or fine
     )
     params_mesh.user_data["xinf"] = 2.5
     params_mesh.user_data["xinfa"] = -1.2
@@ -107,11 +107,11 @@ def main():
 
     logger.info("Compute steady state...")
     uctrl0 = [0.0]
-    # fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
-    # fs.compute_steady_state(
-    #     method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
-    # )
-    fs.load_steady_state()
+    fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=uctrl0)
+    fs.compute_steady_state(
+        method="newton", max_iter=10, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
+    )
+    # fs.load_steady_state()
 
     logger.info("Init time-stepping")
     fs.initialize_time_stepping(
