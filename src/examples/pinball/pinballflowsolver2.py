@@ -1,0 +1,274 @@
+"""Fluidic pinball (3 cylinders), using flowsolver2.FlowSolver.
+
+Several supercritical Hopf bifurcations. Recommended Re < 100.
+"""
+
+import logging
+
+import dolfin
+import numpy as np
+import pandas as pd
+
+import flowcontrol.flowsolver2 as flowsolver2
+import utils.utils_extract as flu2
+import utils.utils_flowsolver as flu
+from flowcontrol.actuator import CYLINDER_ACTUATION_MODE
+from flowcontrol.flowfield import BoundaryConditions
+
+logger = logging.getLogger(__name__)
+
+
+class PinballFlowSolver2(flowsolver2.FlowSolver):
+    """Flow past 3 cylinders (fluidic pinball). Proposed Re=100."""
+
+    def _make_boundaries(self):
+        near_cpp = flu.near_cpp
+        between_cpp = flu.between_cpp
+        and_cpp = flu.and_cpp()
+        or_cpp = flu.or_cpp()
+        on_boundary_cpp = flu.on_boundary_cpp()
+
+        MESH_TOL = dolfin.DOLFIN_EPS
+        mode_actuation = self.params_control.user_data["mode_actuation"]
+
+        inlet = dolfin.CompiledSubDomain(
+            on_boundary_cpp + and_cpp + near_cpp("x[0]", "xinfa", "MESH_TOL"),
+            xinfa=self.params_mesh.user_data["xinfa"],
+            MESH_TOL=MESH_TOL,
+        )
+        outlet = dolfin.CompiledSubDomain(
+            on_boundary_cpp + and_cpp + near_cpp("x[0]", "xinf", "MESH_TOL"),
+            xinf=self.params_mesh.user_data["xinf"],
+            MESH_TOL=MESH_TOL,
+        )
+        walls = dolfin.CompiledSubDomain(
+            on_boundary_cpp
+            + and_cpp
+            + "("
+            + near_cpp("x[1]", "-yinf", "MESH_TOL")
+            + or_cpp
+            + near_cpp("x[1]", "yinf", "MESH_TOL")
+            + ")",
+            yinf=self.params_mesh.user_data["yinf"],
+            MESH_TOL=MESH_TOL,
+        )
+
+        radius = self.params_flow.user_data["D"] / 2
+        close_to_cylinder_top_cpp = (
+            between_cpp("x[0]", "-radius", "radius")
+            + and_cpp
+            + between_cpp("x[1]", "radius/2", "5*radius/2")
+        )
+        close_to_cylinder_bot_cpp = (
+            between_cpp("x[0]", "-radius", "radius")
+            + and_cpp
+            + between_cpp("x[1]", "-5*radius/2", "-radius/2")
+        )
+        close_to_cylinder_charm_cpp = (
+            between_cpp("x[0]", "-radius-1.5*cos(pi/6)", "+radius-1.5*cos(pi/6)")
+            + and_cpp
+            + between_cpp("x[1]", "-radius", "radius")
+        )
+
+        cylinder_boundary_top_cpp = on_boundary_cpp + and_cpp + close_to_cylinder_top_cpp
+        cylinder_boundary_bot_cpp = on_boundary_cpp + and_cpp + close_to_cylinder_bot_cpp
+        cylinder_boundary_charm_cpp = on_boundary_cpp + and_cpp + close_to_cylinder_charm_cpp
+
+        boundaries_names = ["inlet", "outlet", "walls"]
+        subdomains_list = [inlet, outlet, walls]
+
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
+            ldelta = self.params_control.actuator_list[0].width
+
+            cone_charm_act_cpp = between_cpp(
+                "x[0]", "-ldelta-1.5*cos(pi/6)", "-1.5*cos(pi/6)+ldelta"
+            )
+            cone_top_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
+            cone_bot_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
+
+            cylinder_top = dolfin.CompiledSubDomain(
+                cylinder_boundary_top_cpp, radius=radius, ldelta=ldelta
+            )
+            cylinder_bot = dolfin.CompiledSubDomain(
+                cylinder_boundary_bot_cpp, radius=radius, ldelta=ldelta
+            )
+            cylinder_charm = dolfin.CompiledSubDomain(
+                cylinder_boundary_charm_cpp, radius=radius, ldelta=ldelta
+            )
+            actuator_top = dolfin.CompiledSubDomain(
+                cylinder_boundary_top_cpp + and_cpp + cone_top_act_cpp,
+                radius=radius,
+                ldelta=ldelta,
+            )
+            actuator_bot = dolfin.CompiledSubDomain(
+                cylinder_boundary_bot_cpp + and_cpp + cone_bot_act_cpp,
+                radius=radius,
+                ldelta=ldelta,
+            )
+            actuator_charm = dolfin.CompiledSubDomain(
+                cylinder_boundary_charm_cpp + and_cpp + cone_charm_act_cpp,
+                radius=radius,
+                ldelta=ldelta,
+            )
+            boundaries_names += [
+                "cylinder_top",
+                "cylinder_bot",
+                "cylinder_charm",
+                "actuator_charm",
+                "actuator_top",
+                "actuator_bot",
+            ]
+            subdomains_list += [
+                cylinder_top,
+                cylinder_bot,
+                cylinder_charm,
+                actuator_charm,
+                actuator_top,
+                actuator_bot,
+            ]
+        else:
+            actuator_top = dolfin.CompiledSubDomain(
+                cylinder_boundary_top_cpp, radius=radius
+            )
+            actuator_bot = dolfin.CompiledSubDomain(
+                cylinder_boundary_bot_cpp, radius=radius
+            )
+            actuator_charm = dolfin.CompiledSubDomain(
+                cylinder_boundary_charm_cpp, radius=radius
+            )
+            boundaries_names += ["actuator_charm", "actuator_top", "actuator_bot"]
+            subdomains_list += [actuator_charm, actuator_top, actuator_bot]
+
+        return pd.DataFrame(
+            index=boundaries_names, data={"subdomain": subdomains_list}
+        )
+
+    def _make_bcs(self):
+        mode_actuation = self.params_control.user_data["mode_actuation"]
+
+        bcu_inlet = dolfin.DirichletBC(
+            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet")
+        )
+        bcu_walls = dolfin.DirichletBC(
+            self.W.sub(0).sub(1), dolfin.Constant(0), self.get_subdomain("walls")
+        )
+        bcu = [bcu_inlet, bcu_walls]
+
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
+            bcu += [
+                dolfin.DirichletBC(
+                    self.W.sub(0),
+                    dolfin.Constant((0, 0)),
+                    self.get_subdomain("cylinder_top"),
+                ),
+                dolfin.DirichletBC(
+                    self.W.sub(0),
+                    dolfin.Constant((0, 0)),
+                    self.get_subdomain("cylinder_bot"),
+                ),
+                dolfin.DirichletBC(
+                    self.W.sub(0),
+                    dolfin.Constant((0, 0)),
+                    self.get_subdomain("cylinder_charm"),
+                ),
+            ]
+
+        bcu += [
+            dolfin.DirichletBC(
+                self.W.sub(0),
+                self.params_control.actuator_list[0].expression,
+                self.get_subdomain("actuator_charm"),
+            ),
+            dolfin.DirichletBC(
+                self.W.sub(0),
+                self.params_control.actuator_list[1].expression,
+                self.get_subdomain("actuator_top"),
+            ),
+            dolfin.DirichletBC(
+                self.W.sub(0),
+                self.params_control.actuator_list[2].expression,
+                self.get_subdomain("actuator_bot"),
+            ),
+        ]
+
+        return BoundaryConditions(bcu=bcu, bcp=[])
+
+    def _make_BCs(self) -> BoundaryConditions:
+        """Steady-state BCs: uniform flow at inlet and walls."""
+        uniform = dolfin.Constant((self.params_flow.uinf, 0))
+        bcu_inlet = dolfin.DirichletBC(
+            self.W.sub(0), uniform, self.get_subdomain("inlet")
+        )
+        bcu_walls = dolfin.DirichletBC(
+            self.W.sub(0), uniform, self.get_subdomain("walls")
+        )
+        bcs = self._make_bcs()
+        return BoundaryConditions(bcu=[bcu_inlet, bcu_walls] + bcs.bcu[2:], bcp=[])
+
+    def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
+        super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
+        force_coeffs = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
+        if self.verbose:
+            for name, (cl, cd) in force_coeffs.items():
+                logger.info(f"{name}: Cl={cl:.4f}, Cd={cd:.4f}")
+
+    def compute_force_coefficients(self, u, p) -> dict:
+        """Return {surface_name: (cl, cd)} for each cylinder surface."""
+        D = self.params_flow.user_data["D"]
+        nu = self.params_flow.uinf * D / self.params_flow.Re
+        mode_actuation = self.params_control.user_data["mode_actuation"]
+
+        sigma = flu2.stress_tensor(nu, u, p)
+        Fo = -dolfin.dot(sigma, dolfin.FacetNormal(self.mesh))
+
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
+            surfaces = [
+                "cylinder_charm", "actuator_charm",
+                "cylinder_top", "actuator_top",
+                "cylinder_bot", "actuator_bot",
+            ]
+        else:
+            surfaces = ["actuator_charm", "actuator_top", "actuator_bot"]
+
+        result = {}
+        for name in surfaces:
+            idx = int(self.boundaries.loc[name].idx)
+            drag = dolfin.assemble(Fo[0] * self.ds(idx))
+            lift = dolfin.assemble(Fo[1] * self.ds(idx))
+            result[name] = (
+                lift / (0.5 * self.params_flow.uinf**2 * D),
+                drag / (0.5 * self.params_flow.uinf**2 * D),
+            )
+        return result
+
+
+class PinballCustomInitialGuess(dolfin.UserExpression):
+    """Custom initial guess for Picard iteration on the pinball."""
+
+    def __init__(self, mode="symmetric", **kwargs):
+        self.mode = mode
+        super().__init__(**kwargs)
+
+    def eval(self, value, x):
+        if self.mode == "symmetric":
+            value[0] = 1.0
+            value[1] = 0.0
+            value[2] = 0.0
+        elif self.mode == "antisymmetric_top":
+            value[0] = 1.0 / np.sqrt(2)
+            value[1] = +1.0 / np.sqrt(2)
+            value[2] = 0.0
+        elif self.mode == "antisymmetric_bot":
+            value[0] = 1.0 / np.sqrt(2)
+            value[1] = -1.0 / np.sqrt(2)
+            value[2] = 0.0
+        else:
+            raise ValueError(f"Unknown mode '{self.mode}'")
+
+    def value_shape(self):
+        return (3,)
+
+    def as_dolfin_function(self, functionSpace, interp=True):
+        return flu.expression_to_dolfin_function(
+            self, functionSpace=functionSpace, interp=interp
+        )

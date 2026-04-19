@@ -141,6 +141,7 @@ class FlowSolver(ABC):
         return SimPaths(
             U0=path_out / "steady" / "U0.xdmf",
             P0=path_out / "steady" / "P0.xdmf",
+            steady_meta=path_out / "steady" / "meta.json",
             U=path_out / ("U" + ext(Trestartfrom) + ".xdmf"),
             P=path_out / ("P" + ext(Trestartfrom) + ".xdmf"),
             Uprev=path_out / ("Uprev" + ext(Trestartfrom) + ".xdmf"),
@@ -276,16 +277,40 @@ class FlowSolver(ABC):
             flu.write_xdmf(
                 self.paths.P0, P0, "P0", time_step=0.0, append=False, write_mesh=True
             )
+            if flu.MpiUtils.get_rank() == 0:
+                self.paths.steady_meta.parent.mkdir(parents=True, exist_ok=True)
+                self.paths.steady_meta.write_text(
+                    json.dumps({"mesh_cells": self.mesh.num_cells()}, indent=2)
+                )
 
         self._assign_steady_state(U0, P0)
 
     def load_steady_state(self, path_u_p: Optional[Sequence[Path]] = None) -> None:
+        paths = path_u_p or (self.paths.U0, self.paths.P0)
+        self._check_steady_state_compatible(Path(paths[0]))
         U0 = dolfin.Function(self.V)
         P0 = dolfin.Function(self.P)
-        paths = path_u_p or (self.paths.U0, self.paths.P0)
         flu.read_xdmf(paths[0], U0, "U0")
         flu.read_xdmf(paths[1], P0, "P0")
         self._assign_steady_state(U0, P0)
+
+    def _check_steady_state_compatible(self, u0_path: Path) -> None:
+        """Raise ValueError if the steady-state checkpoint was written on a different mesh."""
+        if flu.MpiUtils.get_rank() != 0:
+            return  # rank-0 only — sidecar is written and checked by a single process
+        meta_path = u0_path.parent / "meta.json"
+        try:
+            meta = json.loads(meta_path.read_text())
+        except FileNotFoundError:
+            return  # no sidecar — can't verify, proceed
+        stored = meta.get("mesh_cells")
+        current = self.mesh.num_cells()
+        if stored is not None and stored != current:
+            raise ValueError(
+                f"Steady-state checkpoint at {u0_path.parent} was written with "
+                f"{stored} mesh cells, but the current mesh has {current}. "
+                "Load a checkpoint from the same mesh, or recompute the steady state."
+            )
 
     def _assign_steady_state(self, U0: dolfin.Function, P0: dolfin.Function) -> None:
         self.fields.U0 = U0
