@@ -33,27 +33,19 @@ Additional path tweaking is sometines required for FEniCS to be found through th
 
 
 ### Docker :whale:
-[coming soon]
+[coming soon (maybe)]
 
 
 
 ## What the toolbox offers
-### Simulation
-+ By default, the toolbox integrates in time the
-**Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = [v_1({x}, t), v_2({x}, t)]$ and pressure $p({x}, t)$ inside a domain ${x} = [x_1, x_2] \in\Omega$, the equations read as follows:
-
-```math
-\left\{
-\begin{aligned} 
-&  \frac{\partial {v}}{\partial t} + ({v} \cdot \nabla){v} = -\nabla p +  \frac{1}{Re}\nabla^2 {v}    \\
-&  \nabla \cdot {v} = 0
-\end{aligned}
-\right.
-```
-+ The only numerical parameter of the non-dimensional equations, the Reynolds number defined as $Re = \frac{UL}{\nu}$, balances convective and viscous terms.
-
-### Actuation and sensing
-The toolbox allows the user to define actuators and sensors to respectively force and probe the flow. It also provides utility for controller design and implementation.
+### Features
+- **Actuators and Sensors**: define any number of actuators (boundary velocity, body force, cylinder rotation) and sensors (point measurements, wall shear stress)
+- **Closed-loop control**: built-in `Controller` class for closed-loop control
+- **Linearized operators**: compute A, B, C, D and mass matrix E for control design
+- **Checkpointing and restart**: save snapshots and resume from any checkpoint via JSON saves 
+- **Export**: timeseries CSV and XDMF fields for Paraview visualization
+- **Parallel**: MPI-parallel execution via FEniCS native support
+- **Extensible**: use as a backend in optimization or data-driven pipelines
 
 ### Four benchmarks
 Four classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) used for flow control are shipped with the current code.
@@ -63,17 +55,6 @@ Four classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/Ph
 | Lid-driven cavity | Flow in a lid-driven cavity | Re=8000 |
 | Open cavity | Flow over an open cavity | Re=7500 |
 | Fluidic pinball | Flow past 3 cylinders | Re=100 |
-
-### Examples of use of the toolbox
-The following articles were based on previous versions of the code:
-* [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. _IEEE Control Systems Letters_, 6, 3212-3217.](https://hal.science/hal-03947469/document)
-* [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2024). Data-driven stabilization of an oscillating flow with linear time-invariant controllers. _Journal of Fluid Mechanics_, 999, A86.](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/47548BEA53D115E1F70FC1F772F641DB/S0022112024009042a.pdf/data-driven-stabilization-of-an-oscillating-flow-with-linear-time-invariant-controllers.pdf)
-* [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. _IEEE Transactions on Control Systems Technology_.](https://ieeexplore.ieee.org/abstract/document/10884641/)
-
-
-
-
-
 
 
 
@@ -87,15 +68,26 @@ See [the toolbox Wiki](https://github.com/williamjussiau/FlowControl/wiki) for m
 
 
 
-## Additional uses of the toolbox
-The toolbox provides additional utility related to flow control:
-* Compute dynamic operators A, B, C, D and mass matrix E,
-* Restart a simulation from a saved file,
-* Define an arbitrary number of actuators and sensors (e.g. feedback and performance sensors),
-* Export time series (measurements from sensors, perturbation kinetic energy...) and fields for visualization,
-* Modify the equations, the numerical schemes and the solvers used for the time simulation,
-* Leverage parallel execution native to FEniCS,
-* Use it as backend in an optimization tool (as in [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. IEEE Transactions on Control Systems Technology.](https://ieeexplore.ieee.org/abstract/document/10884641/)).
+## Simulation
+By default, the toolbox integrates in time the **Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = [v_1({x}, t), v_2({x}, t)]$ and pressure $p({x}, t)$ inside a domain ${x} = [x_1, x_2] \in\Omega$, the equations read as follows:
+
+```math
+\left\{
+\begin{aligned} 
+&  \frac{\partial {v}}{\partial t} + ({v} \cdot \nabla){v} = -\nabla p +  \frac{1}{Re}\nabla^2 {v}    \\
+&  \nabla \cdot {v} = 0
+\end{aligned}
+\right.
+```
+The only numerical parameter of the non-dimensional equations, the Reynolds number defined as $Re = \frac{UL}{\nu}$, balances convective and viscous terms.
+
+
+
+## Publications
+The following articles were based on previous versions of the code:
+* [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2022). Learning linear feedback controllers for suppressing the vortex-shedding flow past a cylinder. _IEEE Control Systems Letters_, 6, 3212-3217.](https://hal.science/hal-03947469/document)
+* [Jussiau, W., Leclercq, C., Demourant, F., & Apkarian, P. (2024). Data-driven stabilization of an oscillating flow with linear time-invariant controllers. _Journal of Fluid Mechanics_, 999, A86.](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/47548BEA53D115E1F70FC1F772F641DB/S0022112024009042a.pdf/data-driven-stabilization-of-an-oscillating-flow-with-linear-time-invariant-controllers.pdf)
+* [Jussiau, W., Demourant, F., Leclercq, C., & Apkarian, P. (2025). Control of a Class of High-Dimensional Nonlinear Oscillators: Application to Flow Stabilization. _IEEE Transactions on Control Systems Technology_.](https://ieeexplore.ieee.org/abstract/document/10884641/)
 
 
 
@@ -117,4 +109,3 @@ The current roadmap is as follows:
 
 
 This README has been optimized for accessibility based on GitHub's blogpost "[Tips for Making your GitHub Profile Page Accessible](https://github.blog/2023-10-26-5-tips-for-making-your-github-profile-page-accessible)".
-
