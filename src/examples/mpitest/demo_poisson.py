@@ -79,7 +79,6 @@
 import pathlib
 
 import dolfin
-import matplotlib.pyplot as plt
 
 # We begin by defining a mesh of the domain and a finite element
 # function space :math:`V` relative to this mesh. As the unit square is

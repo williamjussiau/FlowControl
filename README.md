@@ -8,7 +8,7 @@ This page contains introductory information about the toolbox. For more in-depth
 <img src="illustrations/cylinder_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow past a cylinder at Re=100. The self-sustained, periodic oscillations of the flow (known as vortex shedding) gradually disappear as the controller actuates the flow. The feedback controller uses a sensor in the wake and actuates the flow on the poles of the cylinder. More details are given below." width="500"/>
 </p>
 
-The toolbox is shipped with two benchmarks for flow control and allows for easy implementation of new cases.
+The toolbox is shipped with four benchmarks for flow control and allows for easy implementation of new cases.
 
 <p align="center">
 <img src="illustrations/cavity_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow over an open cavity at Re=7500. The self-sustained, quasi-periodic oscillations of the flow gradually disappear as the controller actuates the flow. The feedback controller uses a wall stress sensor on the wall after the cavity, and actuates the flow with a volume force upstream of the cavity. More details are given below." width="500"/>
@@ -55,12 +55,14 @@ Additional path tweaking is sometines required for FEniCS to be found through th
 ### Actuation and sensing
 The toolbox allows the user to define actuators and sensors to respectively force and probe the flow. It also provides utility for controller design and implementation.
 
-### Two benchmarks
-Two classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) used for flow control are shipped with the current code.
-| Use-case | Description |
-| ------   | ----------- |
-| Cylinder | Flow past a cylinder at Re=100 |
-| Cavity | Flow over an open cavity at Re=7500  |
+### Four benchmarks
+Four classic [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) used for flow control are shipped with the current code.
+| Use-case | Description | Suggested Reynolds number |
+| ------   | ----------- | ------------------------- |
+| Cylinder | Flow past a cylinder | Re=100 |
+| Lid-driven cavity | Flow in a lid-driven cavity | Re=8000 |
+| Open cavity | Flow over an open cavity | Re=7500 |
+| Fluidic pinball | Flow past 3 cylinders | Re=100 |
 
 ### Examples of use of the toolbox
 The following articles were based on previous versions of the code:
@@ -100,9 +102,9 @@ The toolbox provides additional utility related to flow control:
 ## Roadmap
 The current roadmap is as follows:
 * Complete the documentation :book:,
-* Refactor and release additional control-related tools and eigenproblem tools,
-* Update the project to [FEniCSx](https://fenicsproject.org/documentation/),
-* Sort and check all utility functions. 
+* Review and release operator and frequency-response computation tools,
+* Refactor utility functions,
+* Update the project to [FEniCSx](https://fenicsproject.org/documentation/).
 
 
 
