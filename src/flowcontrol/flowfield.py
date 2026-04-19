@@ -20,6 +20,7 @@ class SimPaths:
     P_restart:      Path   # pressure snapshot to write during this run
     timeseries:     Path   # CSV timeseries output
     metadata:       Path   # JSON sidecar written at end of run (for restart discovery)
+    steady_meta:    Path   # JSON sidecar written alongside U0/P0 (mesh compatibility check)
     mesh:           Path   # mesh file (read-only)
 
 

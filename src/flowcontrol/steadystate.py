@@ -144,16 +144,18 @@ class SteadyStateSolver:
             Ap = dolfin.assemble(a)
             [bc.apply(Ap, bp) for bc in self.bcu]
             solver.solve(Ap, UP1.vector(), bp)
+
+            # Relative change between iterates — computed before the assign so
+            # UP0 still holds the previous solution
+            diff = dolfin.norm(UP1.vector() - UP0.vector())
+            base = dolfin.norm(UP0.vector())
+            rel_err = diff / (base + 1e-14)
+
             UP0.assign(UP1)
 
-            # Residual check
-            res = dolfin.assemble(dolfin.action(a, UP1))
-            [bc.apply(res) for bc in self.bcu]
-            res_norm = dolfin.norm(res) / dolfin.sqrt(float(self.W.dim()))
-
-            logger.info(f"Picard {i + 1}/{max_iter}  residual = {res_norm:.3e}")
-            if res_norm < tol:
-                logger.info(f"Picard converged (residual {res_norm:.3e} < tol {tol:.3e})")
+            logger.info(f"Picard {i + 1}/{max_iter}  rel_err = {rel_err:.3e}")
+            if rel_err < tol:
+                logger.info(f"Picard converged (rel_err {rel_err:.3e} < tol {tol:.3e})")
                 break
 
         return UP1

@@ -1,4 +1,4 @@
-"""Integration smoke test for the fluidic pinball using flowsolver2."""
+"""Integration smoke test for the fluidic pinball using flowsolver."""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
-from examples.pinball.pinballflowsolver2 import PinballFlowSolver2
+from examples.pinball.pinballflowsolver import PinballFlowSolver
 from flowcontrol.actuator import CYLINDER_ACTUATION_MODE, ActuatorBCParabolicV
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
@@ -43,8 +43,8 @@ def _make_base_params(path_out, num_steps=3, save_every=0):
     position_top = [0.0, +0.75]
 
     # boundary_name matches the keys returned by _make_boundaries (SUCTION mode)
-    actuator_charm = ActuatorBCParabolicV(
-        width=actuator_width, position_x=position_mid[0], boundary_name="actuator_charm"
+    actuator_mid = ActuatorBCParabolicV(
+        width=actuator_width, position_x=position_mid[0], boundary_name="actuator_mid"
     )
     actuator_top = ActuatorBCParabolicV(
         width=actuator_width, position_x=position_top[0], boundary_name="actuator_top"
@@ -56,7 +56,7 @@ def _make_base_params(path_out, num_steps=3, save_every=0):
     sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8.0, 0.0]))
     params_control = flowsolverparameters.ParamControl(
         sensor_list=[sensor_1],
-        actuator_list=[actuator_charm, actuator_top, actuator_bot],
+        actuator_list=[actuator_mid, actuator_top, actuator_bot],
         user_data={"mode_actuation": mode_actuation},
     )
     params_ic = flowsolverparameters.ParamIC(
@@ -75,14 +75,16 @@ def _make_base_params(path_out, num_steps=3, save_every=0):
 
 
 @pytest.mark.slow
-def test_pinball2_smoke(tmp_path_factory):
+def test_pinball_smoke(tmp_path_factory):
     """Pipeline runs without crashing; velocity values are finite after 3 steps."""
-    path_out = tmp_path_factory.mktemp("pinball2_smoke")
+    path_out = tmp_path_factory.mktemp("pinball_smoke")
 
     kw = _make_base_params(path_out=path_out, num_steps=3, save_every=0)
-    fs = PinballFlowSolver2(**kw, verbose=0)
+    fs = PinballFlowSolver(**kw, verbose=0)
 
-    fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0, 0.0])
+    fs.compute_steady_state(
+        method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0, 0.0]
+    )
     fs.initialize_time_stepping(ic=None)
 
     for _ in range(fs.params_time.num_steps):
@@ -90,3 +92,55 @@ def test_pinball2_smoke(tmp_path_factory):
 
     u_vals = fs.fields.u_.vector().get_local()
     assert np.all(np.isfinite(u_vals)), "velocity field contains non-finite values"
+
+
+# ── Regression test ───────────────────────────────────────────────────────────
+
+# TODO: run once and fill these reference values, then remove the pytest.skip call
+_U_MAX_REF = np.float64(1.4635364453393656)
+_U_MEAN_REF = np.float64(0.14009906606265646)
+_LAST_TIME_REF = np.float64(0.05)
+_LAST_Y_MEAS_1_REF = np.float64(2.0334968617544303e-06)
+_LAST_DE_REF = np.float64(0.0954510563847507)
+
+
+@pytest.mark.slow
+def test_pinball_regression(tmp_path_factory):
+    """10-step unactuated run must reproduce reference values."""
+    import utils.utils_flowsolver as flu
+
+    path_out = tmp_path_factory.mktemp("pinball_regression")
+
+    kw = _make_base_params(path_out=path_out, num_steps=10, save_every=5)
+    fs = PinballFlowSolver(**kw, verbose=0)
+
+    fs.compute_steady_state(
+        method="picard", max_iter=15, tol=1e-7, u_ctrl=[0.0, 0.0, 0.0]
+    )
+    fs.compute_steady_state(
+        method="newton",
+        max_iter=10,
+        u_ctrl=[0.0, 0.0, 0.0],
+        initial_guess=fs.fields.UP0,
+    )
+    fs.initialize_time_stepping(ic=None)
+
+    for _ in range(fs.params_time.num_steps):
+        fs.step(u_ctrl=[0.0, 0.0, 0.0])
+
+    fs.write_timeseries()
+
+    u_max = flu.apply_fun(fs.fields.Usave, np.max)
+    u_mean = flu.apply_fun(fs.fields.Usave, np.mean)
+
+    last = fs.timeseries.iloc[-1]
+
+    assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
+    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), (
+        f"u_mean: {u_mean} != {_U_MEAN_REF}"
+    )
+    assert np.isclose(last["time"], _LAST_TIME_REF, rtol=1e-6), f"time: {last['time']}"
+    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), (
+        f"y_meas_1: {last['y_meas_1']}"
+    )
+    assert np.isclose(last["dE"], _LAST_DE_REF, rtol=1e-4), f"dE: {last['dE']}"
