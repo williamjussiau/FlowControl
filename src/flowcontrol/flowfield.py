@@ -1,3 +1,14 @@
+"""Data containers for flow fields and simulation file paths.
+
+Classes
+-------
+SimPaths            : frozen dataclass holding all file paths used by FlowSolver
+FlowField           : paired (u, p, up) dolfin functions for a single flow state
+FlowFieldCollection : all fields needed during time-stepping — base flow (U0/P0/UP0),
+                      current/previous perturbations (u_, u_n, u_nn, …), and
+                      pre-allocated save buffers (Usave, Psave, Usave_n)
+BoundaryConditions  : simple holder for velocity and pressure DirichletBC lists
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -84,5 +95,7 @@ class FlowFieldCollection:
 
 @dataclass
 class BoundaryConditions:
+    """Simple holder for velocity and pressure DirichletBC lists."""
+
     bcu: list[dolfin.DirichletBC]
     bcp: list[dolfin.DirichletBC]

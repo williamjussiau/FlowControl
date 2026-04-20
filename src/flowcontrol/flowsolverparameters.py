@@ -1,3 +1,20 @@
+"""Parameter dataclasses for FlowSolver configuration.
+
+Each Param* class covers one aspect of the simulation.  All inherit from
+ParamFlowSolver, which provides a user_data dict for ad-hoc fields.
+
+Classes
+-------
+ParamFlowSolver : base class (user_data dict)
+ParamFlow       : Reynolds number and inlet velocity
+ParamMesh       : mesh file path
+ParamControl    : actuator and sensor lists (sensor_number/actuator_number auto-computed)
+ParamTime       : time-stepping config (num_steps, dt, Tstart; Tfinal auto-computed)
+ParamRestart    : legacy restart info (old dt, save_every, Trestartfrom)
+ParamSave       : output directory, XDMF save frequency, energy logging frequency
+ParamSolver     : solver options (linearity, time scheme, spectral shift, error handling)
+ParamIC         : initial perturbation (Gaussian position, radius, amplitude)
+"""
 from dataclasses import dataclass, field
 from pathlib import Path
 

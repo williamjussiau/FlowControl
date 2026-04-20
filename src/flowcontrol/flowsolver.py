@@ -93,6 +93,7 @@ class FlowSolver(ABC):
     # ── Setup ─────────────────────────────────────────────────────────────────
 
     def _setup(self) -> None:
+        """Run the full setup sequence: mesh, spaces, boundaries, actuators, forms, exporter."""
         self.fields = FlowFieldCollection()
         self.E0: float = 0.0
 
@@ -128,6 +129,7 @@ class FlowSolver(ABC):
     # ── Path / mesh / function spaces ─────────────────────────────────────────
 
     def _define_paths(self) -> SimPaths:
+        """Build SimPaths from param objects, deriving all output and restart file names."""
         def ext(T: float) -> str:
             return f"_restart{T:.3f}".replace(".", ",")
 
@@ -154,6 +156,7 @@ class FlowSolver(ABC):
         )
 
     def _make_mesh(self) -> dolfin.Mesh:
+        """Read the XDMF mesh file and return a dolfin.Mesh."""
         logger.info(f"Mesh @ {self.params_mesh.meshpath}")
         mesh = dolfin.Mesh(dolfin.MPI.comm_world)
         with dolfin.XDMFFile(
@@ -164,6 +167,7 @@ class FlowSolver(ABC):
         return mesh
 
     def _make_function_spaces(self) -> tuple[dolfin.FunctionSpace, ...]:
+        """Create Taylor-Hood P2/P1 velocity, pressure, and mixed function spaces."""
         Ve = dolfin.VectorElement("CG", self.mesh.ufl_cell(), 2)
         Pe = dolfin.FiniteElement("CG", self.mesh.ufl_cell(), 1)
         V = dolfin.FunctionSpace(self.mesh, Ve)
@@ -173,6 +177,7 @@ class FlowSolver(ABC):
         return V, P, W
 
     def _mark_boundaries(self) -> None:
+        """Mark each boundary subdomain and build ds/dx integration measures."""
         self.bnd_markers = dolfin.MeshFunction(
             "size_t", self.mesh, self.mesh.topology().dim() - 1
         )
@@ -191,10 +196,12 @@ class FlowSolver(ABC):
     # ── Actuators / sensors ───────────────────────────────────────────────────
 
     def _load_actuators(self) -> None:
+        """Call load_expression on every actuator against the current mesh and spaces."""
         for actuator in self.params_control.actuator_list:
             actuator.load_expression(self)
 
     def _load_sensors(self) -> None:
+        """Call load() on sensors that require post-setup initialization (e.g. integral sensors)."""
         for sensor in self.params_control.sensor_list:
             if sensor.require_loading:
                 sensor.load(self)
@@ -210,12 +217,15 @@ class FlowSolver(ABC):
             actuator.expression.u_ctrl = val
 
     def flush_actuators_u_ctrl(self) -> None:
+        """Set all actuator control amplitudes to zero."""
         self.set_actuators_u_ctrl([0] * self.params_control.actuator_number)
 
     def get_actuators_u_ctrl(self) -> list:
+        """Return the current u_ctrl amplitude of each actuator as a list."""
         return [a.expression.u_ctrl for a in self.params_control.actuator_list]
 
     def _gather_actuators_expressions(self) -> dolfin.Expression | dolfin.Constant:
+        """Sum all FORCE-type actuator expressions; return a zero Constant if none are present."""
         forces = [
             a.expression
             for a in self.params_control.actuator_list
@@ -224,11 +234,13 @@ class FlowSolver(ABC):
         return sum(forces, dolfin.Constant((0, 0)))
 
     def make_measurement(self, up: dolfin.Function) -> NDArray[np.float64]:
+        """Evaluate all sensors on the given mixed field and return the measurement vector."""
         return np.array([sensor.eval(up=up) for sensor in self.params_control.sensor_list])
 
     # ── Boundary conditions ───────────────────────────────────────────────────
 
     def _make_BCs(self) -> BoundaryConditions:
+        """Build full-field BCs: uniform inlet profile merged with perturbation-field side BCs."""
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0),
             dolfin.Constant((self.params_flow.uinf, 0)),
@@ -286,6 +298,7 @@ class FlowSolver(ABC):
         self._assign_steady_state(U0, P0)
 
     def load_steady_state(self, path_u_p: Optional[Sequence[Path]] = None) -> None:
+        """Load U0/P0 from XDMF files, verify mesh compatibility, and store in fields."""
         paths = path_u_p or (self.paths.U0, self.paths.P0)
         self._check_steady_state_compatible(Path(paths[0]))
         U0 = dolfin.Function(self.V)
@@ -313,6 +326,7 @@ class FlowSolver(ABC):
             )
 
     def _assign_steady_state(self, U0: dolfin.Function, P0: dolfin.Function) -> None:
+        """Store U0/P0 in fields, build the mixed UP0, and cache the base-flow energy E0."""
         self.fields.U0 = U0
         self.fields.P0 = P0
         self.fields.UP0 = self.merge(U0, P0)
@@ -321,6 +335,10 @@ class FlowSolver(ABC):
     def _define_initial_guess(
         self, initial_guess: Optional[dolfin.Function] = None
     ) -> dolfin.Function:
+        """Return a valid initial guess for the steady-state solver.
+
+        Falls back to a uniform-flow field at uinf when none is provided.
+        """
         if initial_guess is None:
             logger.info(
                 "Steady-state solver — no initial guess provided, using default"
@@ -363,6 +381,16 @@ class FlowSolver(ABC):
     def _initialize_with_ic(
         self, ic: Optional[dolfin.Function] = None
     ) -> tuple[dolfin.Function, ...]:
+        """Initialise time-stepping fields from an initial condition at t=0.
+
+        Starts from zero perturbation when ic is None. A non-zero ParamIC amplitude
+        adds a divergence-free Gaussian perturbation on top.
+
+        Returns
+        -------
+        u_, p_, u_n, u_nn, p_n
+            Perturbation-field dolfin.Functions for the time-stepper.
+        """
         self.order = "cn" if self.params_solver.time_scheme == "cn" else 1
         self.iter = 0
         self.t = self.params_time.Tstart
@@ -457,6 +485,16 @@ class FlowSolver(ABC):
         return meta, counter, self.params_save.path_out
 
     def _initialize_at_time(self, Tstart: float) -> tuple[dolfin.Function, ...]:
+        """Restart time-stepping from a checkpoint at Tstart > 0.
+
+        Reads full-field (U, P) snapshots from disk, subtracts the base flow to
+        recover perturbation fields, and writes the first XDMF checkpoint frame.
+
+        Returns
+        -------
+        u_, p_, u_n, u_nn, p_n
+            Perturbation-field dolfin.Functions for the time-stepper.
+        """
         meta, counter, base_dir = self._find_restart_source(Tstart)
         self.order = meta["restart_order"]
         self.iter = 0
@@ -634,23 +672,31 @@ class FlowSolver(ABC):
     # ── Solver helpers ────────────────────────────────────────────────────────
 
     def _make_solver(self, order: int | str) -> Any:
+        """Return a MUMPS LU solver. Override to substitute a different linear solver."""
         return dolfin.LUSolver("mumps")
 
     def _solver_diverged(self, field: dolfin.Function) -> bool:
+        """Return True if any MPI rank has a non-finite value in the velocity field."""
         local = not np.all(np.isfinite(field.vector().get_local()))
         return bool(dolfin.MPI.max(dolfin.MPI.comm_world, int(local)))
 
     def _niter_multiple_of(self, iter: int, divider: int) -> bool:
+        """Return True when iter is a positive multiple of divider (False if divider is 0)."""
         return bool(divider and not iter % divider)
 
     # ── Energy ────────────────────────────────────────────────────────────────
 
     def compute_perturbation_energy(self) -> float:
+        """Return ½‖u'‖²_L2, the kinetic energy of the current perturbation field."""
         return 0.5 * dolfin.norm(self.fields.u_, norm_type="L2", mesh=self.mesh) ** 2
 
     def compute_energy_field(
         self, export: bool = False, filename: Optional[Path | str] = None
     ) -> dolfin.Function:
+        """Project u'·u' onto a P4 space and optionally write it to XDMF.
+
+        Returns a scalar energy-density field on the P4 space.
+        """
         # u_·u_ is degree 4 (product of two P2 fields) — P4 represents it exactly.
         P4 = dolfin.FunctionSpace(self.mesh, "CG", 4)
         Efield = flu.projectm(dolfin.dot(self.fields.u_, self.fields.u_), P4)
@@ -661,16 +707,19 @@ class FlowSolver(ABC):
     # ── Utilities ─────────────────────────────────────────────────────────────
 
     def merge(self, u: dolfin.Function, p: dolfin.Function) -> dolfin.Function:
+        """Assign (u, p) into a new mixed-space function and return it."""
         up = dolfin.Function(self.W)
         self._function_assigner.assign(up, [u, p])
         return up
 
     def get_subdomain(self, name: str) -> dolfin.SubDomain | dolfin.CompiledSubDomain:
+        """Look up a named boundary subdomain from the boundaries DataFrame."""
         return self.boundaries.loc[name].subdomain
 
     # ── Default IC / perturbation ─────────────────────────────────────────────
 
     def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
+        """Return a uniform-flow expression at uinf as starting guess for the steady-state solver."""
         uinf = self.params_flow.uinf
 
         class _UniformFlow(dolfin.UserExpression):
@@ -687,11 +736,13 @@ class FlowSolver(ABC):
     def _default_initial_perturbation(
         self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
     ) -> dolfin.Function:
+        """Return the default initial perturbation field (delegates to _perturbation_div0)."""
         return self._perturbation_div0(xloc, yloc, radius)
 
     def _perturbation_div0(
         self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
     ) -> dolfin.Function:
+        """Build a divergence-free Gaussian perturbation field merged with the base-flow pressure."""
         u_nodiv = flu2.get_div0_u(self, xloc=xloc, yloc=yloc, size=radius)
         p_default = flu.projectm(self.fields.P0, self.P)
         return self.merge(u=u_nodiv, p=p_default)

@@ -1,3 +1,14 @@
+"""Sensor classes for pointwise and subdomain-integral flow measurements.
+
+Classes
+-------
+SENSOR_TYPE               : enum — U (x-velocity), V (y-velocity), P (pressure), OTHER
+Sensor                    : abstract base class; subclasses implement eval()
+SensorPoint               : pointwise probe at a 2D position (MPI-safe)
+SensorIntegral            : abstract base for sensors that integrate over a subdomain;
+                            subclasses implement load() and linear_form()
+SensorHorizontalWallShear : integral of dv/dx2 along a segment of the bottom wall
+"""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
@@ -105,6 +116,7 @@ class SensorIntegral(Sensor):
         pass
 
     def eval(self, up):
+        """Assemble linear_form over the loaded subdomain and return the scalar result."""
         return dolfin.assemble(self.linear_form(up))
 
 
@@ -124,6 +136,7 @@ class SensorHorizontalWallShear(SensorIntegral):
     y_sensor: float = 0.0
 
     def linear_form(self, v):
+        """Return the UFL form integrating dv/dx2 (wall shear stress) over the wall segment."""
         return v[0].dx(1) * self.ds(self.sensor_index)
 
     def load(self, flowsolver):
