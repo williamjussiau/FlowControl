@@ -17,6 +17,12 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
     """Flow past a cylinder. Proposed Re=100."""
 
     def _make_boundaries(self):
+        """Return subdomains for the cylinder geometry.
+
+        Boundaries: inlet, outlet, far-field walls (top and bottom), cylinder
+        body (no-slip, excluding slots), and two actuator slots (actuator_up,
+        actuator_lo) at the top and bottom poles of the cylinder.
+        """
         near_cpp = flu.near_cpp
         between_cpp = flu.between_cpp
         and_cpp = flu.and_cpp()
@@ -87,6 +93,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         )
 
     def _make_bcs(self):
+        """Return perturbation-field BCs: zero on inlet/walls/cylinder; actuator expressions on the two slots."""
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet")
         )
@@ -112,6 +119,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         )
 
     def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
+        """Compute steady state then cache lift/drag coefficients as self.cl0, self.cd0."""
         super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
         self.cl0, self.cd0 = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
 

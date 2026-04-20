@@ -29,6 +29,7 @@ cwd = Path(__file__).parent
 
 
 def main():
+    """Run the pinball suction example: steady state then open-loop Gaussian-bump actuation."""
     params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 

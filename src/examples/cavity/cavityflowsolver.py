@@ -19,6 +19,12 @@ class CavityFlowSolver(flowsolver.FlowSolver):
     """Flow over an open cavity. Proposed Re=7500."""
 
     def _make_boundaries(self):
+        """Return subdomains for the open-cavity geometry.
+
+        Channel has inlet/outlet, an upper slip wall, a cavity cut into the
+        lower wall (left/bottom/right no-slip walls), and lower walls split
+        into slip (sf) and no-slip (ns) segments upstream/downstream of the cavity.
+        """
         #                    sf
         #   ------------------------------------------
         #   |                                        |
@@ -162,6 +168,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         )
 
     def _make_bcs(self):
+        """Return perturbation-field BCs: zero on inlet; slip (v=0) on sf walls; no-slip on ns walls and cavity faces."""
         bcu_inlet = dolfin.DirichletBC(
             self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet")
         )

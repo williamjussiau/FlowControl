@@ -27,6 +27,7 @@ cwd = Path(__file__).parent
 
 
 def make_params(path_out, num_steps, save_every, Tstart=0.0):
+    """Build all Param* objects for a CylinderFlowSolver run."""
     params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
@@ -79,6 +80,7 @@ def make_params(path_out, num_steps, save_every, Tstart=0.0):
 
 
 def main():
+    """Run the cylinder example: closed-loop control then restart from a JSON checkpoint."""
     path_out = cwd / "data_output"
 
     # ── First run ─────────────────────────────────────────────────────────────

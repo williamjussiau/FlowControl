@@ -19,6 +19,11 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
     """Lid-driven cavity flow. Proposed Re=8000."""
 
     def _make_boundaries(self):
+        """Return subdomains for the unit-square lid-driven cavity.
+
+        Boundaries: lid (top wall, actuated), leftwall, rightwall, bottomwall.
+        Domain is the upper-right quadrant [xle,xri] × [ylo,yup] by default.
+        """
         near_cpp = flu.near_cpp
         and_cpp = flu.and_cpp()
         on_boundary_cpp = flu.on_boundary_cpp()
@@ -52,6 +57,7 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
         )
 
     def _make_bcs(self):
+        """Return perturbation-field BCs: actuator expression on lid; no-slip on the three other walls."""
         # Actuated lid (perturbation BC: zero at rest)
         bcu_lid = dolfin.DirichletBC(
             self.W.sub(0),
