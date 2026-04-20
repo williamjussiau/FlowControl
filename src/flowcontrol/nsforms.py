@@ -235,14 +235,23 @@ class NSForms:
         """BDF1 (backward-Euler) linearized NS form."""
         b0 = dolfin.Constant(1.0 if self.is_nonlinear else 0.0)
         return (
+            # BDF1 time derivative: (u^{n+1} - u^n) / dt
             dot((u - u_n) / self.dt, v) * dx
+            # Linear advection by base flow: (U0·∇)u
             + dot(dot(U0, nabla_grad(u)), v) * dx
+            # Linearization term: (u·∇)U0
             + dot(dot(u, nabla_grad(U0)), v) * dx
+            # Viscous diffusion: (1/Re) ∇u : ∇v
             + self.invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            # Nonlinear perturbation advection (explicit): (u_n·∇)u_n
             + b0 * dot(dot(u_n, nabla_grad(u_n)), v) * dx
+            # Pressure gradient
             - p * div(v) * dx
+            # Incompressibility constraint
             - div(u) * q * dx
+            # Body force
             - dot(f, v) * dx
+            # Spectral shift σ·u
             - self.shift * dot(u, v) * dx
         )
 
@@ -261,14 +270,23 @@ class NSForms:
         b0 = dolfin.Constant(2.0 if self.is_nonlinear else 0.0)
         b1 = dolfin.Constant(-1.0 if self.is_nonlinear else 0.0)
         return (
+            # BDF2 time derivative: (3u - 4u_n + u_{n-1}) / (2dt)
             dot((3 * u - 4 * u_n + u_nn) / (2 * self.dt), v) * dx
+            # Linear advection by base flow: (U0·∇)u
             + dot(dot(U0, nabla_grad(u)), v) * dx
+            # Linearization term: (u·∇)U0
             + dot(dot(u, nabla_grad(U0)), v) * dx
+            # Viscous diffusion: (1/Re) ∇u : ∇v
             + self.invRe * inner(nabla_grad(u), nabla_grad(v)) * dx
+            # Nonlinear advection (Adams-Bashforth): 2(u_n·∇)u_n - (u_{n-1}·∇)u_{n-1}
             + b0 * dot(dot(u_n, nabla_grad(u_n)), v) * dx
             + b1 * dot(dot(u_nn, nabla_grad(u_nn)), v) * dx
+            # Pressure gradient
             - p * div(v) * dx
+            # Incompressibility constraint
             - div(u) * q * dx
+            # Body force
             - dot(f, v) * dx
+            # Spectral shift σ·u
             - self.shift * dot(u, v) * dx
         )
