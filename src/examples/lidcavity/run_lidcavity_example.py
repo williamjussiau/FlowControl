@@ -26,6 +26,7 @@ Re = 8000
 
 
 def main():
+    """Run the lid-driven cavity example: steady state then unactuated time simulation."""
     params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 

@@ -22,6 +22,13 @@ class PinballFlowSolver(flowsolver.FlowSolver):
     """Flow past 3 cylinders (fluidic pinball). Proposed Re=100."""
 
     def _make_boundaries(self):
+        """Return subdomains for the fluidic-pinball geometry.
+
+        Always defines inlet, outlet, far-field walls, and three cylinder
+        surfaces.  In SUCTION mode each cylinder is split into a body (no-slip)
+        and an actuator slot; in ROTATION mode the full cylinder surface is the
+        actuator.  Cylinder positions follow the equilateral triangle layout.
+        """
         near_cpp = flu.near_cpp
         between_cpp = flu.between_cpp
         and_cpp = flu.and_cpp()
@@ -144,6 +151,12 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         )
 
     def _make_bcs(self):
+        """Return perturbation-field BCs for the pinball.
+
+        In SUCTION mode: no-slip on cylinder bodies and actuator expressions on
+        the three slots.  In ROTATION mode: actuator expressions cover the full
+        cylinder surfaces (no separate body BC needed).
+        """
         mode_actuation = self.params_control.user_data["mode_actuation"]
 
         bcu_inlet = dolfin.DirichletBC(
@@ -206,6 +219,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         return BoundaryConditions(bcu=[bcu_inlet, bcu_walls] + bcs.bcu[2:], bcp=[])
 
     def compute_steady_state(self, u_ctrl, method="newton", **kwargs):
+        """Compute steady state then log force coefficients for each cylinder surface."""
         super().compute_steady_state(method=method, u_ctrl=u_ctrl, **kwargs)
         force_coeffs = self.compute_force_coefficients(self.fields.U0, self.fields.P0)
         if self.verbose:
@@ -250,6 +264,7 @@ class PinballCustomInitialGuess(dolfin.UserExpression):
         super().__init__(**kwargs)
 
     def eval(self, value, x):
+        """Set (u, v, p) by mode: symmetric=(1,0,0), antisymmetric_top=(1/√2,+1/√2,0), antisymmetric_bot=(1/√2,−1/√2,0)."""
         if self.mode == "symmetric":
             value[0] = 1.0
             value[1] = 0.0
@@ -266,9 +281,11 @@ class PinballCustomInitialGuess(dolfin.UserExpression):
             raise ValueError(f"Unknown mode '{self.mode}'")
 
     def value_shape(self):
+        """Return (3,) — mixed (u, v, p) field shape."""
         return (3,)
 
     def as_dolfin_function(self, functionSpace, interp=True):
+        """Project or interpolate this expression onto functionSpace and return as dolfin.Function."""
         return flu.expression_to_dolfin_function(
             self, functionSpace=functionSpace, interp=interp
         )

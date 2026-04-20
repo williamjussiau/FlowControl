@@ -25,6 +25,7 @@ cwd = Path(__file__).parent
 
 
 def main():
+    """Run the open-cavity example: steady state then unactuated time simulation."""
     params_flow = flowsolverparameters.ParamFlow(Re=7500, uinf=1.0)
     params_flow.user_data["L"] = 1.0
     params_flow.user_data["D"] = 1.0
