@@ -6,11 +6,10 @@ With-mesh section: load_expression sets self.expression, u_ctrl initial value,
     load_expression return value.
 """
 
+import dolfin
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
-import dolfin
 
 from flowcontrol.actuator import (
     ACTUATOR_TYPE,
@@ -21,7 +20,6 @@ from flowcontrol.actuator import (
     ActuatorBCUniformU,
     ActuatorForceGaussianV,
 )
-
 
 # ── Shared mock ───────────────────────────────────────────────────────────────
 

@@ -13,7 +13,10 @@ def test_pinball_smoke(tmp_path_factory):
     path_out = tmp_path_factory.mktemp("pinball_smoke")
 
     fs = PinballFlowSolver.make_default(
-        Re=30, mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION, path_out=path_out, num_steps=3
+        Re=30,
+        mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION,
+        path_out=path_out,
+        num_steps=3,
     )
     fs.compute_steady_state(
         method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0, 0.0]
@@ -44,8 +47,11 @@ def test_pinball_regression(tmp_path_factory):
     path_out = tmp_path_factory.mktemp("pinball_regression")
 
     fs = PinballFlowSolver.make_default(
-        Re=30, mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION,
-        path_out=path_out, num_steps=10, save_every=5,
+        Re=30,
+        mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION,
+        path_out=path_out,
+        num_steps=10,
+        save_every=5,
     )
     fs.compute_steady_state(
         method="picard", max_iter=15, tol=1e-7, u_ctrl=[0.0, 0.0, 0.0]
@@ -68,7 +74,11 @@ def test_pinball_regression(tmp_path_factory):
     last = fs.timeseries.iloc[-1]
 
     assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
-    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"
+    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), (
+        f"u_mean: {u_mean} != {_U_MEAN_REF}"
+    )
     assert np.isclose(last["time"], _LAST_TIME_REF, rtol=1e-6), f"time: {last['time']}"
-    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), f"y_meas_1: {last['y_meas_1']}"
+    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), (
+        f"y_meas_1: {last['y_meas_1']}"
+    )
     assert np.isclose(last["dE"], _LAST_DE_REF, rtol=1e-4), f"dE: {last['dE']}"

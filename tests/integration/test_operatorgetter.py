@@ -188,7 +188,9 @@ def test_get_B_shape_bc_actuators(fs_cylinder):
 
     n_local = len(fs_cylinder.W.dofmap().dofs())
     n_act = fs_cylinder.params_control.actuator_number
-    assert B.shape == (n_local, n_act), f"B.shape={B.shape}, expected ({n_local}, {n_act})"
+    assert B.shape == (n_local, n_act), (
+        f"B.shape={B.shape}, expected ({n_local}, {n_act})"
+    )
     assert np.all(np.isfinite(B))
 
 
@@ -200,7 +202,9 @@ def test_get_B_shape_force_actuator(fs_cavity):
 
     n_local = len(fs_cavity.W.dofmap().dofs())
     n_act = fs_cavity.params_control.actuator_number
-    assert B.shape == (n_local, n_act), f"B.shape={B.shape}, expected ({n_local}, {n_act})"
+    assert B.shape == (n_local, n_act), (
+        f"B.shape={B.shape}, expected ({n_local}, {n_act})"
+    )
     assert np.all(np.isfinite(B))
 
 
@@ -217,5 +221,7 @@ def test_get_C_shape(fs_fixture, request):
 
     n_local = len(fs.W.dofmap().dofs())
     n_sens = fs.params_control.sensor_number
-    assert C.shape == (n_sens, n_local), f"C.shape={C.shape}, expected ({n_sens}, {n_local})"
+    assert C.shape == (n_sens, n_local), (
+        f"C.shape={C.shape}, expected ({n_sens}, {n_local})"
+    )
     assert np.all(np.isfinite(C))

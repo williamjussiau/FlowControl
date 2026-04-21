@@ -15,14 +15,17 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
 from examples.cylinder.cylinderflowsolver import CylinderFlowSolver
 from flowcontrol.controller import Controller
 
 CONTROLLER_PATH = (
     Path(__file__).parent.parent.parent
-    / "src" / "examples" / "cylinder" / "data_input" / "Kopt_reduced13.mat"
+    / "src"
+    / "examples"
+    / "cylinder"
+    / "data_input"
+    / "Kopt_reduced13.mat"
 )
 
 
@@ -62,7 +65,9 @@ def test_cylinder_regression(tmp_path_factory):
     path_out = tmp_path_factory.mktemp("cylinder_regression")
 
     # ── First run (10 steps, saves at step 5 and 10) ─────────────────────────
-    fs = CylinderFlowSolver.make_default(Re=100, path_out=path_out, num_steps=10, save_every=5)
+    fs = CylinderFlowSolver.make_default(
+        Re=100, path_out=path_out, num_steps=10, save_every=5
+    )
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
     fs.compute_steady_state(
         method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0
@@ -106,9 +111,17 @@ def test_cylinder_regression(tmp_path_factory):
         print(f"[CAPTURE] last_dE = {last['dE']!r}")
 
     assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
-    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"
+    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), (
+        f"u_mean: {u_mean} != {_U_MEAN_REF}"
+    )
     assert np.isclose(last["time"], _LAST_TIME_REF, rtol=1e-6), f"time: {last['time']}"
-    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), f"y_meas_1: {last['y_meas_1']}"
-    assert np.isclose(last["y_meas_2"], _LAST_Y_MEAS_2_REF, rtol=1e-4), f"y_meas_2: {last['y_meas_2']}"
-    assert np.isclose(last["y_meas_3"], _LAST_Y_MEAS_3_REF, rtol=1e-4), f"y_meas_3: {last['y_meas_3']}"
+    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), (
+        f"y_meas_1: {last['y_meas_1']}"
+    )
+    assert np.isclose(last["y_meas_2"], _LAST_Y_MEAS_2_REF, rtol=1e-4), (
+        f"y_meas_2: {last['y_meas_2']}"
+    )
+    assert np.isclose(last["y_meas_3"], _LAST_Y_MEAS_3_REF, rtol=1e-4), (
+        f"y_meas_3: {last['y_meas_3']}"
+    )
     assert np.isclose(last["dE"], _LAST_DE_REF, rtol=1e-4), f"dE: {last['dE']}"

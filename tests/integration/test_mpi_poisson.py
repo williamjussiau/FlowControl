@@ -1,6 +1,5 @@
 """MPI smoke test: run demo_poisson.py under 4 MPI processes."""
 
-import os
 import subprocess
 import sys
 from pathlib import Path

@@ -15,7 +15,6 @@ from numpy.testing import assert_allclose
 
 from flowcontrol.controller import Controller
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -187,7 +186,7 @@ class TestStep:
         y = np.array([1.0])
 
         K_switched = Controller(A, B, C, D)
-        K_switched.step(y, dt=0.1)   # warm up with dt=0.1
+        K_switched.step(y, dt=0.1)  # warm up with dt=0.1
         u_switched = K_switched.step(y, dt=0.2)  # switch to dt=0.2
 
         # Reference: fresh controller stepping directly with dt=0.2 from same state
