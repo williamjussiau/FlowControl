@@ -7,7 +7,7 @@ import time
 import dolfin
 import numpy as np
 
-from utils.mpi import MpiUtils
+from utils.mpi import get_rank
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def show_max(u, name=""):
 
 def print0(*args, **kwargs):
     """Log on MPI rank 0 only."""
-    if MpiUtils.get_rank() == 0:
+    if get_rank() == 0:
         logger.info(*args, **kwargs)
 
 

@@ -34,7 +34,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 from utils.io import write_xdmf
-from utils.mpi import MpiUtils
+from utils.mpi import get_rank
 from flowcontrol.flowfield import FlowFieldCollection, SimPaths
 
 logger = logging.getLogger(__name__)
@@ -251,13 +251,13 @@ class FlowExporter:
                 "P": self.paths.P_restart.name,
             },
         }
-        if MpiUtils.get_rank() == 0:
+        if get_rank() == 0:
             self.paths.metadata.parent.mkdir(parents=True, exist_ok=True)
             self.paths.metadata.write_text(json.dumps(meta, indent=2))
 
     def write_timeseries(self) -> None:
         """Write the timeseries to CSV (rank-0 only)."""
-        if MpiUtils.get_rank() == 0:
+        if get_rank() == 0:
             self.to_dataframe().to_csv(self.paths.timeseries, sep=",", index=False)
 
     def log_progress(

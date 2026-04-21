@@ -18,7 +18,7 @@ import dolfin
 import numpy as np
 from numpy.typing import NDArray
 
-from utils.mpi import MpiUtils
+from utils.mpi import peval
 
 SENSOR_INDEX_DEFAULT = 10000
 
@@ -59,7 +59,7 @@ class Sensor(ABC):
         This function is going to be called a high number
         of times, so it needs to be optimized.
         The user is responsible for the parallelism compatibility
-        (see for example MpiUtils.peval)"""
+        (see for example peval)"""
         pass
 
 
@@ -78,7 +78,7 @@ class SensorPoint(Sensor):
 
     def eval(self, up):
         # warning: need to be compatible with parallel
-        return MpiUtils.peval(up, dolfin.Point(self.position))[self.sensor_type]
+        return peval(up, dolfin.Point(self.position))[self.sensor_type]
         # for example, do not:
         # return up(self.position[0], self.position[1])[self.sensor_type]
 
