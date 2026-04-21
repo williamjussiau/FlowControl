@@ -11,11 +11,6 @@ import gmsh
 import meshio
 import numpy as np
 
-# from mesh_utils import *
-# import mesh_utils
-
-# import pdb
-
 
 class MeshGenerator:
     def __init__(self, **mesh_param):

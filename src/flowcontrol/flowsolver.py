@@ -635,7 +635,13 @@ class FlowSolver(ABC):
         runtime = time.time() - t0
 
         if self._niter_multiple_of(self.iter, self.verbose):
-            flu2.print_progress(self, runtime=runtime)
+            self.exporter.log_progress(
+                self.iter,
+                self.params_time.num_steps,
+                self.t,
+                self.params_time.Tfinal + self.params_time.Tstart,
+                runtime,
+            )
 
         # Log and export
         at_checkpoint = self._niter_multiple_of(self.iter, self.params_save.save_every)

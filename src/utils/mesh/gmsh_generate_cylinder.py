@@ -10,11 +10,6 @@ import gmsh
 import meshio
 import numpy as np
 
-# from mesh_utils import *
-# import mesh_utils as mu
-
-# import pdb
-
 
 class MeshGenerator:
     def __init__(self, **mesh_param):
@@ -138,7 +133,6 @@ class MeshGenerator:
             0, 0, 0, D / 2
         )  # default is:, angle1=0, angle2=2*np.pi)
 
-        # pdb.set_trace()
         # rectangles
         # line_le1 = factory.addLine(pul, pmul)
         # line_lo1 = factory.addLine(pmul, pmur)

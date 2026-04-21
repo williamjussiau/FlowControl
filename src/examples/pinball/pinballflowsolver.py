@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 
 import flowcontrol.flowsolver as flowsolver
-import utils.utils_extract as flu2
 import utils.utils_flowsolver as flu
+from utils.physics import stress_tensor
 from flowcontrol.actuator import CYLINDER_ACTUATION_MODE
 from flowcontrol.flowfield import BoundaryConditions
 
@@ -232,7 +232,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         nu = self.params_flow.uinf * D / self.params_flow.Re
         mode_actuation = self.params_control.user_data["mode_actuation"]
 
-        sigma = flu2.stress_tensor(nu, u, p)
+        sigma = stress_tensor(nu, u, p)
         Fo = -dolfin.dot(sigma, dolfin.FacetNormal(self.mesh))
 
         if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:

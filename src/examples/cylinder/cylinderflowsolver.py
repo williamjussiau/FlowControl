@@ -6,8 +6,8 @@ import dolfin
 import pandas
 
 import flowcontrol.flowsolver as flowsolver
-import utils.utils_extract as flu2
 import utils.utils_flowsolver as flu
+from utils.physics import stress_tensor
 from flowcontrol.flowfield import BoundaryConditions
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         """Compute lift and drag coefficients on the cylinder."""
         D = self.params_flow.user_data["D"]
         nu = self.params_flow.uinf * D / self.params_flow.Re
-        sigma = flu2.stress_tensor(nu, u, p)
+        sigma = stress_tensor(nu, u, p)
         Fo = -dolfin.dot(sigma, dolfin.FacetNormal(self.mesh))
         surfaces_idx = [
             self.boundaries.loc[nm].idx
