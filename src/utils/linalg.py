@@ -16,7 +16,7 @@ from mpi4py import MPI as mpi
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from utils.mpi import MpiUtils
+from utils.mpi import check_process_rank, get_rank
 
 logger = logging.getLogger(__name__)
 
@@ -642,7 +642,7 @@ def get_Hw(
 
     Prefer get_frequency_response_sequential / get_frequency_response_mpi for new code.
     """
-    MpiUtils.check_process_rank()
+    check_process_rank()
     ww = np.logspace(logwmin, logwmax, num=nw)
     ns = fs.params_control.sensor_number
     Hw = np.zeros((ns, len(ww)), dtype=complex)
@@ -734,7 +734,7 @@ def get_Hw(
             "Elapsed computing {0} pulsations: {1}".format(len(ww), time.time() - tb)
         )
 
-    if save_dir and MpiUtils.get_rank() == 0:
+    if save_dir and get_rank() == 0:
         suffix = "_" + str(ns) + "sensors"
         savepath = save_dir + "Hw_nw" + str(nw) + save_suffix + suffix + ".mat"
         sio.savemat(

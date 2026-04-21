@@ -14,7 +14,7 @@ from mpi4py import MPI as mpi
 from smt.applications.ego import EGO
 from smt.sampling_methods import LHS
 
-from utils.mpi import MpiUtils
+from utils.mpi import get_rank
 
 logger = logging.getLogger(__name__)
 
@@ -409,6 +409,6 @@ def write_optim_csv(fs, x, J, diverged, write=True):
             + file_extension
             + ".csv"
         )
-        if MpiUtils.get_rank() == 0:
+        if get_rank() == 0:
             fs.timeseries.to_csv(timeseries_path, sep=",", index=False)
     return 1

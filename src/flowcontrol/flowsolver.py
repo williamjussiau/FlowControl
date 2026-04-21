@@ -33,7 +33,7 @@ from numpy.typing import NDArray
 import flowcontrol.flowsolverparameters as flowsolverparameters
 from utils.fem import projectm
 from utils.io import read_xdmf, write_xdmf
-from utils.mpi import MpiUtils
+from utils.mpi import get_rank
 from utils.physics import get_div0_u
 from flowcontrol.actuator import ACTUATOR_TYPE
 from flowcontrol.exporter import FlowExporter
@@ -291,7 +291,7 @@ class FlowSolver(ABC):
             write_xdmf(
                 self.paths.P0, P0, "P0", time_step=0.0, append=False, write_mesh=True
             )
-            if MpiUtils.get_rank() == 0:
+            if get_rank() == 0:
                 self.paths.steady_meta.parent.mkdir(parents=True, exist_ok=True)
                 self.paths.steady_meta.write_text(
                     json.dumps({"mesh_cells": self.mesh.num_entities_global(self.mesh.topology().dim())}, indent=2)
@@ -311,7 +311,7 @@ class FlowSolver(ABC):
 
     def _check_steady_state_compatible(self, u0_path: Path) -> None:
         """Raise ValueError if the steady-state checkpoint was written on a different mesh."""
-        if MpiUtils.get_rank() != 0:
+        if get_rank() != 0:
             return  # rank-0 only — sidecar is written and checked by a single process
         meta_path = u0_path.parent / "meta.json"
         try:
