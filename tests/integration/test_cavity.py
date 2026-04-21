@@ -41,7 +41,9 @@ def test_cavity_regression(tmp_path_factory):
 
     path_out = tmp_path_factory.mktemp("cavity_regression")
 
-    fs = CavityFlowSolver.make_default(Re=500, path_out=path_out, num_steps=10, save_every=5)
+    fs = CavityFlowSolver.make_default(
+        Re=500, path_out=path_out, num_steps=10, save_every=5
+    )
     fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=[0.0])
     fs.compute_steady_state(
         method="newton", max_iter=10, u_ctrl=[0.0], initial_guess=fs.fields.UP0
@@ -63,8 +65,14 @@ def test_cavity_regression(tmp_path_factory):
         pytest.skip("y_meas_1 ref not yet captured — run with -s to capture")
 
     assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
-    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"
+    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), (
+        f"u_mean: {u_mean} != {_U_MEAN_REF}"
+    )
     assert np.isclose(last["time"], _LAST_TIME_REF, rtol=1e-6), f"time: {last['time']}"
-    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), f"y_meas_1: {last['y_meas_1']}"
-    assert np.isclose(last["y_meas_2"], _LAST_Y_MEAS_2_REF, rtol=1e-4), f"y_meas_2: {last['y_meas_2']}"
+    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), (
+        f"y_meas_1: {last['y_meas_1']}"
+    )
+    assert np.isclose(last["y_meas_2"], _LAST_Y_MEAS_2_REF, rtol=1e-4), (
+        f"y_meas_2: {last['y_meas_2']}"
+    )
     assert np.isclose(last["dE"], _LAST_DE_REF, rtol=1e-4), f"dE: {last['dE']}"

@@ -6,11 +6,10 @@ With-mesh section: SensorPoint.eval on a known field, SensorHorizontalWallShear.
     and the key consistency check eval(up) == assemble(linear_form(up)).
 """
 
+import dolfin
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
-import dolfin
 
 from flowcontrol.sensor import (
     SENSOR_INDEX_DEFAULT,
@@ -20,7 +19,6 @@ from flowcontrol.sensor import (
     SensorIntegral,
     SensorPoint,
 )
-
 
 # ── Shared mock ───────────────────────────────────────────────────────────────
 
