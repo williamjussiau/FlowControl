@@ -259,6 +259,20 @@ class FlowExporter:
         if flu.MpiUtils.get_rank() == 0:
             self.to_dataframe().to_csv(self.paths.timeseries, sep=",", index=False)
 
+    def log_progress(
+        self,
+        iter: int,
+        num_steps: int,
+        t: float,
+        t_end: float,
+        runtime: float,
+    ) -> None:
+        """Log a one-line progress message for the current time step."""
+        logger.info(
+            "--- iter: %5d/%5d --- time: %3.3f/%3.3f --- elapsed %5.5f ---",
+            iter, num_steps, t, t_end, runtime,
+        )
+
     def reset(self) -> None:
         """Clear all accumulated records (e.g. before a restart run)."""
         self._records.clear()
