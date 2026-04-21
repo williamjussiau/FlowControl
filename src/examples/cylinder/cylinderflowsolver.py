@@ -138,3 +138,62 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         cd = drag / (0.5 * self.params_flow.uinf**2 * D)
         cl = lift / (0.5 * self.params_flow.uinf**2 * D)
         return cl, cd
+
+    @classmethod
+    def make_default(
+        cls,
+        Re: float = 100,
+        path_out=None,
+        num_steps: int = 10,
+        save_every: int = 0,
+        Tstart: float = 0.0,
+        verbose: int = 0,
+    ) -> "CylinderFlowSolver":
+        """Return a CylinderFlowSolver with standard parameters (Re=100, 2 BC actuators, 3 sensors)."""
+        from pathlib import Path
+
+        import numpy as np
+
+        import flowcontrol.flowsolverparameters as fsp
+        from flowcontrol.actuator import ActuatorBCParabolicV
+        from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
+
+        if path_out is None:
+            path_out = Path(__file__).parent / "data_output"
+
+        params_flow = fsp.ParamFlow(Re=Re, uinf=1.0)
+        params_flow.user_data["D"] = 1.0
+
+        params_time = fsp.ParamTime(num_steps=num_steps, dt=0.005, Tstart=Tstart)
+        params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
+        params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+        params_mesh = fsp.ParamMesh(
+            meshpath=Path(__file__).parent / "data_input" / "O1.xdmf"
+        )
+        params_mesh.user_data.update({"xinf": 20, "xinfa": -10, "yinf": 10})
+
+        radius = params_flow.user_data["D"] / 2
+        width = ActuatorBCParabolicV.angular_size_deg_to_width(10, radius)
+        params_control = fsp.ParamControl(
+            sensor_list=[
+                SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.0, 0.0])),
+                SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1.0])),
+                SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, -1.0])),
+            ],
+            actuator_list=[
+                ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_up"),
+                ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_lo"),
+            ],
+        )
+        params_ic = fsp.ParamIC()
+
+        return cls(
+            params_flow=params_flow,
+            params_time=params_time,
+            params_save=params_save,
+            params_solver=params_solver,
+            params_mesh=params_mesh,
+            params_control=params_control,
+            params_ic=params_ic,
+            verbose=verbose,
+        )

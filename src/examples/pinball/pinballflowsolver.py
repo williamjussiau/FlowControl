@@ -256,6 +256,87 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         return result
 
 
+    @classmethod
+    def make_default(
+        cls,
+        Re: float = 50,
+        mode_actuation=None,
+        path_out=None,
+        num_steps: int = 10,
+        save_every: int = 0,
+        Tstart: float = 0.0,
+        verbose: int = 0,
+    ) -> "PinballFlowSolver":
+        """Return a PinballFlowSolver with standard parameters (Re=50, rotation actuation, 3 sensors)."""
+        from pathlib import Path
+
+        import numpy as np
+
+        import flowcontrol.flowsolverparameters as fsp
+        from flowcontrol.actuator import (
+            CYLINDER_ACTUATION_MODE,
+            ActuatorBCParabolicV,
+            ActuatorBCRotation,
+        )
+        from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
+
+        if path_out is None:
+            path_out = Path(__file__).parent / "data_output"
+        if mode_actuation is None:
+            mode_actuation = CYLINDER_ACTUATION_MODE.ROTATION
+
+        params_flow = fsp.ParamFlow(Re=Re, uinf=1.0)
+        params_flow.user_data["D"] = 1.0
+
+        params_time = fsp.ParamTime(num_steps=num_steps, dt=0.005, Tstart=Tstart)
+        params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
+        params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+        params_mesh = fsp.ParamMesh(
+            meshpath=Path(__file__).parent / "data_input" / "mesh_middle_gmsh.xdmf"
+        )
+        params_mesh.user_data.update({"xinf": 20, "xinfa": -6, "yinf": 6})
+
+        cylinder_diameter = params_flow.user_data["D"]
+        position_mid = [-1.5 * np.cos(np.pi / 6), 0.0]
+        position_top = [0.0, +0.75]
+
+        if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
+            width = ActuatorBCParabolicV.angular_size_deg_to_width(10, cylinder_diameter / 2)
+            actuator_list = [
+                ActuatorBCParabolicV(width=width, position_x=position_mid[0]),
+                ActuatorBCParabolicV(width=width, position_x=position_top[0]),
+                ActuatorBCParabolicV(width=width, position_x=position_top[0]),
+            ]
+        else:
+            actuator_list = [
+                ActuatorBCRotation(position_x=position_mid[0], position_y=position_mid[1], diameter=cylinder_diameter),
+                ActuatorBCRotation(position_x=position_top[0], position_y=+position_top[1], diameter=cylinder_diameter),
+                ActuatorBCRotation(position_x=position_top[0], position_y=-position_top[1], diameter=cylinder_diameter),
+            ]
+
+        params_control = fsp.ParamControl(
+            sensor_list=[
+                SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([8.0, 0.0])),
+                SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([10.0, 0.0])),
+                SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([12.0, 0.0])),
+            ],
+            actuator_list=actuator_list,
+            user_data={"mode_actuation": mode_actuation},
+        )
+        params_ic = fsp.ParamIC()
+
+        return cls(
+            params_flow=params_flow,
+            params_time=params_time,
+            params_save=params_save,
+            params_solver=params_solver,
+            params_mesh=params_mesh,
+            params_control=params_control,
+            params_ic=params_ic,
+            verbose=verbose,
+        )
+
+
 class PinballCustomInitialGuess(dolfin.UserExpression):
     """Custom initial guess for Picard iteration on the pinball."""
 

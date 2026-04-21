@@ -99,3 +99,55 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
                 return (3,)
 
         return _ZeroFlow()
+
+    @classmethod
+    def make_default(
+        cls,
+        Re: float = 8000,
+        path_out=None,
+        num_steps: int = 10,
+        save_every: int = 0,
+        Tstart: float = 0.0,
+        verbose: int = 0,
+    ) -> "LidCavityFlowSolver":
+        """Return a LidCavityFlowSolver with standard parameters (Re=8000, 1 BC actuator, 2 sensors)."""
+        from pathlib import Path
+
+        import numpy as np
+
+        import flowcontrol.flowsolverparameters as fsp
+        from flowcontrol.actuator import ActuatorBCUniformU
+        from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
+
+        if path_out is None:
+            path_out = Path(__file__).parent / "data_output"
+
+        params_flow = fsp.ParamFlow(Re=Re, uinf=1.0)
+        params_flow.user_data["D"] = 1.0
+
+        params_time = fsp.ParamTime(num_steps=num_steps, dt=0.005, Tstart=Tstart)
+        params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
+        params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+        params_mesh = fsp.ParamMesh(
+            meshpath=Path(__file__).parent / "data_input" / "mesh64.xdmf"
+        )
+        params_mesh.user_data.update({"yup": 1, "ylo": 0, "xri": 1, "xle": 0})
+        params_control = fsp.ParamControl(
+            sensor_list=[
+                SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.05, 0.5])),
+                SensorPoint(sensor_type=SENSOR_TYPE.U, position=np.array([0.5, 0.95])),
+            ],
+            actuator_list=[ActuatorBCUniformU(boundary_name="lid")],
+        )
+        params_ic = fsp.ParamIC()
+
+        return cls(
+            params_flow=params_flow,
+            params_time=params_time,
+            params_save=params_save,
+            params_solver=params_solver,
+            params_mesh=params_mesh,
+            params_control=params_control,
+            params_ic=params_ic,
+            verbose=verbose,
+        )
