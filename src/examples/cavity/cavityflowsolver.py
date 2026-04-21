@@ -231,3 +231,66 @@ class CavityFlowSolver(flowsolver.FlowSolver):
                 return (3,)
 
         return _CavityFlow()
+
+    @classmethod
+    def make_default(
+        cls,
+        Re: float = 7500,
+        path_out=None,
+        num_steps: int = 10,
+        save_every: int = 0,
+        Tstart: float = 0.0,
+        verbose: int = 0,
+    ) -> "CavityFlowSolver":
+        """Return a CavityFlowSolver with standard parameters (Re=7500, 1 FORCE actuator, 2 sensors)."""
+        from pathlib import Path
+
+        import numpy as np
+
+        import flowcontrol.flowsolverparameters as fsp
+        from flowcontrol.actuator import ActuatorForceGaussianV
+        from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
+
+        if path_out is None:
+            path_out = Path(__file__).parent / "data_output"
+
+        params_flow = fsp.ParamFlow(Re=Re, uinf=1.0)
+        params_flow.user_data.update({"L": 1.0, "D": 1.0})
+
+        params_time = fsp.ParamTime(num_steps=num_steps, dt=0.0004, Tstart=Tstart)
+        params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
+        params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+        params_mesh = fsp.ParamMesh(
+            meshpath=Path(__file__).parent / "data_input" / "cavity_coarse.xdmf"
+        )
+        params_mesh.user_data.update({
+            "xinf": 2.5, "xinfa": -1.2, "yinf": 0.5,
+            "x0ns_left": -0.4, "x0ns_right": 1.75,
+        })
+        params_control = fsp.ParamControl(
+            sensor_list=[
+                SensorHorizontalWallShear(
+                    sensor_index=100,
+                    x_sensor_left=1.0,
+                    x_sensor_right=1.1,
+                    y_sensor=0.0,
+                    sensor_type=SENSOR_TYPE.OTHER,
+                ),
+                SensorPoint(sensor_type=SENSOR_TYPE.U, position=np.array([0.1, 0.1])),
+            ],
+            actuator_list=[
+                ActuatorForceGaussianV(sigma=0.0849, position=np.array([-0.1, 0.02])),
+            ],
+        )
+        params_ic = fsp.ParamIC()
+
+        return cls(
+            params_flow=params_flow,
+            params_time=params_time,
+            params_save=params_save,
+            params_solver=params_solver,
+            params_mesh=params_mesh,
+            params_control=params_control,
+            params_ic=params_ic,
+            verbose=verbose,
+        )

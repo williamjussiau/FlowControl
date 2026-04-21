@@ -1346,9 +1346,22 @@ def get_frequency_response_sequential(
             format="csc",
         )
 
+        ## Direct solver
         # Factorize once, solve for all nu right-hand sides simultaneously
         lu = spr_la.splu(Ablk)
         x = lu.solve(rhs)  # (2n, nu)
+
+        ## Iterative solver
+        # ILU preconditioner + GMRES, solve for each RHS column
+        # ilu = spr_la.spilu(Ablk, drop_tol=1e-4, fill_factor=10)
+        # M_pc = spr_la.LinearOperator(Ablk.shape, ilu.solve)
+        # x = np.zeros((2 * n, nu))
+        # for jj in range(nu):
+        #     x[:, jj], info = spr_la.gmres(Ablk, rhs[:, jj], M=M_pc, rtol=1e-8)
+        #     if info != 0:
+        #         logger.warning(
+        #             "GMRES did not converge at w=%.4e, col %d (info=%d)", w, jj, info
+        #         )
 
         xr = x[:n, :]  # (n, nu) real part of resolvent
         xi = x[n:, :]  # (n, nu) imag part of resolvent

@@ -27,3 +27,4 @@ figs/
 scripts/
 src/examples/**/data_output/
 src/sandbox/data_output/
+src/sandbox/frequency_response/
