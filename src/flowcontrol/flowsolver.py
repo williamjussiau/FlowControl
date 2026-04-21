@@ -31,8 +31,10 @@ import pandas as pd
 from numpy.typing import NDArray
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
-import utils.utils_extract as flu2
-import utils.utils_flowsolver as flu
+from utils.fem import projectm
+from utils.io import read_xdmf, write_xdmf
+from utils.mpi import MpiUtils
+from utils.physics import get_div0_u
 from flowcontrol.actuator import ACTUATOR_TYPE
 from flowcontrol.exporter import FlowExporter
 from flowcontrol.flowfield import (
@@ -279,17 +281,17 @@ class FlowSolver(ABC):
             raise ValueError(f"method must be 'newton' or 'picard', got {method!r}")
 
         U0, P0 = UP0.split(deepcopy=True)
-        U0 = flu.projectm(U0, self.V)
-        P0 = flu.projectm(P0, self.P)
+        U0 = projectm(U0, self.V)
+        P0 = projectm(P0, self.P)
 
         if self.params_save.save_every:
-            flu.write_xdmf(
+            write_xdmf(
                 self.paths.U0, U0, "U0", time_step=0.0, append=False, write_mesh=True
             )
-            flu.write_xdmf(
+            write_xdmf(
                 self.paths.P0, P0, "P0", time_step=0.0, append=False, write_mesh=True
             )
-            if flu.MpiUtils.get_rank() == 0:
+            if MpiUtils.get_rank() == 0:
                 self.paths.steady_meta.parent.mkdir(parents=True, exist_ok=True)
                 self.paths.steady_meta.write_text(
                     json.dumps({"mesh_cells": self.mesh.num_entities_global(self.mesh.topology().dim())}, indent=2)
@@ -303,13 +305,13 @@ class FlowSolver(ABC):
         self._check_steady_state_compatible(Path(paths[0]))
         U0 = dolfin.Function(self.V)
         P0 = dolfin.Function(self.P)
-        flu.read_xdmf(paths[0], U0, "U0")
-        flu.read_xdmf(paths[1], P0, "P0")
+        read_xdmf(paths[0], U0, "U0")
+        read_xdmf(paths[1], P0, "P0")
         self._assign_steady_state(U0, P0)
 
     def _check_steady_state_compatible(self, u0_path: Path) -> None:
         """Raise ValueError if the steady-state checkpoint was written on a different mesh."""
-        if flu.MpiUtils.get_rank() != 0:
+        if MpiUtils.get_rank() != 0:
             return  # rank-0 only — sidecar is written and checked by a single process
         meta_path = u0_path.parent / "meta.json"
         try:
@@ -413,9 +415,9 @@ class FlowSolver(ABC):
             # Reconstruct so that ic.u / ic.p reflect the mutated vector.
             self.fields.ic = FlowField(self.fields.ic.up)
 
-        u_n = flu.projectm(v=self.fields.ic.u, V=self.V, bcs=self.bc.bcu)
+        u_n = projectm(v=self.fields.ic.u, V=self.V, bcs=self.bc.bcu)
         u_nn = u_n.copy(deepcopy=True)
-        p_n = flu.projectm(self.fields.ic.p, self.P)
+        p_n = projectm(self.fields.ic.p, self.P)
         u_ = u_n.copy(deepcopy=True)
         p_ = p_n.copy(deepcopy=True)
 
@@ -512,11 +514,11 @@ class FlowSolver(ABC):
 
         # U_, U_n, U_nn, P_, P_n are full fields (base flow + perturbation),
         # as written by export_xdmf with adjust_baseflow=1.0.
-        flu.read_xdmf(U_path, U_, "U", counter=counter)
-        flu.read_xdmf(P_path, P_, "P", counter=counter)
-        flu.read_xdmf(U_path, U_n, "U", counter=counter)   # same snapshot as U_
-        flu.read_xdmf(Uprev_path, U_nn, "U_n", counter=counter)
-        flu.read_xdmf(P_path, P_n, "P", counter=counter)
+        read_xdmf(U_path, U_, "U", counter=counter)
+        read_xdmf(P_path, P_, "P", counter=counter)
+        read_xdmf(U_path, U_n, "U", counter=counter)   # same snapshot as U_
+        read_xdmf(Uprev_path, U_nn, "U_n", counter=counter)
+        read_xdmf(P_path, P_n, "P", counter=counter)
 
         if self.params_save.save_every:
             # Full field already loaded — no base-flow adjustment needed.
@@ -705,9 +707,9 @@ class FlowSolver(ABC):
         """
         # u_·u_ is degree 4 (product of two P2 fields) — P4 represents it exactly.
         P4 = dolfin.FunctionSpace(self.mesh, "CG", 4)
-        Efield = flu.projectm(dolfin.dot(self.fields.u_, self.fields.u_), P4)
+        Efield = projectm(dolfin.dot(self.fields.u_, self.fields.u_), P4)
         if export:
-            flu.write_xdmf(filename, Efield, "E")
+            write_xdmf(filename, Efield, "E")
         return Efield
 
     # ── Utilities ─────────────────────────────────────────────────────────────
@@ -749,8 +751,8 @@ class FlowSolver(ABC):
         self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
     ) -> dolfin.Function:
         """Build a divergence-free Gaussian perturbation field merged with the base-flow pressure."""
-        u_nodiv = flu2.get_div0_u(self, xloc=xloc, yloc=yloc, size=radius)
-        p_default = flu.projectm(self.fields.P0, self.P)
+        u_nodiv = get_div0_u(self, xloc=xloc, yloc=yloc, size=radius)
+        p_default = projectm(self.fields.P0, self.P)
         return self.merge(u=u_nodiv, p=p_default)
 
     # ── Abstract methods ──────────────────────────────────────────────────────

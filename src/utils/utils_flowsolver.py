@@ -27,6 +27,7 @@ from utils.io import (  # noqa: F401, E402
     export_facetnormals,
     export_field,
     export_sparse_matrix,
+    export_square_operators,
     export_stress_tensor,
     export_subdomains,
     export_to_mat,

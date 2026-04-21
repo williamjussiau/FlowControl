@@ -16,7 +16,6 @@ from mpi4py import MPI as mpi
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-import utils.utils_flowsolver as flu
 from utils.mpi import MpiUtils
 
 logger = logging.getLogger(__name__)
@@ -851,11 +850,11 @@ def get_matrices_lifting(self, A, C, Q):
     Cl = np.hstack((C, np.atleast_2d(0)))
 
     # Ql = diag(Q, 1)
-    Qsp = flu.dense_to_sparse(Q)
-    Qlsp = flu.spr.block_diag((Qsp, 1))
+    Qsp = dense_to_sparse(Q)
+    Qlsp = spr.block_diag((Qsp, 1))
 
     # Al = diag(A, 0)
-    Asp = flu.dense_to_sparse(A)
-    Alsp = flu.spr.block_diag((Asp, 0))
+    Asp = dense_to_sparse(A)
+    Alsp = spr.block_diag((Asp, 0))
 
     return Alsp, Bl, Cl, Qlsp
