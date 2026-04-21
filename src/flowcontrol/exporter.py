@@ -33,7 +33,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-import utils.utils_flowsolver as flu
+from utils.io import write_xdmf
+from utils.mpi import MpiUtils
 from flowcontrol.flowfield import FlowFieldCollection, SimPaths
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ class FlowExporter:
             f"Exporting fields at t={time:.4f} to {self.paths.U_restart.parent}"
         )
 
-        flu.write_xdmf(
+        write_xdmf(
             filename=self.paths.U_restart,
             func=self.fields.Usave,
             name="U",
@@ -147,7 +148,7 @@ class FlowExporter:
             append=append,
             write_mesh=write_mesh,
         )
-        flu.write_xdmf(
+        write_xdmf(
             filename=self.paths.Uprev_restart,
             func=self.fields.Usave_n,
             name="U_n",
@@ -155,7 +156,7 @@ class FlowExporter:
             append=append,
             write_mesh=write_mesh,
         )
-        flu.write_xdmf(
+        write_xdmf(
             filename=self.paths.P_restart,
             func=self.fields.Psave,
             name="P",
@@ -250,13 +251,13 @@ class FlowExporter:
                 "P": self.paths.P_restart.name,
             },
         }
-        if flu.MpiUtils.get_rank() == 0:
+        if MpiUtils.get_rank() == 0:
             self.paths.metadata.parent.mkdir(parents=True, exist_ok=True)
             self.paths.metadata.write_text(json.dumps(meta, indent=2))
 
     def write_timeseries(self) -> None:
         """Write the timeseries to CSV (rank-0 only)."""
-        if flu.MpiUtils.get_rank() == 0:
+        if MpiUtils.get_rank() == 0:
             self.to_dataframe().to_csv(self.paths.timeseries, sep=",", index=False)
 
     def log_progress(

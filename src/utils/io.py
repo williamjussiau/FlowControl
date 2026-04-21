@@ -158,6 +158,18 @@ def export_stress_tensor(
         )
 
 
+def export_square_operators(path, operators, operators_names):
+    """Export square operators (dolfin PETScMatrix) as spy PNG and sparse NPZ files."""
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    for Mat, Matname in zip(operators, operators_names):
+        export_sparse_matrix(Mat, path / f"{Matname}.png")
+        Matc, Mats, Matr = Mat.mat().getValuesCSR()
+        Acsr = spr.csr_matrix((Matr, Mats, Matc))
+        spr.save_npz(path / f"{Matname}.npz", Acsr)
+        spr.save_npz(path / f"{Matname}_coo.npz", Acsr.tocoo())
+
+
 def export_sparse_matrix(A, figname=None):
     """Export sparse matrix to spy plot.
     A: dolfin PETScMatrix or scipy.sparse.csr_matrix"""

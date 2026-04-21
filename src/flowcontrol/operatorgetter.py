@@ -198,6 +198,27 @@ class OperatorGetter:
         return C
 
 
+    def get_all(
+        self,
+        autodiff: bool = True,
+        u_ctrl: Optional[NDArray[np.float64]] = None,
+    ) -> tuple:
+        """Compute all four state-space operators (A, E, B, C) in one call.
+
+        Returns
+        -------
+        A : dolfin.PETScMatrix  — Jacobian (dynamic matrix)
+        E : dolfin.PETScMatrix  — Mass matrix
+        B : NDArray             — Actuation matrix
+        C : NDArray             — Measurement matrix
+        """
+        A = self.get_A(autodiff=autodiff, u_ctrl=u_ctrl)
+        E = self.get_mass_matrix()
+        B = self.get_B()
+        C = self.get_C()
+        return A, E, B, C
+
+
 def _point_sensor_subspace(
     W: dolfin.FunctionSpace, sensor_type: SENSOR_TYPE
 ) -> dolfin.FunctionSpace:

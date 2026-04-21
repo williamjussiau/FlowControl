@@ -15,8 +15,7 @@ import control
 import numpy as np
 from numpy.typing import NDArray
 
-import utils.utils_flowsolver as flu
-import utils.youla_utils as yu
+from utils.lticontrol import read_matfile, ss_inv
 
 
 class Controller(control.StateSpace):
@@ -66,7 +65,7 @@ class Controller(control.StateSpace):
         Returns:
             Controller
         """
-        stateSpaceMatrices = flu.read_matfile(file)
+        stateSpaceMatrices = read_matfile(file)
         return cls(
             stateSpaceMatrices["A"],
             stateSpaceMatrices["B"],
@@ -152,7 +151,7 @@ class Controller(control.StateSpace):
         Returns:
             Controller
         """
-        invK = yu.ss_inv(self)
+        invK = ss_inv(self)
         return Controller(invK.A, invK.B, invK.C, invK.D)
 
     def _concatenate_states_with(self, other: Controller) -> NDArray[np.float64]:
@@ -193,7 +192,7 @@ if __name__ == "__main__":
         cwd / ".." / "examples" / "cylinder" / "data_input" / "sysid_o16_d=3_ssest.mat"
     )
 
-    kd = flu.read_matfile(sspath)
+    kd = read_matfile(sspath)
     K1 = Controller.from_matrices(A=kd["A"], B=kd["B"], C=kd["C"], D=kd["D"])
     K2 = Controller.from_file(
         file=cwd
