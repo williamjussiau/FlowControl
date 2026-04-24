@@ -3,8 +3,6 @@
 import json
 import logging
 import re
-import time
-from _ctypes import PyObj_FromPtr
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 # --- Array utilities ---
+
 
 def compute_signal_frequency(sig, Tf, dt, nzp=10):
     """Compute frequency of periodic signal with FFT+zero-padding (nzp*len(sig)).
@@ -37,12 +36,13 @@ def sample_lco(Tlco, Tstartlco, nsim):
 
 def pad_upto(L, N, v=0):
     """Pad list or np.ndarray L with v up to N elements."""
-    if type(L) is list:
+    if isinstance(L, list):
         return L + (N - len(L)) * [v]
-    if type(L) is np.ndarray:
-        return np.pad(L, pad_width=(0, N - L.shape[0]), mode="constant", constant_values=(v))
-    logger.info("Type for padding not supported")
-    return L
+    if isinstance(L, np.ndarray):
+        return np.pad(
+            L, pad_width=(0, N - L.shape[0]), mode="constant", constant_values=(v)
+        )
+    raise TypeError("Type not supported for padding")
 
 
 def saturate(x, xmin, xmax):
@@ -51,6 +51,13 @@ def saturate(x, xmin, xmax):
 
 
 # --- Multisine signal generation ---
+
+
+def _keepfreq_mask(freqsin, Fmin, Fmax, include_fbounds):
+    if include_fbounds:
+        return (freqsin >= Fmin) & (freqsin <= Fmax)
+    return (freqsin > Fmin) & (freqsin < Fmax)
+
 
 def multisine(
     N: int,
@@ -82,28 +89,21 @@ def multisine(
     skip_even = bool(skip_even)
     freqsin = np.arange(skip_even, N + skip_even, step=1 + skip_even) * Fs / N
 
-    if include_fbounds:
-        keepfreq = (freqsin >= Fmin) & (freqsin <= Fmax)
-    else:
-        keepfreq = (freqsin > Fmin) & (freqsin < Fmax)
-
-    freqsin = freqsin[keepfreq].reshape(-1, 1)
+    freqsin = freqsin[_keepfreq_mask(freqsin, Fmin, Fmax, include_fbounds)].reshape(-1, 1)
+    nf = freqsin.shape[0]
     T = (N - 1) / Fs
     t = np.linspace(0, T, N)
 
     def make_multisine():
         phi = 2 * np.pi * np.random.rand(*freqsin.shape)
-        nf = freqsin.shape[0]
-        y = np.zeros_like(t)
-        for i in range(nf):
-            y += np.sin(2 * np.pi * freqsin[i] * t + phi[i])
-        return y * 2 / np.sqrt(N)
+        y = np.sum(np.sin(2 * np.pi * freqsin * t + phi), axis=0)
+        return y / np.sqrt(nf)
 
     y = make_multisine()
 
     if opt_cf:
         best_cf = crest_factor(y)
-        for _ in range(max(opt_cf, 10)):
+        for _ in range(opt_cf):
             ytry = make_multisine()
             cf = crest_factor(ytry)
             if cf < best_cf:
@@ -111,7 +111,7 @@ def multisine(
                 best_cf = cf
 
     if plot:
-        _plot_multisine(t, y, Fmin, Fmax, Fs, N)
+        plotsignal(y, Fs, t=t, Fmin=Fmin, Fmax=Fmax)
 
     return y
 
@@ -152,7 +152,7 @@ def plotsignal(y, Fs, t=None, Fmin=None, Fmax=None):
     ff_zp = np.arange(mm) * Fs / mm
 
     fig, ax = plt.subplots()
-    ax.stem(ff, np.abs(xx), use_line_collection=True)
+    ax.stem(ff, np.abs(xx))
     ax.plot(ff_zp, np.abs(xx_zp), alpha=0.2, color="r")
     if Fmin is not None and Fmax is not None:
         for xline in [Fmin, Fmax]:
@@ -163,12 +163,7 @@ def plotsignal(y, Fs, t=None, Fmin=None, Fmax=None):
     plt.show()
 
 
-def _plot_multisine(t, y, Fmin, Fmax, Fs, N):
-    """Internal helper: plot multisine in time and frequency domains."""
-    plotsignal(y, Fs, t=t, Fmin=Fmin, Fmax=Fmax)
-
-
-class multisin_generator:
+class MultisineGenerator:
     """Multisine signal generator that evaluates sample-by-sample without storing arrays.
 
     Useful for online signal generation during simulation time loops.
@@ -186,14 +181,18 @@ class multisin_generator:
         phi=None,
     ):
         if freqsin is None:
-            freqsin = multisin_generator.compute_spectrum(
-                N=N, Fs=Fs, fmin=fmin, fmax=fmax,
-                skip_even=skip_even, include_fbounds=include_fbounds,
+            freqsin = MultisineGenerator.compute_spectrum(
+                N=N,
+                Fs=Fs,
+                fmin=fmin,
+                fmax=fmax,
+                skip_even=skip_even,
+                include_fbounds=include_fbounds,
             )
-        N = len(freqsin)
+        nfreq = len(freqsin)
         if phi is None:
             phi = 2 * np.pi * np.random.rand(*freqsin.shape)
-        self.N = N
+        self.nfreq = nfreq
         self.Fs = Fs
         self.freqsin = freqsin
         self.phi = phi
@@ -204,33 +203,33 @@ class multisin_generator:
         Fmin = np.max([fmin, 0.0]) * Fs / 2
         Fmax = np.min([fmax, 1.0]) * Fs / 2
         freqsin = np.arange(skip_even, N + skip_even, step=1 + skip_even) * Fs / N
-        if include_fbounds:
-            keepfreq = (freqsin >= Fmin) & (freqsin <= Fmax)
-        else:
-            keepfreq = (freqsin > Fmin) & (freqsin < Fmax)
-        return freqsin[keepfreq]
+        return freqsin[_keepfreq_mask(freqsin, Fmin, Fmax, include_fbounds)]
 
     @staticmethod
-    def compute_harmonics(f0, N, Fs, fmin=0.0, fmax=1.0, skip_even=0, include_fbounds=1):
+    def compute_harmonics(
+        f0, nharm, Fs, fmin=0.0, fmax=1.0, skip_even=0, include_fbounds=1
+    ):
         """Harmonics of f0: [f0, 2*f0, ...] clipped to [fmin, fmax]*Fs/2."""
         Fmin = np.max([fmin, 0.0]) * Fs / 2
         Fmax = np.min([fmax, 1.0]) * Fs / 2
-        freqsin = f0 * np.arange(skip_even, N + skip_even, step=1 + skip_even)
-        if include_fbounds:
-            keepfreq = (freqsin >= Fmin) & (freqsin <= Fmax)
-        else:
-            keepfreq = (freqsin > Fmin) & (freqsin < Fmax)
-        return freqsin[keepfreq]
+        freqsin = f0 * np.arange(skip_even, nharm + skip_even, step=1 + skip_even)
+        return freqsin[_keepfreq_mask(freqsin, Fmin, Fmax, include_fbounds)]
 
     def generate(self, t, vectorized=True):
         """Evaluate multisine signal at time t."""
         if vectorized:
-            return np.sum(np.sin(2 * np.pi * self.freqsin * t + self.phi)) / np.sqrt(self.N)
-        S = sum(np.sin(2 * np.pi * self.freqsin[i] * t + self.phi[i]) for i in range(self.N))
-        return S / np.sqrt(self.N)
+            return np.sum(
+                np.sin(2 * np.pi * self.freqsin * t + self.phi)
+            ) / np.sqrt(self.nfreq)
+        S = sum(
+            np.sin(2 * np.pi * self.freqsin[i] * t + self.phi[i])
+            for i in range(self.nfreq)
+        )
+        return S / np.sqrt(self.nfreq)
 
 
 # --- JSON export helpers for multisine data ---
+
 
 class NoIndent:
     """Wrap a list/tuple to prevent indentation in MyEncoder output."""
@@ -256,22 +255,27 @@ class MyEncoder(json.JSONEncoder):
     def __init__(self, **kwargs):
         ignore = {"cls", "indent"}
         self._kwargs = {k: v for k, v in kwargs.items() if k not in ignore}
+        self._registry = {}
         super().__init__(**kwargs)
 
     def default(self, obj):
         if isinstance(obj, np.generic):
             return obj.item()
         if isinstance(obj, NoIndent):
-            return self.FORMAT_SPEC.format(id(obj))
+            key = id(obj)
+            self._registry[key] = obj
+            return self.FORMAT_SPEC.format(key)
 
     def iterencode(self, obj, **kwargs):
+        self._registry.clear()
         for encoded in super().iterencode(obj, **kwargs):
             match = self.regex.search(encoded)
             if match:
                 obj_id = int(match.group(1))
-                no_indent = PyObj_FromPtr(obj_id)
+                no_indent = self._registry[obj_id]
                 json_repr = json.dumps(no_indent.value, **self._kwargs)
                 encoded = encoded.replace(
                     '"{}"'.format(self.FORMAT_SPEC.format(obj_id)), json_repr
                 )
             yield encoded
+        self._registry.clear()

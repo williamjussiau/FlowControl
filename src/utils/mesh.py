@@ -1,85 +1,53 @@
-"""
-----------------------------------------------------------------------
-Mesh generation and conversion
-----------------------------------------------------------------------
-"""
+"""Mesh generation and conversion utilities (meshio-based)."""
 
-from __future__ import print_function
+import logging
+from pathlib import Path
 
 import meshio
 
+logger = logging.getLogger(__name__)
 
-####################################################################################
-def convert_mesh_xml2xdmf(xmlfile):
-    """Convert mesh from xml to xdmf
-    The input is provided without extension"""
-    # Add extension if needed
-    xmlfile = set_file_extension(xmlfile, ".xml")
-    # Resulting file is always "xmlfile.xml"
-    # Create xdmf files
-    xdmffile = set_file_extension(xmlfile, ".xdmf")
-    # read xml
-    print("Reading xml file... ", xmlfile)
-    meshxml = meshio.read(xmlfile)
-    # write xdmf
+_EXT_XML = ".xml"
+_EXT_MSH = ".msh"
+_EXT_VTU = ".vtu"
+_EXT_XDMF = ".xdmf"
+
+
+def convert_mesh_xml2xdmf(xmlfile: str | Path) -> None:
+    """Convert mesh from .xml to .xdmf."""
+    src = Path(xmlfile).with_suffix(_EXT_XML)
+    dst = src.with_suffix(_EXT_XDMF)
+    logger.info("Reading xml file: %s", src)
+    meshxml = meshio.read(src)
     meshxdmf = meshio.Mesh(
         points=meshxml.points, cells={"triangle": meshxml.cells_dict["triangle"]}
     )
-    print("Writing xdmf/h5 file... ", xdmffile)
-    meshio.write(xdmffile, meshxdmf)
+    logger.info("Writing xdmf/h5 file: %s", dst)
+    meshio.write(dst, meshxdmf)
 
 
-def convert_mesh_msh2xdmf(mshfile):
-    """Convert mesh file from .msh to .xdmf
-    msh is GMSH msh, not FREEFEM msh
-    To convert FREEFEM msh, use FEconv executable
-    The input is provided without extension
-    """
-    mshfile = set_file_extension(mshfile, ".msh")
-    mesh = meshio.read(mshfile)
-    # as xdmf
+def convert_mesh_msh2xdmf(mshfile: str | Path) -> None:
+    """Convert GMSH .msh to .xdmf.
+    For FreeFEM .msh, use FEconv instead."""
+    src = Path(mshfile).with_suffix(_EXT_MSH)
+    mesh = meshio.read(src)
     meshxdmf = meshio.Mesh(
         points=mesh.points[:, :2], cells={"triangle": mesh.cells_dict["triangle"]}
     )
-    meshio.write(set_file_extension(mshfile, ".xdmf"), meshxdmf)
+    meshio.write(src.with_suffix(_EXT_XDMF), meshxdmf)
 
 
-def convert_mesh_msh2xml(mshfile):
-    """Convert mesh file from .msh to .xml
-    The input is provided without extension
-    """
-    mshfile = set_file_extension(mshfile, ".msh")
-    mesh = meshio.read(mshfile)
+def convert_mesh_msh2xml(mshfile: str | Path) -> None:
+    """Convert GMSH .msh to .xml."""
+    src = Path(mshfile).with_suffix(_EXT_MSH)
+    mesh = meshio.read(src)
     mesh.prune_z_0()
-    # as xml
-    meshio.write(set_file_extension(mshfile, ".xml"), mesh)
+    meshio.write(src.with_suffix(_EXT_XML), mesh)
 
 
-def convert_mesh_vtu2xdmf(mshfile):
-    """Convert mesh file from .vtu to .xdmf
-    vtu is the output format of FEconv
-    The input is provided without extension
-    """
-    mshfile = set_file_extension(mshfile, ".vtu")
-    mesh = meshio.read(mshfile)
+def convert_mesh_vtu2xdmf(mshfile: str | Path) -> None:
+    """Convert FEconv .vtu output to .xdmf."""
+    src = Path(mshfile).with_suffix(_EXT_VTU)
+    mesh = meshio.read(src)
     mesh.prune_z_0()
-    # as xdmf
-    meshio.write(set_file_extension(mshfile, ".xdmf"), mesh)
-
-
-def get_file_wo_extension(filename):
-    """Return filename without its extension
-    Works with double extensions (.tar.gz)
-    but not with files that have . in their name"""
-    return filename.split(".")[0]
-
-
-def set_file_extension(filename, extension):
-    """Append extension to file if not already present
-    extension (input) should contain the dot .
-    Example: extension=.xdmf
-    Does not replace full double extensions (.tar.gz)"""
-    return get_file_wo_extension(filename) + extension
-
-
-####################################################################################
+    meshio.write(src.with_suffix(_EXT_XDMF), mesh)
