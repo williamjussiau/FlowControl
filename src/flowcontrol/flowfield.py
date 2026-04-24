@@ -9,6 +9,7 @@ FlowFieldCollection : all fields needed during time-stepping — base flow (U0/P
                       pre-allocated save buffers (Usave, Psave, Usave_n)
 BoundaryConditions  : simple holder for velocity and pressure DirichletBC lists
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -21,18 +22,19 @@ import dolfin
 @dataclass(frozen=True)
 class SimPaths:
     """Typed container for all file paths used by FlowSolver."""
-    U0:             Path   # steady-state velocity (write/read)
-    P0:             Path   # steady-state pressure (write/read)
-    U:              Path   # velocity snapshot to load for restart (Trestartfrom)
-    P:              Path   # pressure snapshot to load for restart (Trestartfrom)
-    Uprev:          Path   # previous velocity snapshot to load for restart
-    U_restart:      Path   # velocity snapshot to write during this run (Tstart)
-    Uprev_restart:  Path   # previous velocity snapshot to write during this run
-    P_restart:      Path   # pressure snapshot to write during this run
-    timeseries:     Path   # CSV timeseries output
-    metadata:       Path   # JSON sidecar written at end of run (for restart discovery)
-    steady_meta:    Path   # JSON sidecar written alongside U0/P0 (mesh compatibility check)
-    mesh:           Path   # mesh file (read-only)
+
+    U0: Path  # steady-state velocity (write/read)
+    P0: Path  # steady-state pressure (write/read)
+    U: Path  # velocity snapshot to load for restart (Trestartfrom)
+    P: Path  # pressure snapshot to load for restart (Trestartfrom)
+    Uprev: Path  # previous velocity snapshot to load for restart
+    U_restart: Path  # velocity snapshot to write during this run (Tstart)
+    Uprev_restart: Path  # previous velocity snapshot to write during this run
+    P_restart: Path  # pressure snapshot to write during this run
+    timeseries: Path  # CSV timeseries output
+    metadata: Path  # JSON sidecar written at end of run (for restart discovery)
+    steady_meta: Path  # JSON sidecar written alongside U0/P0 (mesh compatibility check)
+    mesh: Path  # mesh file (read-only)
 
 
 @dataclass
@@ -50,7 +52,7 @@ class FlowField:
     p: dolfin.Function = field(init=False)
     up: dolfin.Function
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.u, self.p = self.up.split(deepcopy=True)
 
 

@@ -31,10 +31,6 @@ import pandas as pd
 from numpy.typing import NDArray
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
-from utils.fem import projectm
-from utils.io import read_xdmf, write_xdmf
-from utils.mpi import get_rank
-from utils.physics import get_div0_u
 from flowcontrol.actuator import ACTUATOR_TYPE
 from flowcontrol.exporter import FlowExporter
 from flowcontrol.flowfield import (
@@ -45,6 +41,10 @@ from flowcontrol.flowfield import (
 )
 from flowcontrol.nsforms import NSForms
 from flowcontrol.steadystate import SteadyStateSolver
+from utils.fem import projectm
+from utils.io import read_xdmf, write_xdmf
+from utils.mpi import get_rank
+from utils.physics import get_div0_u
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +132,7 @@ class FlowSolver(ABC):
 
     def _define_paths(self) -> SimPaths:
         """Build SimPaths from param objects, deriving all output and restart file names."""
+
         def ext(T: float) -> str:
             return f"_restart{T:.3f}".replace(".", ",")
 
@@ -165,7 +166,9 @@ class FlowSolver(ABC):
             dolfin.MPI.comm_world, str(self.params_mesh.meshpath)
         ) as f:
             f.read(mesh)
-        logger.info(f"Mesh has {mesh.num_entities_global(mesh.topology().dim())} cells (global)")
+        logger.info(
+            f"Mesh has {mesh.num_entities_global(mesh.topology().dim())} cells (global)"
+        )
         return mesh
 
     def _make_function_spaces(self) -> tuple[dolfin.FunctionSpace, ...]:
@@ -192,7 +195,9 @@ class FlowSolver(ABC):
             row.subdomain.mark(cell_markers, i)
             indices.append(i)
         self.boundaries["idx"] = indices
-        self.ds = dolfin.Measure("ds", domain=self.mesh, subdomain_data=self.bnd_markers)
+        self.ds = dolfin.Measure(
+            "ds", domain=self.mesh, subdomain_data=self.bnd_markers
+        )
         self.dx = dolfin.Measure("dx", domain=self.mesh, subdomain_data=cell_markers)
 
     # ── Actuators / sensors ───────────────────────────────────────────────────
@@ -237,7 +242,9 @@ class FlowSolver(ABC):
 
     def make_measurement(self, up: dolfin.Function) -> NDArray[np.float64]:
         """Evaluate all sensors on the given mixed field and return the measurement vector."""
-        return np.array([sensor.eval(up=up) for sensor in self.params_control.sensor_list])
+        return np.array(
+            [sensor.eval(up=up) for sensor in self.params_control.sensor_list]
+        )
 
     # ── Boundary conditions ───────────────────────────────────────────────────
 
@@ -294,7 +301,14 @@ class FlowSolver(ABC):
             if get_rank() == 0:
                 self.paths.steady_meta.parent.mkdir(parents=True, exist_ok=True)
                 self.paths.steady_meta.write_text(
-                    json.dumps({"mesh_cells": self.mesh.num_entities_global(self.mesh.topology().dim())}, indent=2)
+                    json.dumps(
+                        {
+                            "mesh_cells": self.mesh.num_entities_global(
+                                self.mesh.topology().dim()
+                            )
+                        },
+                        indent=2,
+                    )
                 )
 
         self._assign_steady_state(U0, P0)
@@ -357,7 +371,9 @@ class FlowSolver(ABC):
     def initialize_time_stepping(
         self, Tstart: float = 0.0, ic: Optional[dolfin.Function] = None
     ) -> None:
-        restart_order = self.params_restart.restart_order if self.params_restart else "n/a"
+        restart_order = (
+            self.params_restart.restart_order if self.params_restart else "n/a"
+        )
         logger.info(f"Initialising from t={Tstart}, restart_order={restart_order}")
 
         if Tstart == 0.0:
@@ -516,7 +532,7 @@ class FlowSolver(ABC):
         # as written by export_xdmf with adjust_baseflow=1.0.
         read_xdmf(U_path, U_, "U", counter=counter)
         read_xdmf(P_path, P_, "P", counter=counter)
-        read_xdmf(U_path, U_n, "U", counter=counter)   # same snapshot as U_
+        read_xdmf(U_path, U_n, "U", counter=counter)  # same snapshot as U_
         read_xdmf(Uprev_path, U_nn, "U_n", counter=counter)
         read_xdmf(P_path, P_n, "P", counter=counter)
 
@@ -580,7 +596,9 @@ class FlowSolver(ABC):
             self.assemblers[order] = assembler
             self.solvers[order] = solver
 
-        self._up_work = dolfin.Function(self.W)  # reused every step to avoid per-step allocation
+        self._up_work = dolfin.Function(
+            self.W
+        )  # reused every step to avoid per-step allocation
 
     def step(self, u_ctrl: NDArray[np.float64]) -> Optional[NDArray[np.float64]]:
         """Advance the simulation by one time step.
@@ -647,7 +665,11 @@ class FlowSolver(ABC):
 
         # Log and export
         at_checkpoint = self._niter_multiple_of(self.iter, self.params_save.save_every)
-        dE = self.compute_perturbation_energy() if self._niter_multiple_of(self.iter, self.params_save.energy_every) else np.nan
+        dE = (
+            self.compute_perturbation_energy()
+            if self._niter_multiple_of(self.iter, self.params_save.energy_every)
+            else np.nan
+        )
         self.exporter.log(
             u_ctrl=u_ctrl,
             y_meas=self.y_meas,
@@ -751,7 +773,7 @@ class FlowSolver(ABC):
         self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
     ) -> dolfin.Function:
         """Build a divergence-free Gaussian perturbation field merged with the base-flow pressure."""
-        u_nodiv = get_div0_u(self, xloc=xloc, yloc=yloc, size=radius)
+        u_nodiv = get_div0_u(self.V, self.P, xloc=xloc, yloc=yloc, size=radius)
         p_default = projectm(self.fields.P0, self.P)
         return self.merge(u=u_nodiv, p=p_default)
 

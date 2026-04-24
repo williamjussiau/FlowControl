@@ -18,10 +18,8 @@ Typical usage::
 """
 
 import logging
-from typing import Optional
 
 import dolfin
-import numpy as np
 
 from flowcontrol.nsforms import NSForms
 
