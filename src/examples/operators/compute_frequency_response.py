@@ -26,8 +26,8 @@ if __name__ == "__main__":
 
     opget = OperatorGetter(fs)
     A, E, B, C = opget.get_all()
-    A = flu.dolfin_petsc_to_petsc(A)
-    Q = flu.dolfin_petsc_to_petsc(E)
+    A = flu.dolfin_to_petsc(A)
+    Q = flu.dolfin_to_petsc(E)
 
     ww = np.logspace(-2, 2, 50)
     H, ww = flu.get_frequency_response_parallel(A, B, C, Q, ww, verbose=True, n_jobs=2)
