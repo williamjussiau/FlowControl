@@ -1,4 +1,4 @@
-"""LTI control utilities: state-space I/O, controller stepping, Youla parametrization,
+"""LTI control utilities: state-space I/O, Youla parametrization,
 LQG/H-infinity synthesis, balanced reduction, coprime factorizations."""
 
 import logging
@@ -15,19 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 # --- Controller I/O ---
-
-def step_controller(K, x, e, dt):
-    """Wrapper for stepping controller on one time step, from state (x),
-    with input(e), up to time (dt) >> u=K*e
-    Return controller output u and controller new state x"""
-    e_rep = np.repeat(np.atleast_2d(e), repeats=2, axis=0).T
-    Tsim = [0, dt]
-    _, yout, xout = control.forced_response(
-        K, U=e_rep, T=Tsim, X0=x, interpolate=False, return_x=True
-    )
-    u = np.ravel(yout)[0]
-    x = xout[:, 1]
-    return u, x
 
 
 def read_matfile(path):
@@ -53,10 +40,10 @@ def write_ss(sys, path):
     """Write control.StateSpace to file"""
     ssdict = {"A": sys.A, "B": sys.B, "C": sys.C, "D": sys.D}
     sio.savemat(path, ssdict)
-    return 0
 
 
 # --- State-space algebra ---
+
 
 def ssdata(sys):
     """Return StateSpace matrices as np.array instead of np.matrix"""
@@ -72,7 +59,7 @@ def ss_zero():
 
 def ss_one():
     """Return identity SISO StateSpace"""
-    return control.tf2ss(control.tf(1, 1))
+    return control.StateSpace([], [], [], 1)
 
 
 def ss_vstack(sys1, *sysn):
@@ -99,7 +86,7 @@ def ss_hstack(sys1, *sysn):
 
 def ss_vstack_list(syslist):
     """Same as ss_vstack but with input list"""
-    A, B, C, D = control.ssdata(syslist[0])
+    A, B, C, D = ssdata(syslist[0])
     for sys in syslist[1:]:
         A = la.block_diag(A, sys.A)
         B = np.vstack((B, sys.B))
@@ -110,7 +97,7 @@ def ss_vstack_list(syslist):
 
 def ss_hstack_list(syslist):
     """Same as ss_hstack but with input list"""
-    A, B, C, D = control.ssdata(syslist[0])
+    A, B, C, D = ssdata(syslist[0])
     for sys in syslist[1:]:
         A = la.block_diag(A, sys.A)
         B = la.block_diag(B, sys.B)
@@ -144,16 +131,6 @@ def ss_transpose(G):
     return control.StateSpace(A.T, C.T, B.T, D.T)
 
 
-def ssmult(G1, G2):
-    """Multiplication of MIMO SS: G = G1 x G2 (OBSOLETE: use * operator)"""
-    ZERO = np.zeros((G2.A.shape[0], G1.A.shape[1]))
-    A = np.block([[G1.A, G1.B @ G2.C], [ZERO, G2.A]])
-    B = np.vstack((G1.B @ G2.D, G2.B))
-    C = np.hstack((G1.C, G1.D @ G2.C))
-    D = G1.D @ G2.D
-    return control.StateSpace(A, B, C, D)
-
-
 def show_ss(sys):
     """Print StateSpace matrices to stdout"""
     for mat in ssdata(sys):
@@ -163,9 +140,10 @@ def show_ss(sys):
 
 # --- Stability and norms ---
 
+
 def isstable(CL):
-    """Return True if all poles of CL have non-positive real part"""
-    return np.all(np.real(control.pole(CL)) <= 0)
+    """Return True if all poles of CL have strictly negative real part"""
+    return np.all(np.real(control.poles(CL)) < 0)
 
 
 def isstablecl(G, K0, sign=+1):
@@ -173,78 +151,20 @@ def isstablecl(G, K0, sign=+1):
     return isstable(control.feedback(G, K0, sign=sign))
 
 
-def sigma_trivial(G, w):
-    """Compute singular values of G on frequency grid w.
-    Returns array of shape (nw, n) where n = min(nout, nin)."""
-    m, p, _ = G.freqresp(w)
-    sjw = (m * np.exp(1j * p)).transpose(2, 0, 1)
-    return np.linalg.svd(sjw, compute_uv=False)
-
-
-def norm(G, p=np.inf, hinf_tol=1e-6, eig_tol=1e-8):
-    """Compute H2 or H-infinity norm of G.
-    Adapted from HAROLD control package (https://github.com/ilayn/harold)."""
+def norm(G, p=np.inf):
+    """Compute H2 or H-infinity norm of G. Returns inf for unstable systems.
+    Delegates to control.norm (H2) and control.linfnorm (H-inf)."""
     if p not in (2, np.inf):
         raise ValueError("p must be 2 or np.inf")
-
-    T = G
-    a, b, c, d = ssdata(T)
-    T._isstable = isstable(T)
-
-    if p == 2:
-        if not np.allclose(d, np.zeros_like(d)) or not T._isstable:
-            return np.inf
-        x = control.lyap(a, b @ b.T)
-        return np.sqrt(np.trace(c @ x @ c.T))
-
-    # H-infinity norm
-    if not T._isstable:
+    if not isstable(G):
         return np.inf
-
-    T.poles = control.pole(T)
-    if any(T.poles.imag):
-        J = [np.abs(x.imag / x.real / np.abs(x)) for x in T.poles]
-        low_damp_fr = np.abs(T.poles[np.argmax(J)])
-    else:
-        low_damp_fr = np.min(np.abs(T.poles))
-
-    f, _, _ = control.freqresp(sys=T, omega=[0, low_damp_fr])
-    T._isSISO = T.ninputs == 1 and T.noutputs == 1
-    if T._isSISO:
-        lb = np.max(np.abs(f))
-    else:
-        lb = np.max(la.norm(f, ord=2, axis=(0, 1)))
-    gamma_lb = np.max([lb, la.norm(d, ord=2)])
-
-    for _ in range(51):
-        test_gamma = gamma_lb * (1 + 2 * np.sqrt(np.spacing(1.0)))
-        R = d.T @ d - test_gamma**2 * np.eye(d.shape[1])
-        S = d @ d.T - test_gamma**2 * np.eye(d.shape[0])
-        solve = la.solve
-        Ham = np.block(
-            [
-                [a - b @ solve(R, d.T) @ c, -test_gamma * b @ solve(R, b.T)],
-                [test_gamma * c.T @ solve(S, c), -(a - b @ solve(R, d.T) @ c).T],
-            ]
-        )
-        eigs_of_H = la.eigvals(Ham)
-        im_eigs = eigs_of_H[np.abs(eigs_of_H.real) <= eig_tol]
-        if im_eigs.size == 0:
-            gamma_ub = test_gamma
-            break
-        w_i = np.sort(np.unique(np.abs(im_eigs.imag)))
-        m_i = (w_i[1:] + w_i[:-1]) / 2
-        f, _, _ = control.freqresp(sys=T, omega=m_i)
-        if T._isSISO:
-            gamma_lb = np.max(np.abs(f))
-        else:
-            gamma_lb = np.max(la.norm(f, ord=2, axis=(0, 1)))
-        gamma_ub = test_gamma
-
-    return (gamma_lb + gamma_ub) / 2
+    if p == 2:
+        return control.norm(G, 2)
+    return control.linfnorm(G)[0]
 
 
 # --- Youla parametrization ---
+
 
 def youla(G, K0, Q):
     """Return controller K parametrized with Q using Youla formula.
@@ -268,26 +188,15 @@ def build_block_Psi(G):
 
 def youla_laguerre(G, K0, p, theta, verbose=False):
     """Compute Youla controller with Laguerre basis Q=Theta^T*Phi(s). SISO only."""
+    theta = np.atleast_1d(np.asarray(theta, float))
+    N = len(theta)
     Gstab = G.feedback(other=K0, sign=+1)
     Psi = build_block_Psi(Gstab)
 
-    if type(theta) is int:
-        N = 1
-        warnings.warn("theta should be iterable, not int")
-    else:
-        N = len(theta)
-    a = p
-    a_vec = np.hstack((-a, 2 * a * (-1) ** (np.arange(2, N + 1))))
-    a2 = np.triu(la.circulant(a_vec))
-    b2 = np.eye(N)
-    c2 = np.sqrt(2 * a) * (-1) ** (np.arange(2, N + 2))
-    d2 = np.zeros((1, N))
-    Qf = control.StateSpace(a2, b2, c2, d2)
-
+    Qf = basis_laguerre_canonical_ss(p, N)
     Qf1 = cmat.append(1, Qf)
     Psif = Psi * Qf1
 
-    N = len(theta)
     theta = theta * (-1) ** (np.arange(N))
     ss_theta = control.StateSpace([], [], [], np.array([theta]).T)
 
@@ -321,38 +230,23 @@ def youla_laguerre_K00(G, K0, p, theta, check=False):
     return K
 
 
-def youla_laguerre_fromfile(theta, path):
-    """Reduced Youla: Psif=g(G,K0,p) loaded from file, only LFT performed here."""
-    theta = theta * (-1) ** (np.arange(len(theta)))
-    ss_theta = control.StateSpace([], [], [], np.array([theta]).T)
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", "Duplicate variable name*")
-        rd = sio.loadmat(path)
-    Psif = control.StateSpace(rd["Psi_A"], rd["Psi_B"], rd["Psi_C"], rd["Psi_D"])
-    Kq = Psif.lft(ss_theta)
-    K0 = control.StateSpace(rd["K0_A"], rd["K0_B"], rd["K0_C"], rd["K0_D"])
-    return K0 + Kq
-
-
-def youla_lqg(G, Qx, Ru, Qv, Rw, Q):
+def youla_lqg(G, Qx, Ru, Qw, Rv, Q):
     """Youla controller in LQG form"""
-    J = youla_lqg_lftmat(G, Qx, Ru, Qv, Rw)
+    J = youla_lqg_lftmat(G, Qx, Ru, Qw, Rv)
     return J.lft(Q)
 
 
-def youla_lqg_lftmat(G, Qx, Ru, Qv, Rw):
+def youla_lqg_lftmat(G, Qx, Ru, Qw, Rv):
     """Return StateSpace J to be LFTed with Q for Youla LQG parametrization."""
-    B = np.array(G.B)
-    C = np.array(G.C)
-    D = np.array(G.D)
+    _, B, C, D = ssdata(G)
     p, m = D.shape
     Im = np.eye(m)
     Ip = np.eye(p)
-    Klqg, F, L = lqg_regulator(G, Qx, Ru, Qv, Rw)
+    Klqg, F, L = lqg_regulator(G, Qx, Ru, Qw, Rv)
     return control.StateSpace(
         Klqg.A,
-        np.hstack((Klqg.B, B + L * D)),
-        np.vstack((Klqg.C, -C - D * F)),
+        np.hstack((Klqg.B, B + L @ D)),
+        np.vstack((Klqg.C, -C - D @ F)),
         np.block([[np.zeros((m, p)), Im], [Ip, Klqg.D]]),
     )
 
@@ -383,25 +277,23 @@ def youla_right_coprime(G, K, Q):
 
 # --- LQG synthesis ---
 
-def lqg_regulator(G, Qx, Qu, Qw, Qv):
+
+def lqg_regulator(G, Qx, Ru, Qw, Rv):
     """Make LQG regulator. Returns (Klqg, F, L).
-    Qx/Qu: state/input weights; Qw/Qv: process/measurement noise covariances."""
-    A = np.array(G.A)
-    B = np.array(G.B)
-    C = np.array(G.C)
-    D = np.array(G.D)
+    Qx/Ru: scalar state/input cost (LQR); Qw/Rv: scalar process/measurement noise covariances.
+    L uses the sign convention x_dot = (A + LC)x + ..., so L = -L_kalman."""
+    A, B, C, D = ssdata(G)
     n = A.shape[0]
-    In = np.eye(n)
     p, m = D.shape
-    Im = np.eye(m)
-    Ip = np.eye(p)
-    F = np.array(-control.lqr(A, B, Qx * In, Qu * Im)[0])
-    L = np.array(-control.lqr(A.T, C.T, Qw * In, Qv * Ip)[0]).T
-    Klqg = control.StateSpace(A + B * F + L * C + L * D * F, -L, F, 0)
+    F = np.array(-control.lqr(A, B, Qx * np.eye(n), Ru * np.eye(m))[0])
+    L_kalman, _, _ = control.lqe(A, np.eye(n), C, Qw * np.eye(n), Rv * np.eye(p))
+    L = -np.asarray(L_kalman)
+    Klqg = control.StateSpace(A + B @ F + L @ C + L @ D @ F, -L, F, 0)
     return Klqg, F, L
 
 
 # --- H-infinity synthesis ---
+
 
 def hinfsyn_mref(G, We, Wu, Wb, Wr, CLref, Wcl, syn="Hinf"):
     """Classic SISO mixed-sensitivity H-inf synthesis with model reference.
@@ -441,6 +333,7 @@ def hinfsyn_mref(G, We, Wu, Wb, Wr, CLref, Wcl, syn="Hinf"):
 
 # --- Laguerre basis ---
 
+
 def basis_laguerre_canonical(p, N):
     """Return first N transfer functions of Laguerre basis with pole p>0."""
     s = control.TransferFunction([1, 0], [1])
@@ -454,12 +347,8 @@ def basis_laguerre_canonical(p, N):
 
 def basis_laguerre(p, theta):
     """Q(s) = sum_i(theta_i * phi_i(s)) with Laguerre basis."""
-    if type(theta) is int:
-        N = 1
-        warnings.warn("theta should be iterable, not int")
-    else:
-        N = len(theta)
-    return sum(basis_laguerre_canonical(p, N) * theta)
+    theta = np.atleast_1d(np.asarray(theta, float))
+    return np.dot(basis_laguerre_canonical(p, len(theta)), theta)
 
 
 def basis_laguerre_canonical_ss(p, N):
@@ -475,13 +364,9 @@ def basis_laguerre_canonical_ss(p, N):
 
 def basis_laguerre_ss(p, theta):
     """Q = sum(theta_i * phi_i(s; p)) with phi the Laguerre SS basis."""
-    if type(theta) is int:
-        N = 1
-        warnings.warn("theta should be iterable, not int")
-    else:
-        N = len(theta)
-    Phi = basis_laguerre_canonical_ss(p, N)
-    return Phi * np.atleast_2d(np.array(theta)).T
+    theta = np.atleast_1d(np.asarray(theta, float))
+    Phi = basis_laguerre_canonical_ss(p, len(theta))
+    return Phi * np.atleast_2d(theta).T
 
 
 def basis_laguerre_K00(G, K0, p, theta):
@@ -502,6 +387,7 @@ def basis_laguerre_K00(G, K0, p, theta):
 
 # --- Coprime factorizations ---
 
+
 def rncf(G):
     """Right normalized coprime factorization: G = Nr * inv(Mr)."""
     A, B, C, D = ssdata(G)
@@ -518,15 +404,16 @@ def rncf(G):
 
     _, s, vh = la.svd(D)
     v = vh.conj().T
-    nsv = min([p, m])
-    s = np.diag(s[0:nsv])
-    Z = v @ np.diag(np.vstack((1 / np.sqrt(1 + s**2), np.ones((m - nsv, 1))))) @ vh
+    nsv = min(p, m)
+    s_vals = s[:nsv]
+    diag_vec = np.hstack((1 / np.sqrt(1 + s_vals**2), np.ones(m - nsv)))
+    Z = v @ np.diag(diag_vec) @ vh
 
     F = -K[:m, :]
-    Amn = A + B * F
-    Bmn = B * Z
-    Cmn = np.vstack((F, C + D * F))
-    Dmn = np.vstack((Z, D * Z))
+    Amn = A + B @ F
+    Bmn = B @ Z
+    Cmn = np.vstack((F, C + D @ F))
+    Dmn = np.vstack((Z, D @ Z))
     FACT = control.StateSpace(Amn, Bmn, Cmn, Dmn)
     Mr = control.StateSpace(Amn, Bmn, Cmn[:m, :], Dmn[:m, :])
     Nr = control.StateSpace(Amn, Bmn, Cmn[m : m + p, :], Dmn[m : m + p, :])
@@ -538,17 +425,22 @@ def lncf(G):
     FACT = rncf(ss_transpose(G))[0]
     FACT = ss_transpose(FACT)
     Amn, Bmn, Cmn, Dmn = ssdata(FACT)
-    p, m = Dmn.shape
-    Ml = control.StateSpace(Amn, Bmn[:, :p], Cmn, Dmn[:, :p])
-    Nl = control.StateSpace(Amn, Bmn[:, p : p + m], Cmn, Dmn[:, p : p + m])
+    # Dmn has shape (p_G, p_G + m_G) after transposition; first p_G cols = Ml, rest = Nl
+    ncols_Ml = G.noutputs
+    Ml = control.StateSpace(Amn, Bmn[:, :ncols_Ml], Cmn, Dmn[:, :ncols_Ml])
+    Nl = control.StateSpace(Amn, Bmn[:, ncols_Ml:], Cmn, Dmn[:, ncols_Ml:])
     return FACT, Ml, Nl
 
 
 # --- Balanced reduction ---
 
+
 def balreal(G):
     """Return balanced realization of G."""
-    return control.balred(G, orders=G.nstates)
+    T = baltransform(G)
+    A, B, C, D = ssdata(G)
+    Ti = np.linalg.inv(T)
+    return control.StateSpace(Ti @ A @ T, Ti @ B, C @ T, D)
 
 
 def baltransform(G):
@@ -556,12 +448,10 @@ def baltransform(G):
     Algorithm from Laub, Heath, Paige, Ward (1987)."""
     Wo = control.gram(G, "o")
     Wc = control.gram(G, "c")
-    chol = np.linalg.cholesky
-    Lo = chol(Wo)
-    Lc = chol(Wc)
-    uu, sv, vvh = np.linalg.svd(Lo.T @ Lc)
-    SS = np.diag(sv)
-    T = Lc @ vvh.T @ np.linalg.inv(chol(SS))
+    Lo = np.linalg.cholesky(Wo)
+    Lc = np.linalg.cholesky(Wc)
+    _, sv, vvh = np.linalg.svd(Lo.T @ Lc)
+    T = Lc @ vvh.T @ np.diag(1 / np.sqrt(sv))
     return np.asarray(T)
 
 
@@ -608,18 +498,40 @@ def balred_rel(sys, hsv_threshold, method="truncate"):
     if method == "truncate":
         Dr = sys.D
         if np.any(np.linalg.eigvals(sys.A).real >= 0.0):
-            Nr, Ar, Br, Cr, Ns, _ = ab09md(
-                "C", "B", "N", n, m, p, sys.A, sys.B, sys.C,
-                alpha=0.0, nr=nr, tol=0.0,
+            _, Ar, Br, Cr, _, _ = ab09md(
+                "C",
+                "B",
+                "N",
+                n,
+                m,
+                p,
+                sys.A,
+                sys.B,
+                sys.C,
+                alpha=0.0,
+                nr=nr,
+                tol=0.0,
             )
         else:
-            Nr, Ar, Br, Cr, _ = ab09ad(
+            _, Ar, Br, Cr, _ = ab09ad(
                 "C", "B", "N", n, m, p, sys.A, sys.B, sys.C, nr=nr, tol=0.0
             )
     else:
-        Nr, Ar, Br, Cr, Dr, Ns, _ = ab09nd(
-            "C", "B", "N", n, m, p, sys.A, sys.B, sys.C, sys.D,
-            alpha=0.0, nr=nr, tol1=0.0, tol2=0.0,
+        _, Ar, Br, Cr, Dr, _, _ = ab09nd(
+            "C",
+            "B",
+            "N",
+            n,
+            m,
+            p,
+            sys.A,
+            sys.B,
+            sys.C,
+            sys.D,
+            alpha=0.0,
+            nr=nr,
+            tol1=0.0,
+            tol2=0.0,
         )
 
     return control.StateSpace(Ar, Br, Cr, Dr), hsv, nr
@@ -627,8 +539,17 @@ def balred_rel(sys, hsv_threshold, method="truncate"):
 
 # --- Controller parametrization via residues ---
 
-def controller_residues(real_c=[], real_p=[], cplx_c=[], cplx_p=[]):
+
+def controller_residues(real_c=None, real_p=None, cplx_c=None, cplx_p=None):
     """Construct K = sum(real_c/(s-real_p)) + sum(cplx pairs) in StateSpace form."""
+    if real_c is None:
+        real_c = []
+    if real_p is None:
+        real_p = []
+    if cplx_c is None:
+        cplx_c = []
+    if cplx_p is None:
+        cplx_p = []
     K = control.StateSpace([], [], [], 0)
 
     def ss1(c, p):
@@ -667,10 +588,17 @@ def controller_residues_getidx(n_real, n_cplx):
 
 def controller_residues_wrapper(theta, n_real, n_cplx):
     """Build controller from flat theta = [real_c, real_p, cplx_c_re, cplx_c_im, cplx_p_re, cplx_p_im]."""
-    assert len(theta) == 2 * n_real + 4 * n_cplx
-    rc_i, rp_i, cc_re_i, cc_im_i, cp_re_i, cp_im_i = controller_residues_getidx(n_real, n_cplx)
+    if len(theta) != 2 * n_real + 4 * n_cplx:
+        expected = 2 * n_real + 4 * n_cplx
+        raise ValueError(
+            f"theta length {len(theta)} != 2*n_real + 4*n_cplx = {expected}"
+        )
+    rc_i, rp_i, cc_re_i, cc_im_i, cp_re_i, cp_im_i = controller_residues_getidx(
+        n_real, n_cplx
+    )
     return controller_residues(
-        theta[rc_i], theta[rp_i],
+        theta[rc_i],
+        theta[rp_i],
         theta[cc_re_i] + 1j * theta[cc_im_i],
         theta[cp_re_i] + 1j * theta[cp_im_i],
     )
@@ -678,8 +606,11 @@ def controller_residues_wrapper(theta, n_real, n_cplx):
 
 # --- Slow-fast decomposition ---
 
+
 def slowfast(G, wlim):
-    """Slow-fast decomposition: G = Gslow + Gfast, split at wlim."""
+    """Slow-fast decomposition: G = Gslow + Gfast, split at wlim. SISO only."""
+    if G.ninputs != 1 or G.noutputs != 1:
+        raise ValueError("slowfast: SISO systems only")
     Gtf = control.ss2tf(G)
     r, p, k = ss.residue(Gtf.num[0][0], Gtf.den[0][0])
 
@@ -711,11 +642,12 @@ def make_tf_real(G):
 
 # --- Controller conditioning ---
 
+
 def condswitch(ur, yr, K, dt, w_y, w_u, w_decay):
     """Controller conditioning for switching (Paxman PhD).
     Finds initial state compatible with offline controller given past signals."""
     Kd = control.c2d(K, dt, "tustin")
-    A, B, C, D = control.ssdata(Kd)
+    A, B, C, D = ssdata(Kd)
     r = len(ur)
     Ur = ur.reshape(-1)
     Yr = yr.reshape(-1)
@@ -730,7 +662,7 @@ def condswitch(ur, yr, K, dt, w_y, w_u, w_decay):
     Tr = np.zeros((r, r))
     Tr0 = np.zeros((r, 1))
     for ii in range(r):
-        Tr0[ii] = C @ invA ** (ii + 1) @ B
+        Tr0[ii] = C @ np.linalg.matrix_power(invA, ii + 1) @ B
     Tr0[0] += np.asarray(-D).ravel()
 
     Tr[:, 0] = Tr0.ravel()
@@ -755,6 +687,7 @@ def condswitch(ur, yr, K, dt, w_y, w_u, w_decay):
 
 # --- Misc ---
 
+
 def compare_controllers(K1, K2):
     """Compare two controllers by hinfnorm difference and DC gain difference."""
     print("Comparing controllers...")
@@ -770,6 +703,7 @@ def export_controller(filename, K):
     print("Exported controller to file: ", filename)
 
 
+# TODO: move test_controller_residues to the test suite
 def test_controller_residues(n_real, n_cplx):
     """Test controller_residues and controller_residues_wrapper for consistency."""
     rand = np.random.rand
@@ -784,9 +718,12 @@ def test_controller_residues(n_real, n_cplx):
 
     K1 = controller_residues(real_c, real_p, cplx_c, cplx_p)
     theta = np.array(
-        list(np.real(real_c)) + list(real_p)
-        + list(np.real(cplx_c)) + list(np.imag(cplx_c))
-        + list(np.real(cplx_p)) + list(np.imag(cplx_p))
+        list(np.real(real_c))
+        + list(real_p)
+        + list(np.real(cplx_c))
+        + list(np.imag(cplx_c))
+        + list(np.real(cplx_p))
+        + list(np.imag(cplx_p))
     )
     K2 = controller_residues_wrapper(theta, n_real, n_cplx)
     compare_controllers(K1, K2)
