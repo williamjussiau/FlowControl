@@ -1,9 +1,9 @@
 """I/O utilities: XDMF read/write, field and matrix export, frequency response save/plot."""
 
-import functools
 import logging
 from pathlib import Path
-from typing import Optional
+from collections.abc import Callable
+from typing import Any, Optional
 
 import dolfin
 import matplotlib.pyplot as plt
@@ -11,16 +11,22 @@ import numpy as np
 import scipy.io as sio
 import scipy.sparse as spr
 from dolfin import dot, inner
-from matplotlib import cm
+
+from utils.fem import get_subspace_dofs, projectm
+from utils.linalg import dolfin_to_scipy, petsc_to_scipy
 
 logger = logging.getLogger(__name__)
 
-# Shortcut to define projection with MUMPS
-_projectm = functools.partial(dolfin.project, solver_type="mumps")
 
-
-def write_xdmf(filename, func, name, time_step=0.0, append=False, write_mesh=True):
-    """Shortcut to write XDMF file with options & context manager"""
+def write_xdmf(
+    filename: str | Path,
+    func: dolfin.Function,
+    name: str,
+    time_step: float = 0.0,
+    append: bool = False,
+    write_mesh: bool = True,
+) -> None:
+    """Write a dolfin.Function to an XDMF checkpoint file."""
     with dolfin.XDMFFile(dolfin.MPI.comm_world, str(filename)) as ff:
         ff.parameters["rewrite_function_mesh"] = write_mesh
         ff.parameters["functions_share_mesh"] = not write_mesh
@@ -33,104 +39,162 @@ def write_xdmf(filename, func, name, time_step=0.0, append=False, write_mesh=Tru
         )
 
 
-def read_xdmf(filename, func, name, counter=-1):
-    """Shortcut to read XDMF file with context manager"""
+def read_xdmf(
+    filename: str | Path,
+    func: dolfin.Function,
+    name: str,
+    counter: int = -1,
+) -> None:
+    """Read a dolfin.Function from an XDMF checkpoint file."""
     with dolfin.XDMFFile(dolfin.MPI.comm_world, str(filename)) as ff:
         ff.read_checkpoint(func, name=name, counter=counter)
 
 
-def export_field(cfields, W, V, P, save_dir=None, time_steps=None):
-    """Export complex field to files, for visualizing in function space.
-    May be used to export any matrix defined on the function spaces W=(V,P),
-    such as the actuation and sensing matrices B, C.
-    cfields: array with cfields as columns"""
-    if save_dir is None:
-        save_dir = "/stck/wjussiau/fenics-python/ns/data/export/vec_"
-    vec_v_file = Path(str(save_dir) + "_v")
-    vec_p_file = Path(str(save_dir) + "_p")
-    xdmf = ".xdmf"
+_PART_FUNCS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
+    "re": np.real,
+    "im": np.imag,
+    "abs": np.abs,
+    "arg": np.angle,
+}
 
-    def mkfilename(filename, part):
-        return Path(str(filename) + "_" + part + xdmf)
 
-    ww = dolfin.Function(W)
+def export_complex_field(
+    cfields: np.ndarray,
+    W: dolfin.FunctionSpace,
+    V: dolfin.FunctionSpace,
+    P: dolfin.FunctionSpace,
+    file_prefix: Path,
+    time_steps: Optional[list[float]] = None,
+    parts: Optional[list[str]] = None,
+) -> None:
+    """Export complex fields to XDMF files, split into velocity and pressure.
+
+    XDMF cannot store mixed function spaces (velocity + pressure in W), so the
+    field is split into V and P components via FunctionAssigner. Each part and
+    each component gets its own file; time steps are appended within each file.
+
+    Parameters
+    ----------
+    cfields:
+        Complex array of shape (n, ncols) or (n, nu, ncols). For eigenvectors
+        pass a 2D array with one mode per column. For frequency-response fields
+        (output of get_field_response) pass the 3D array directly; nu > 1 is
+        handled by writing one set of files per input column.
+    W, V, P:
+        Mixed, velocity, and pressure function spaces. V and P must be the
+        sub-spaces of W (as passed to FunctionAssigner).
+    file_prefix:
+        Base path without extension, e.g. Path("results/cylinder").
+    time_steps:
+        Values written as the XDMF time axis, one per column. Defaults to
+        0, 1, 2, … (suitable for mode indices). Pass ww.tolist() to use
+        angular frequencies as the time axis so the Paraview slider browses
+        the frequency sweep directly.
+    parts:
+        Subset of ["re", "im", "abs", "arg"] to write. Defaults to all four.
+        For frequency-response fields ["abs", "arg"] is the natural choice
+        (abs/arg are invariant to global phase, re/im are not).
+
+    File naming
+    -----------
+    Each (input, component, part) triplet produces one file:
+        <prefix>_v_<part>.xdmf       velocity,  nu == 1
+        <prefix>_p_<part>.xdmf       pressure,  nu == 1
+        <prefix>_input{iu}_v_<part>.xdmf        nu > 1
+        <prefix>_input{iu}_p_<part>.xdmf        nu > 1
+
+    Within each file the time axis follows time_steps, so stepping through
+    time in Paraview browses columns (modes or frequencies).
+    """
+    if parts is None:
+        parts = list(_PART_FUNCS)
+
+    invalid = set(parts) - _PART_FUNCS.keys()
+    if invalid:
+        raise ValueError(f"Unknown parts: {invalid}. Choose from {list(_PART_FUNCS)}.")
+
+    if cfields.ndim == 2:
+        cfields = cfields[:, np.newaxis, :]
+    n, nu, ncols = cfields.shape
+
+    if time_steps is None:
+        time_steps = list(range(ncols))
+    if len(time_steps) != ncols:
+        raise ValueError(f"time_steps length {len(time_steps)} != ncols {ncols}.")
+
+    w_func = dolfin.Function(W)
     vv = dolfin.Function(V)
     pp = dolfin.Function(P)
     fa = dolfin.FunctionAssigner([V, P], W)
+    lr = w_func.vector().local_range()
 
-    if time_steps is None:
-        time_steps = list(range(cfields.shape[1]))
+    def mkpath(iu: int, comp: str, part: str) -> Path:
+        inp = f"_input{iu}" if nu > 1 else ""
+        return file_prefix.parent / (file_prefix.name + inp + f"_{comp}_{part}.xdmf")
 
-    is_append = False
-    for i in range(cfields.shape[1]):
-        cfield = cfields[:, i]
-
-        cfield_re = np.real(cfield)
-        cfield_im = np.imag(cfield)
-        cfield_abs = np.abs(cfield)
-        cfield_arg = np.angle(cfield)
-
-        for cfield_part, cfield_part_name in zip(
-            [cfield_re, cfield_im, cfield_abs, cfield_arg], ["re", "im", "abs", "arg"]
-        ):
-            ww.vector().set_local(cfield_part)
-            fa.assign([vv, pp], ww)
-            write_xdmf(
-                mkfilename(vec_v_file, cfield_part_name),
-                vv,
-                "v_eig_" + cfield_part_name,
-                time_step=time_steps[i],
-                append=is_append,
-            )
-            write_xdmf(
-                mkfilename(vec_p_file, cfield_part_name),
-                pp,
-                "p_eig_" + cfield_part_name,
-                time_step=time_steps[i],
-                append=is_append,
-            )
-
-        is_append = True
-        logger.info("Writing eigenvector: %d" % (i + 1))
+    for iu in range(nu):
+        for part_name in parts:
+            part_func = _PART_FUNCS[part_name]
+            for i in range(ncols):
+                w_func.vector().set_local(part_func(cfields[lr[0]:lr[1], iu, i]))
+                w_func.vector().apply("insert")
+                fa.assign([vv, pp], w_func)
+                write_xdmf(
+                    mkpath(iu, "v", part_name), vv, f"v_{part_name}",
+                    time_step=float(time_steps[i]),
+                    append=(i > 0), write_mesh=(i == 0),
+                )
+                write_xdmf(
+                    mkpath(iu, "p", part_name), pp, f"p_{part_name}",
+                    time_step=float(time_steps[i]),
+                    append=(i > 0), write_mesh=(i == 0),
+                )
+        logger.info("Exported %d fields (input %d) to %s", ncols, iu, file_prefix)
 
 
-def export_to_mat(infile, outfile, matname, option="sparse"):
-    """Load sparse matrix from infile.npz and export it to outfile.mat"""
-    if option == "sparse":
-        Msp = spr.load_npz(infile)
-        sio.savemat(outfile, mdict={matname: Msp.tocsc()})
-    else:
-        sio.savemat(outfile, mdict=np.load(infile))
+def export_npz_to_mat(
+    infile: str | Path,
+    outfile: str | Path,
+    matname: str,
+) -> None:
+    """Load a scipy sparse matrix from infile.npz and save it to outfile.mat."""
+    Msp = spr.load_npz(infile)
+    sio.savemat(outfile, mdict={matname: Msp.tocsc()})
 
 
-def export_subdomains(mesh, subdomains_list, filename="subdomains.xdmf"):
-    """Export subdomains of FlowSolver object to be displayed.
+def export_subdomains(
+    mesh: dolfin.Mesh,
+    subdomains_list: list[dolfin.SubDomain],
+    filename: str | Path = "subdomains.xdmf",
+) -> None:
+    """Export mesh subdomains to XDMF for visualization.
     Usage: export_subdomains(fs.mesh, fs.boundaries.subdomain, ...)"""
     subd = dolfin.MeshFunction("size_t", mesh, mesh.topology().dim() - 1)
     subd.set_all(0)
     for i, subdomain in enumerate(subdomains_list):
-        subdnr = 10 * (i + 1)
-        subdomain.mark(subd, subdnr)
-        logger.info("Marking subdomain nr: {0} ({1})".format(i + 1, subdnr))
+        subdomain.mark(subd, i + 1)
+        logger.info("Marking subdomain nr: %d", i + 1)
     logger.info("Writing subdomains file: %s", filename)
-    with dolfin.XDMFFile(str(filename)) as fsubd:
+    with dolfin.XDMFFile(dolfin.MPI.comm_world, str(filename)) as fsubd:
         fsubd.write(subd)
 
 
-def export_facetnormals(
-    mesh, ds, n=None, filename="facet_normals.xdmf", name="facet_normals"
-):
-    """Write mesh facet normals to file.
-    Can be used to export forces (n << dot(sigma, n))"""
+def export_boundary_field(
+    mesh: dolfin.Mesh,
+    ds: dolfin.Measure,
+    n: Any = None,
+    filename: str | Path = "boundary_field.xdmf",
+    name: str = "boundary_field",
+) -> None:
+    """Project a vector field defined on ds onto CG1 and write to XDMF.
+    If n is None, defaults to the mesh facet normals."""
     if n is None:
         n = dolfin.FacetNormal(mesh)
     V = dolfin.VectorFunctionSpace(mesh, "CG", 1)
     u = dolfin.TrialFunction(V)
     v = dolfin.TestFunction(V)
-    a_lhs = inner(u, v) * ds
-    l_rhs = inner(n, v) * ds
-    A = dolfin.assemble(a_lhs, keep_diagonal=True)
-    L = dolfin.assemble(l_rhs)
+    A = dolfin.assemble(inner(u, v) * ds, keep_diagonal=True)
+    L = dolfin.assemble(inner(n, v) * ds)
     A.ident_zeros()
     nh = dolfin.Function(V, name=name)
     dolfin.solve(A, nh.vector(), L)
@@ -138,86 +202,97 @@ def export_facetnormals(
 
 
 def export_stress_tensor(
-    sigma,
-    mesh,
-    filename="stress_tensor.xdmf",
-    export_forces=False,
-    ds=None,
-    name="stress_tensor",
-):
-    """Write stress tensor to file"""
+    sigma: Any,
+    mesh: dolfin.Mesh,
+    filename: str | Path = "stress_tensor.xdmf",
+    name: str = "stress_tensor",
+) -> None:
+    """Project and write a stress tensor field to XDMF."""
     TT = dolfin.TensorFunctionSpace(mesh, "DG", degree=0)
     sigma_ = dolfin.Function(TT, name=name)
-    sigma_.assign(_projectm(sigma, TT))
+    sigma_.assign(projectm(sigma, TT))
     write_xdmf(filename, sigma_, name)
 
-    if export_forces:
-        n = dolfin.FacetNormal(mesh)
-        export_facetnormals(
-            mesh=mesh, n=-dot(sigma, n), ds=ds, filename="forces.xdmf", name="forces"
-        )
+
+def export_boundary_forces(
+    sigma: Any,
+    mesh: dolfin.Mesh,
+    ds: dolfin.Measure,
+    filename: str | Path = "forces.xdmf",
+    name: str = "forces",
+) -> None:
+    """Compute and write boundary forces -dot(sigma, n) to XDMF."""
+    n = dolfin.FacetNormal(mesh)
+    export_boundary_field(
+        mesh=mesh, n=-dot(sigma, n), ds=ds, filename=filename, name=name
+    )
 
 
-def export_square_operators(path, operators, operators_names):
+def export_square_operators(
+    path: str | Path,
+    operators: list[dolfin.PETScMatrix],
+    operators_names: list[str],
+) -> None:
     """Export square operators (dolfin PETScMatrix) as spy PNG and sparse NPZ files."""
-    path = Path(path)
-    path.mkdir(parents=True, exist_ok=True)
+    save_path = Path(path)
+    save_path.mkdir(parents=True, exist_ok=True)
     for Mat, Matname in zip(operators, operators_names):
-        export_sparse_matrix(Mat, path / f"{Matname}.png")
-        Matc, Mats, Matr = Mat.mat().getValuesCSR()
-        Acsr = spr.csr_matrix((Matr, Mats, Matc))
-        spr.save_npz(path / f"{Matname}.npz", Acsr)
-        spr.save_npz(path / f"{Matname}_coo.npz", Acsr.tocoo())
+        export_sparse_matrix(Mat, save_path / f"{Matname}.png")
+        indptr, indices, data = Mat.mat().getValuesCSR()
+        Acsr = spr.csr_matrix((data, indices, indptr))
+        spr.save_npz(save_path / f"{Matname}.npz", Acsr)
+        spr.save_npz(save_path / f"{Matname}_coo.npz", Acsr.tocoo())
 
 
-def export_sparse_matrix(A, figname=None):
-    """Export sparse matrix to spy plot.
-    A: dolfin PETScMatrix or scipy.sparse.csr_matrix"""
-    from utils.linalg import dense_to_sparse
+def export_sparse_matrix(
+    A: dolfin.cpp.la.PETScMatrix | spr.spmatrix | np.ndarray,
+    figname: str | Path | None = None,
+) -> None:
+    """Export sparse matrix to a spy plot PNG.
+    A: dolfin PETScMatrix or scipy.sparse matrix."""
 
     if spr.issparse(A):
         Acsr = A
+    elif isinstance(A, np.ndarray):
+        Acsr = spr.csr_matrix(A)
     else:
-        Acsr = dense_to_sparse(A)
+        Acsr = dolfin_to_scipy(A)
 
     fig, ax = plt.subplots()
     ax.spy(Acsr, markersize=1)
     ax.set_title("Sparse matrix plot")
-    if figname is None:
-        figname = "spy.png"
-    fig.savefig(figname)
+    fig.savefig(figname if figname is not None else "spy.png")
+    plt.close(fig)
 
 
-def export_dof_map(W, plotsz=None):
-    """Create an image of size W.dim*W.dim with each column
-    being the colour of the underlying function space of the corresponding dof.
-    E.G. (column i==red) if (dof i==u)"""
-    from utils.fem import get_subspace_dofs
-
+def export_dof_map(
+    W: dolfin.FunctionSpace,
+    plotsz: Optional[int] = None,
+    figname: str | Path = "dofmap.png",
+) -> None:
+    """Save an image showing DOF distribution by subspace (u, v, p) for W."""
     dofmap = get_subspace_dofs(W)
-    sz = W.dim()
-
     if plotsz is None:
-        plotsz = sz
+        plotsz = W.dim()
 
     dofim = np.zeros((plotsz, plotsz), dtype=int)
-
     for i, subs in enumerate(["u", "v", "p"]):
         dofmap_idx = dofmap[subs]
         subs_low = dofmap_idx[dofmap_idx < plotsz]
         dofim[:, subs_low] = i
 
     fig, ax = plt.subplots()
-    im = ax.imshow(dofim, cmap=cm.get_cmap("binary"))
+    im = ax.imshow(dofim, cmap=plt.colormaps["binary"])
     ax.set_title("Distribution of DOFs by index: (u,v,p)")
     fig.colorbar(im)
-    fig.savefig("dofmap.png")
+    fig.savefig(figname)
+    plt.close(fig)
 
 
 def save_Hw(
     H: np.ndarray,
     ww: np.ndarray,
-    save_dir: str,
+    save_dir: Path,
     save_suffix: str = "",
     input_labels: Optional[list[str]] = None,
     output_labels: Optional[list[str]] = None,
@@ -234,14 +309,13 @@ def save_Hw(
         output_labels: Names for each output channel, length ny.
     """
     ny, nu, nw = H.shape
-    save_path = Path(save_dir)
 
     if input_labels is None:
         input_labels = [f"u{i}" for i in range(nu)]
     if output_labels is None:
         output_labels = [f"y{i}" for i in range(ny)]
 
-    combined_path = save_path / f"Hw_nw{nw}_ny{ny}_nu{nu}{save_suffix}.mat"
+    combined_path = save_dir / f"Hw_nw{nw}_ny{ny}_nu{nu}{save_suffix}.mat"
     sio.savemat(
         combined_path,
         {
@@ -257,7 +331,7 @@ def save_Hw(
     for iy in range(ny):
         for iu in range(nu):
             suffix_i = f"_{output_labels[iy]}_to_{input_labels[iu]}"
-            pair_path = save_path / f"Hw_nw{nw}{save_suffix}{suffix_i}.mat"
+            pair_path = save_dir / f"Hw_nw{nw}{save_suffix}{suffix_i}.mat"
             sio.savemat(
                 pair_path,
                 {
@@ -278,7 +352,7 @@ def save_Hw(
 def plot_Hw(
     H: np.ndarray,
     ww: np.ndarray,
-    save_dir: str,
+    save_dir: Path,
     save_suffix: str = "",
     input_labels: Optional[list[str]] = None,
     output_labels: Optional[list[str]] = None,
@@ -294,8 +368,7 @@ def plot_Hw(
         input_labels:  Names for each input channel, length nu.
         output_labels: Names for each output channel, length ny.
     """
-    ny, nu, nw = H.shape
-    save_path = Path(save_dir)
+    ny, nu, _ = H.shape
 
     if input_labels is None:
         input_labels = [f"u{i}" for i in range(nu)]
@@ -308,9 +381,7 @@ def plot_Hw(
 
         for iy in range(ny):
             H_iy_iu = H[iy, iu, :]
-
-            ax_mag = axs[iy, 0]
-            ax_phase = axs[iy, 1]
+            ax_mag, ax_phase = axs[iy, 0], axs[iy, 1]
 
             ax_mag.scatter(ww, 20 * np.log10(np.abs(H_iy_iu)), marker=".")
             ax_mag.set_ylabel(f"|H| (dB)\n{output_labels[iy]}")
@@ -318,9 +389,7 @@ def plot_Hw(
             ax_mag.grid(which="both")
 
             ax_phase.scatter(
-                ww,
-                (180 / np.pi) * np.unwrap(np.angle(H_iy_iu)),
-                marker=".",
+                ww, (180 / np.pi) * np.unwrap(np.angle(H_iy_iu)), marker="."
             )
             ax_phase.set_ylabel(f"Phase (deg)\n{output_labels[iy]}")
             ax_phase.set_xscale("log")
@@ -330,7 +399,7 @@ def plot_Hw(
         axs[-1, 1].set_xlabel("Frequency")
 
         fig.tight_layout()
-        fig_path = save_path / f"bodeplot_{input_labels[iu]}{save_suffix}.png"
+        fig_path = save_dir / f"bodeplot_{input_labels[iu]}{save_suffix}.png"
         fig.savefig(fig_path)
         plt.close(fig)
         logger.info("Saving Bode plot for input %s to: %s", input_labels[iu], fig_path)

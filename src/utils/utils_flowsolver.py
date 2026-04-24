@@ -48,7 +48,6 @@ from utils.linalg import (  # noqa: F401, E402
     get_frequency_response_mpi,
     get_frequency_response_parallel,
     get_frequency_response_sequential,
-    get_Hw_lifting,
     get_mat_vp_slepc,
     load_mat_from_file,
     make_mat_to_test_slepc,
