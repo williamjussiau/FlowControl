@@ -6,6 +6,7 @@ Controller : continuous-time state-space system (subclass of control.StateSpace)
              with cached ZOH discretization, MIMO-compatible step(), and
              arithmetic operators that preserve the Controller type.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

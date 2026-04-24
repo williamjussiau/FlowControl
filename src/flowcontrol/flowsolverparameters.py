@@ -15,6 +15,7 @@ ParamSave       : output directory, XDMF save frequency, energy logging frequenc
 ParamSolver     : solver options (linearity, time scheme, spectral shift, error handling)
 ParamIC         : initial perturbation (Gaussian position, radius, amplitude)
 """
+
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -75,7 +76,7 @@ class ParamControl(ParamFlowSolver):
     actuator_list: list[Actuator]
     actuator_number: int = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.sensor_number = len(self.sensor_list)
         self.actuator_number = len(self.actuator_list)
 
@@ -96,7 +97,7 @@ class ParamTime(ParamFlowSolver):
     Tstart: float
     Tfinal: float = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.Tfinal = self.num_steps * self.dt
 
 

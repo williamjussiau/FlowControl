@@ -11,10 +11,16 @@ ActuatorBCRotation       : tangential-velocity profile for a rotating cylinder
 ActuatorBCUniformU       : uniform streamwise velocity (lid-driven cavity)
 ActuatorForceGaussianV   : unit-norm Gaussian volumic force in the wall-normal direction
 """
+
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from flowcontrol.flowsolver import FlowSolver
 
 import dolfin
 import numpy as np
@@ -74,7 +80,7 @@ class Actuator(ABC):
         """
         pass
 
-    def load_expression(self, flowsolver) -> dolfin.Expression:
+    def load_expression(self, flowsolver: FlowSolver) -> dolfin.Expression:
         """Resolve the actuator expression against a live FlowSolver."""
         self.expression = self._load_expression(flowsolver.V, flowsolver.mesh)
         return self.expression
@@ -104,7 +110,7 @@ class ActuatorBC(Actuator):
     boundary_name: Optional[str] = None
     boundary: Optional[dolfin.SubDomain] = None
 
-    def load_expression(self, flowsolver) -> dolfin.Expression:
+    def load_expression(self, flowsolver: FlowSolver) -> dolfin.Expression:
         """Resolve the expression then set self.boundary from boundary_name if provided."""
         super().load_expression(flowsolver)
         if self.boundary_name is not None:
@@ -131,7 +137,9 @@ class ActuatorBCParabolicV(ActuatorBC):
     position_x: float = 0.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
-    def _load_expression(self, V, mesh):
+    def _load_expression(
+        self, V: dolfin.FunctionSpace, mesh: dolfin.Mesh
+    ) -> dolfin.Expression:
         """Return a parabolic normal-velocity profile, zero outside the slot [x0-L, x0+L]."""
         # v = u_ctrl * (1 - ((x-x0)/L)²) on [x0-L, x0+L], zero outside.
         # Equivalently: u_ctrl * (L²-(x-x0)²)/L²  — a parabolic bump of unit peak.
@@ -148,7 +156,9 @@ class ActuatorBCParabolicV(ActuatorBC):
         return expression
 
     @staticmethod
-    def angular_size_deg_to_width(angular_size_deg, cylinder_radius):
+    def angular_size_deg_to_width(
+        angular_size_deg: float, cylinder_radius: float
+    ) -> float:
         """Convert slot angular size (degrees) to half-width L for a given cylinder radius."""
         return cylinder_radius * np.sin(1 / 2 * angular_size_deg * dolfin.pi / 180)
 
@@ -164,7 +174,9 @@ class ActuatorBCRotation(ActuatorBC):
     diameter: float = 1.0
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
-    def _load_expression(self, V, mesh):
+    def _load_expression(
+        self, V: dolfin.FunctionSpace, mesh: dolfin.Mesh
+    ) -> dolfin.Expression:
         """Return a tangential-velocity expression for a cylinder rotating at rate u_ctrl."""
         # Tangential unit vector at angle θ = atan2(y-y0, x-x0) is (-sin θ, cos θ).
         # Surface speed of a cylinder of diameter d rotating at rate u_ctrl is u_ctrl*d/2.
@@ -192,7 +204,9 @@ class ActuatorBCUniformU(ActuatorBC):
 
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.BC
 
-    def _load_expression(self, V, mesh):
+    def _load_expression(
+        self, V: dolfin.FunctionSpace, mesh: dolfin.Mesh
+    ) -> dolfin.Expression:
         """Return a uniform streamwise-velocity expression (u_ctrl, 0)."""
         expression = dolfin.Expression(
             [
@@ -216,7 +230,9 @@ class ActuatorForceGaussianV(Actuator):
     position: NDArray[np.float64]
     actuator_type: ACTUATOR_TYPE = ACTUATOR_TYPE.FORCE
 
-    def _load_expression(self, V, mesh):
+    def _load_expression(
+        self, V: dolfin.FunctionSpace, mesh: dolfin.Mesh
+    ) -> dolfin.Expression:
         """Return a unit-norm Gaussian wall-normal force expression."""
         # Wall-normal (v-component) Gaussian: f = (0, u_ctrl * η * exp(-r²/(2σ²)))
         # η is set to 1/‖f‖_L2 so that the B-matrix column has unit norm.

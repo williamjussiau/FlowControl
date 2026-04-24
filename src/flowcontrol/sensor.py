@@ -9,10 +9,16 @@ SensorIntegral            : abstract base for sensors that integrate over a subd
                             subclasses implement load() and linear_form()
 SensorHorizontalWallShear : integral of dv/dx2 along a segment of the bottom wall
 """
+
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from flowcontrol.flowsolver import FlowSolver
 
 import dolfin
 import numpy as np
@@ -54,7 +60,7 @@ class Sensor(ABC):
     require_loading: bool
 
     @abstractmethod
-    def eval(self, up):
+    def eval(self, up: dolfin.Function) -> float:
         """Evaluate measurement value from sensor on (mixed) field (u,p)
         This function is going to be called a high number
         of times, so it needs to be optimized.
@@ -76,7 +82,7 @@ class SensorPoint(Sensor):
     position: NDArray[np.float64]
     require_loading: bool = False
 
-    def eval(self, up):
+    def eval(self, up: dolfin.Function) -> float:
         # warning: need to be compatible with parallel
         return peval(up, dolfin.Point(self.position))[self.sensor_type]
         # for example, do not:
@@ -103,19 +109,19 @@ class SensorIntegral(Sensor):
     require_loading: bool = True
 
     @abstractmethod
-    def load(self, flowsolver) -> None:
+    def load(self, flowsolver: FlowSolver) -> None:
         """Define and mark subdomain, define integration element ds or dx."""
         pass
 
     @abstractmethod
-    def linear_form(self, v):
+    def linear_form(self, v: Any) -> Any:
         """UFL form defining this sensor's measurement. Must be linear in v.
         - When v is a Function: assemble(linear_form(v)) returns the scalar measurement.
         - When v is a TestFunction: assemble(linear_form(v)) returns the C matrix row.
         Requires load() to have been called first."""
         pass
 
-    def eval(self, up):
+    def eval(self, up: dolfin.Function) -> float:
         """Assemble linear_form over the loaded subdomain and return the scalar result."""
         return dolfin.assemble(self.linear_form(up))
 
@@ -135,11 +141,11 @@ class SensorHorizontalWallShear(SensorIntegral):
     x_sensor_right: float = 1.1
     y_sensor: float = 0.0
 
-    def linear_form(self, v):
+    def linear_form(self, v: Any) -> Any:
         """Return the UFL form integrating dv/dx2 (wall shear stress) over the wall segment."""
         return v[0].dx(1) * self.ds(self.sensor_index)
 
-    def load(self, flowsolver):
+    def load(self, flowsolver: FlowSolver) -> None:
         sensor_subdomain = dolfin.CompiledSubDomain(
             "on_boundary && near(x[1], y_sensor, MESH_TOL) && x[0]>=x_sensor_left && x[0]<=x_sensor_right",
             MESH_TOL=dolfin.DOLFIN_EPS,

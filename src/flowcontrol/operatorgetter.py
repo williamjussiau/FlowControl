@@ -197,7 +197,6 @@ class OperatorGetter:
         logger.info(f"Finished computing C of size {C.shape}")
         return C
 
-
     def get_all(
         self,
         autodiff: bool = True,

@@ -33,9 +33,9 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from flowcontrol.flowfield import FlowFieldCollection, SimPaths
 from utils.io import write_xdmf
 from utils.mpi import get_rank
-from flowcontrol.flowfield import FlowFieldCollection, SimPaths
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +271,11 @@ class FlowExporter:
         """Log a one-line progress message for the current time step."""
         logger.info(
             "--- iter: %5d/%5d --- time: %3.3f/%3.3f --- elapsed %5.5f ---",
-            iter, num_steps, t, t_end, runtime,
+            iter,
+            num_steps,
+            t,
+            t_end,
+            runtime,
         )
 
     def reset(self) -> None:
