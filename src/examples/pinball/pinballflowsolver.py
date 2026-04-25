@@ -134,21 +134,13 @@ class PinballFlowSolver(flowsolver.FlowSolver):
                 actuator_bot,
             ]
         else:
-            actuator_top = dolfin.CompiledSubDomain(
-                cylinder_boundary_top_cpp, radius=radius
-            )
-            actuator_bot = dolfin.CompiledSubDomain(
-                cylinder_boundary_bot_cpp, radius=radius
-            )
-            actuator_mid = dolfin.CompiledSubDomain(
-                cylinder_boundary_mid_cpp, radius=radius
-            )
+            actuator_top = dolfin.CompiledSubDomain(cylinder_boundary_top_cpp, radius=radius)
+            actuator_bot = dolfin.CompiledSubDomain(cylinder_boundary_bot_cpp, radius=radius)
+            actuator_mid = dolfin.CompiledSubDomain(cylinder_boundary_mid_cpp, radius=radius)
             boundaries_names += ["actuator_mid", "actuator_top", "actuator_bot"]
             subdomains_list += [actuator_mid, actuator_top, actuator_bot]
 
-        return pd.DataFrame(
-            index=boundaries_names, data={"subdomain": subdomains_list}
-        )
+        return pd.DataFrame(index=boundaries_names, data={"subdomain": subdomains_list})
 
     def _make_bcs(self):
         """Return perturbation-field BCs for the pinball.
@@ -209,12 +201,8 @@ class PinballFlowSolver(flowsolver.FlowSolver):
     def _make_BCs(self) -> BoundaryConditions:
         """Steady-state BCs: uniform flow at inlet and walls."""
         uniform = dolfin.Constant((self.params_flow.uinf, 0))
-        bcu_inlet = dolfin.DirichletBC(
-            self.W.sub(0), uniform, self.get_subdomain("inlet")
-        )
-        bcu_walls = dolfin.DirichletBC(
-            self.W.sub(0), uniform, self.get_subdomain("walls")
-        )
+        bcu_inlet = dolfin.DirichletBC(self.W.sub(0), uniform, self.get_subdomain("inlet"))
+        bcu_walls = dolfin.DirichletBC(self.W.sub(0), uniform, self.get_subdomain("walls"))
         bcs = self._make_bcs()
         return BoundaryConditions(bcu=[bcu_inlet, bcu_walls] + bcs.bcu[2:], bcp=[])
 
@@ -237,9 +225,12 @@ class PinballFlowSolver(flowsolver.FlowSolver):
 
         if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
             surfaces = [
-                "cylinder_mid", "actuator_mid",
-                "cylinder_top", "actuator_top",
-                "cylinder_bot", "actuator_bot",
+                "cylinder_mid",
+                "actuator_mid",
+                "cylinder_top",
+                "actuator_top",
+                "cylinder_bot",
+                "actuator_bot",
             ]
         else:
             surfaces = ["actuator_mid", "actuator_top", "actuator_bot"]
@@ -254,7 +245,6 @@ class PinballFlowSolver(flowsolver.FlowSolver):
                 drag / (0.5 * self.params_flow.uinf**2 * D),
             )
         return result
-
 
     @classmethod
     def make_default(
@@ -309,9 +299,21 @@ class PinballFlowSolver(flowsolver.FlowSolver):
             ]
         else:
             actuator_list = [
-                ActuatorBCRotation(position_x=position_mid[0], position_y=position_mid[1], diameter=cylinder_diameter),
-                ActuatorBCRotation(position_x=position_top[0], position_y=+position_top[1], diameter=cylinder_diameter),
-                ActuatorBCRotation(position_x=position_top[0], position_y=-position_top[1], diameter=cylinder_diameter),
+                ActuatorBCRotation(
+                    position_x=position_mid[0],
+                    position_y=position_mid[1],
+                    diameter=cylinder_diameter,
+                ),
+                ActuatorBCRotation(
+                    position_x=position_top[0],
+                    position_y=+position_top[1],
+                    diameter=cylinder_diameter,
+                ),
+                ActuatorBCRotation(
+                    position_x=position_top[0],
+                    position_y=-position_top[1],
+                    diameter=cylinder_diameter,
+                ),
             ]
 
         params_control = fsp.ParamControl(
@@ -367,6 +369,4 @@ class PinballCustomInitialGuess(dolfin.UserExpression):
 
     def as_dolfin_function(self, functionSpace, interp=True):
         """Project or interpolate this expression onto functionSpace and return as dolfin.Function."""
-        return flu.expression_to_dolfin_function(
-            self, functionSpace=functionSpace, interp=interp
-        )
+        return flu.expression_to_dolfin_function(self, functionSpace=functionSpace, interp=interp)
