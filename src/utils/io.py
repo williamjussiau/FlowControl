@@ -1,8 +1,8 @@
 """I/O utilities: XDMF read/write, field and matrix export, frequency response save/plot."""
 
 import logging
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, Optional
 
 import dolfin
@@ -13,7 +13,7 @@ import scipy.sparse as spr
 from dolfin import dot, inner
 
 from utils.fem import get_subspace_dofs, projectm
-from utils.linalg import dolfin_to_scipy, petsc_to_scipy
+from utils.linalg import dolfin_to_scipy
 
 logger = logging.getLogger(__name__)
 
@@ -136,18 +136,24 @@ def export_complex_field(
         for part_name in parts:
             part_func = _PART_FUNCS[part_name]
             for i in range(ncols):
-                w_func.vector().set_local(part_func(cfields[lr[0]:lr[1], iu, i]))
+                w_func.vector().set_local(part_func(cfields[lr[0] : lr[1], iu, i]))
                 w_func.vector().apply("insert")
                 fa.assign([vv, pp], w_func)
                 write_xdmf(
-                    mkpath(iu, "v", part_name), vv, f"v_{part_name}",
+                    mkpath(iu, "v", part_name),
+                    vv,
+                    f"v_{part_name}",
                     time_step=float(time_steps[i]),
-                    append=(i > 0), write_mesh=(i == 0),
+                    append=(i > 0),
+                    write_mesh=(i == 0),
                 )
                 write_xdmf(
-                    mkpath(iu, "p", part_name), pp, f"p_{part_name}",
+                    mkpath(iu, "p", part_name),
+                    pp,
+                    f"p_{part_name}",
                     time_step=float(time_steps[i]),
-                    append=(i > 0), write_mesh=(i == 0),
+                    append=(i > 0),
+                    write_mesh=(i == 0),
                 )
         logger.info("Exported %d fields (input %d) to %s", ncols, iu, file_prefix)
 

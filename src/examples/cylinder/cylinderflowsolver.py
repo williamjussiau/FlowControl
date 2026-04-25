@@ -7,8 +7,8 @@ import pandas
 
 import flowcontrol.flowsolver as flowsolver
 import utils.utils_flowsolver as flu
-from utils.physics import stress_tensor
 from flowcontrol.flowfield import BoundaryConditions
+from utils.physics import stress_tensor
 
 logger = logging.getLogger(__name__)
 

@@ -5,14 +5,9 @@ Warning: sometimes compulsory to run "mpirun -n 1 python eig_utils.py"
 Warning: the function needs a few adjustments for running in parallel (~L216)
 """
 
-import functools
-import pdb
 import time
-import warnings
 
 import numpy as np
-import petsc4py
-import scipy as scp
 import scipy.sparse as spr
 from petsc4py import PETSc
 from slepc4py import SLEPc

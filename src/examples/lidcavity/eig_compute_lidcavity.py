@@ -22,7 +22,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # import scipy as scp
-import scipy.io as sio
 import scipy.sparse as spr
 from petsc4py import PETSc
 from slepc4py import SLEPc
