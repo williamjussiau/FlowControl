@@ -249,7 +249,11 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
         import flowcontrol.flowsolverparameters as fsp
         from flowcontrol.actuator import ActuatorForceGaussianV
-        from flowcontrol.sensor import SENSOR_TYPE, SensorHorizontalWallShear, SensorPoint
+        from flowcontrol.sensor import (
+            SENSOR_TYPE,
+            SensorHorizontalWallShear,
+            SensorPoint,
+        )
 
         if path_out is None:
             path_out = Path(__file__).parent / "data_output"

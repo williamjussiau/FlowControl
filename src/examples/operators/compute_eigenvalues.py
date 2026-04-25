@@ -17,10 +17,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as spr
 import scipy.sparse.linalg as sprl
-from petsc4py import PETSc
-from slepc4py import SLEPc
 
-from utils.eig.eig_utils import get_mat_vp_slepc, sparse_to_petscmat
+from utils.eig.eig_utils import sparse_to_petscmat
 
 #################################################################################
 #################################################################################
