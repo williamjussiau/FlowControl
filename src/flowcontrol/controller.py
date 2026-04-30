@@ -37,17 +37,22 @@ class Controller(control.StateSpace):
         file: Optional[Path] = None,
         x0: Optional[NDArray[np.float64]] = None,
     ):
-        """Initialize Controller with either (A,B,C,D) matrices
-        or file, and initialize its state x. This method allows
-        the construction of two static initializers.
+        """Initialise a Controller from (A, B, C, D) matrices and an optional initial state.
 
-        Args:
-            A (NDArray[np.float64]): System evolution matrix.
-            B (NDArray[np.float64]): System input matrix.
-            C (NDArray[np.float64]): System output matrix.
-            D (NDArray[np.float64]): System feedthrough.
-            file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (Optional[NDArray[np.float64]], optional): Internal state. Defaults to None.
+        Parameters
+        ----------
+        A :
+            System evolution matrix.
+        B :
+            Input matrix.
+        C :
+            Output matrix.
+        D :
+            Feedthrough matrix.
+        file :
+            Path from which the controller was loaded, if any.
+        x0 :
+            Initial internal state.  Defaults to zeros when ``None``.
         """
         super().__init__(A, B, C, D)
         self.file = file
@@ -57,14 +62,18 @@ class Controller(control.StateSpace):
     def from_file(
         cls, file: Path, x0: Optional[NDArray[np.float64]] = None
     ) -> Controller:
-        """Initialize Controller from file only, with given inital state x0.
+        """Load a Controller from a ``.mat`` file.
 
-        Args:
-            file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (Optional[NDArray[np.float64]], optional): Internal state. Defaults to None.
+        Parameters
+        ----------
+        file :
+            Path to the ``.mat`` file containing A, B, C, D matrices.
+        x0 :
+            Initial internal state.  Defaults to zeros when ``None``.
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
         """
         stateSpaceMatrices = read_matfile(file)
         return cls(
@@ -86,26 +95,36 @@ class Controller(control.StateSpace):
         file: Optional[Path] = None,
         x0: Optional[NDArray[np.float64]] = None,
     ) -> Controller:
-        """Initialize Controller from matrices (A,B,C,D), with given initial state x0.
+        """Construct a Controller directly from (A, B, C, D) matrices.
 
-        Args:
-            A (NDArray[np.float64]): System evolution matrix.
-            B (NDArray[np.float64]): System input matrix.
-            C (NDArray[np.float64]): System output matrix.
-            D (NDArray[np.float64]): System feedthrough.
-            file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (Optional[NDArray[np.float64]], optional): Internal state. Defaults to None.
+        Parameters
+        ----------
+        A :
+            System evolution matrix.
+        B :
+            Input matrix.
+        C :
+            Output matrix.
+        D :
+            Feedthrough matrix.
+        file :
+            Source file, if any, for bookkeeping.
+        x0 :
+            Initial internal state.  Defaults to zeros when ``None``.
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
         """
         return cls(A, B, C, D, x0=x0, file=file)
 
     def _discretize(self, dt: float) -> None:
-        """Discretize Controller with ZOH at the given time step and cache the result.
+        """Discretize the controller with ZOH at ``dt`` and cache the result.
 
-        Args:
-            dt (float): Discretization time step.
+        Parameters
+        ----------
+        dt :
+            Discretization time step.
         """
         sysd = control.c2d(self, dt, method="zoh")
         self._Ad = sysd.A
@@ -115,15 +134,22 @@ class Controller(control.StateSpace):
         self._dt = dt
 
     def step(self, y: NDArray[np.float64], dt: float) -> NDArray[np.float64]:
-        """Advance Controller by one time step with input y using ZOH discretization.
-        The discrete matrices are computed once and cached for a given dt. MIMO-compatible.
+        """Advance the controller by one time step using ZOH discretization.
 
-        Args:
-            y (NDArray[np.float64]): Controller input (e.g. Plant output).
-            dt (float): Time interval for simulation.
+        Discrete matrices are computed once and cached for a given ``dt``.
+        MIMO-compatible.
 
-        Returns:
-            NDArray[np.float64]: control output u.
+        Parameters
+        ----------
+        y :
+            Controller input (e.g. plant output measurement vector).
+        dt :
+            Simulation time step.
+
+        Returns
+        -------
+        NDArray[np.float64]
+            Control output ``u``.
         """
         if not hasattr(self, "_dt") or self._dt != dt:
             self._discretize(dt)
@@ -145,38 +171,44 @@ class Controller(control.StateSpace):
         return self._overload(other, super().__rmul__)
 
     def inv(self) -> Controller:
-        """Attempt to invert Controller provided that self.D not 0.
-        Args:
-            self (Controller): Controller to invert.
+        """Return the inverse of this controller (requires D to be invertible).
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
         """
         invK = ss_inv(self)
         return Controller(invK.A, invK.B, invK.C, invK.D)
 
     def _concatenate_states_with(self, other: Controller) -> NDArray[np.float64]:
-        """Return a concatenatation of states from two Controller instances.
+        """Concatenate the internal states of this controller and ``other``.
 
-        Args:
-            other (Controller): other Controller to concatenate states with.
+        Parameters
+        ----------
+        other :
+            The second Controller whose state is appended.
 
-        Returns:
-            NDArray[np.float64]: concatenated internal states.
+        Returns
+        -------
+        NDArray[np.float64]
+            Concatenated state vector ``[self.x, other.x]``.
         """
         return np.concatenate((self.x, other.x), axis=0)
 
     def _overload(self, other: Controller, binary_op: Callable) -> Controller:
-        """Shortcut for overriding all binary operations
-        between Controller instances: use the super() operation
-        and adapt the internal state and the file accordingly.
+        """Apply a binary operation and cast the result back to Controller.
 
-        Args:
-            other (Controller): other StateSpace or Controller for binary op
-            binary_op (_type_): binary operation to override
+        Parameters
+        ----------
+        other :
+            The right-hand operand (StateSpace or Controller).
+        binary_op :
+            The parent-class binary operation to delegate to.
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
+            Result with concatenated internal state when ``other`` is a Controller.
         """
         K = binary_op(other)
         # Cast as Controller instead of StateSpace

@@ -25,23 +25,28 @@ from flowcontrol.sensor import Sensor
 
 @dataclass(kw_only=True)
 class ParamFlowSolver:
-    """Base class for Param* classes. It includes a dedicated field
-    for user parameters, in order to avoid dynamically adding
-    parameters at runtime.
+    """Base class for all Param* dataclasses.
 
-    Args:
-        user_data (dict): user-defined data, e.g. domain limits..."""
+    Attributes
+    ----------
+    user_data :
+        Arbitrary user-defined data (e.g. domain dimensions).  Provided to
+        avoid dynamic attribute assignment at runtime.
+    """
 
     user_data: dict = field(default_factory=dict)
 
 
 @dataclass
 class ParamFlow(ParamFlowSolver):
-    """Parameters related to flow configuration.
+    """Flow configuration parameters.
 
-    Args:
-        uinf (float): horizontal velocity at inlet
-        Re (float): Reynolds number
+    Parameters
+    ----------
+    Re :
+        Reynolds number.
+    uinf :
+        Horizontal inlet velocity.  Defaults to 1.0.
     """
 
     Re: float
@@ -50,10 +55,12 @@ class ParamFlow(ParamFlowSolver):
 
 @dataclass
 class ParamMesh(ParamFlowSolver):
-    """Parameters related to flow configuration.
+    """Mesh configuration parameters.
 
-    Args:
-        meshpath (pathlib.Path): path to xdmf mesh file
+    Parameters
+    ----------
+    meshpath :
+        Path to the XDMF mesh file.
     """
 
     meshpath: Path
@@ -61,13 +68,21 @@ class ParamMesh(ParamFlowSolver):
 
 @dataclass
 class ParamControl(ParamFlowSolver):
-    """Parameters related to control.
+    """Control configuration parameters.
 
-    Args:
-        sensor_list (list): list of Sensor objects
-        sensor_number (int): number of sensors (auto)
-        actuator_list (list): list of Actuator objects
-        actuator_number (int): number of actuators (auto)
+    Parameters
+    ----------
+    sensor_list :
+        Ordered list of Sensor objects.
+    actuator_list :
+        Ordered list of Actuator objects.
+
+    Attributes
+    ----------
+    sensor_number :
+        Number of sensors (set automatically from ``sensor_list``).
+    actuator_number :
+        Number of actuators (set automatically from ``actuator_list``).
     """
 
     sensor_list: list[Sensor]
@@ -83,13 +98,21 @@ class ParamControl(ParamFlowSolver):
 
 @dataclass
 class ParamTime(ParamFlowSolver):
-    """Parameters related to time-stepping.
+    """Time-stepping parameters.
 
-    Args:
-        num_steps (int): number of steps
-        dt (float): time step
-        Tstart (float): starting simulation time
-        Tfinal (float): final simulation time (computed automatically)
+    Parameters
+    ----------
+    num_steps :
+        Total number of time steps.
+    dt :
+        Time step size.
+    Tstart :
+        Starting simulation time.
+
+    Attributes
+    ----------
+    Tfinal :
+        Final simulation time, computed as ``num_steps * dt``.
     """
 
     num_steps: int
@@ -103,14 +126,18 @@ class ParamTime(ParamFlowSolver):
 
 @dataclass
 class ParamRestart(ParamFlowSolver):
-    """Parameters related to restarting a simulation.
+    """Parameters for restarting a simulation from a previous run.
 
-    Args:
-        save_every_old (int): previous save_every (see ParamSave)
-        restart_order (int): equation order for restarting
-        dt_old (float): previous time step
-        Trestartfrom (float): starting time from the previous simulation
-            (for finding the corresponding field files).
+    Parameters
+    ----------
+    save_every_old :
+        ``save_every`` value used in the previous run (to locate checkpoint files).
+    restart_order :
+        Time-integration order to use at restart (1 or 2).
+    dt_old :
+        Time step used in the previous run.
+    Trestartfrom :
+        Simulation time from the previous run to restart from.
     """
 
     save_every_old: int = 0
@@ -121,13 +148,17 @@ class ParamRestart(ParamFlowSolver):
 
 @dataclass
 class ParamSave(ParamFlowSolver):
-    """Parameters related to saving fields and time series.
+    """Output and checkpointing parameters.
 
-    Args:
-        path_out (pathlib.Path): folder for saving files
-        save_every (int): export XDMF fields every N iterations (0 = never)
-        energy_every (int): compute and log perturbation energy every N iterations
-            (0 = never, 1 = every step).
+    Parameters
+    ----------
+    path_out :
+        Directory for all output files.
+    save_every :
+        Write XDMF field snapshots every N iterations (0 = never).
+    energy_every :
+        Compute and log perturbation energy every N iterations
+        (0 = never, 1 = every step).
     """
 
     path_out: Path
@@ -137,14 +168,22 @@ class ParamSave(ParamFlowSolver):
 
 @dataclass
 class ParamSolver(ParamFlowSolver):
-    """Parameters related to equations and solvers.
+    """Solver and equation parameters.
 
-    Args:
-        throw_error (bool): if False, does not catch error when solver fails.
-            This may be useful when using FlowSolver as a backend for an optimization tool.
-        shift (float): shift equations by -_shift_*int(u * v * dx)
-        is_eq_nonlinear (bool): if False, simulate equations linearized around base flow (i.e. the
-            nonlinear term for the perturbation: (u.div)u, is neglected)
+    Parameters
+    ----------
+    throw_error :
+        If ``False``, swallow solver failures instead of raising.  Useful when
+        FlowSolver is used as a backend in an optimization loop.
+    shift :
+        Adds ``-shift * ∫ u·v dx`` to the LHS (spectral shift for eigenvalue
+        computation).
+    is_eq_nonlinear :
+        If ``False``, drop the nonlinear perturbation term ``(u·∇)u`` and
+        simulate the linearized equations around the base flow.
+    time_scheme :
+        Time integration scheme: ``'bdf'`` (BDF1 → BDF2 ramp) or ``'cn'``
+        (Crank-Nicolson).
     """
 
     throw_error: bool = True
@@ -155,14 +194,21 @@ class ParamSolver(ParamFlowSolver):
 
 @dataclass
 class ParamIC(ParamFlowSolver):
-    """Parameters for Initial Condition (IC). By default, derivative of Gaussian bell
-    (therefore divergence-free) with given position (xloc, yloc), radius and amplitude.
+    """Initial condition parameters.
 
-    Args:
-        xloc (float): x position of center
-        yloc (float): y position of center
-        radius (float): radius of IC
-        amplitude (float): amplitude of IC
+    Defines a divergence-free Gaussian perturbation (derivative of a Gaussian bell)
+    centred at ``(xloc, yloc)`` with given ``radius`` and ``amplitude``.
+
+    Parameters
+    ----------
+    xloc :
+        x-coordinate of the perturbation centre.
+    yloc :
+        y-coordinate of the perturbation centre.
+    radius :
+        Radius of the Gaussian bell.
+    amplitude :
+        Peak amplitude of the perturbation.
     """
 
     xloc: float = 0.0

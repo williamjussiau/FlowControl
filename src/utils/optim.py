@@ -52,14 +52,19 @@ sz = comm.Get_size()
 
 
 def fun_array(x: np.ndarray, fun: Callable[..., float], **kwargs) -> np.ndarray:
-    """Evaluate scalar cost function fun: R^n -> R on a batch of points.
+    """Evaluate a scalar cost function on a batch of points.
 
-    Args:
-        x: 2D array of shape (n_points, dim).
-        fun: scalar-valued function — must return a single float per call.
+    Parameters
+    ----------
+    x :
+        Input array of shape ``(n_points, dim)``.
+    fun :
+        Scalar-valued function ``R^n -> R``.
 
-    Returns:
-        out: 2D array of shape (n_points, 1).
+    Returns
+    -------
+    np.ndarray
+        Output array of shape ``(n_points, 1)``.
     """
     npt = x.shape[0]
     out = np.zeros((npt, 1))
@@ -74,17 +79,24 @@ def parallel_function_wrapper(
 ) -> float:
     """Worker-loop wrapper for MPI-collective cost function evaluation.
 
-    Must be called simultaneously by all MPI ranks. Rank 0 drives the
+    Must be called simultaneously by all MPI ranks.  Rank 0 drives the
     optimizer and proposes points; all ranks collaborate on each FEniCS
-    solve. Rank 0 signals termination by broadcasting stop_all=[1].
+    solve.  Rank 0 signals termination by broadcasting ``stop_all=[1]``.
 
-    Args:
-        x: candidate point (only rank 0's value is used after broadcast).
-        stop_all: mutable [int] flag — 0 to evaluate, 1 to stop all ranks.
-        fun: MPI-collective cost function; must be called on all ranks at once.
+    Parameters
+    ----------
+    x :
+        Candidate point (only rank 0's value is used after broadcast).
+    stop_all :
+        Mutable single-element list used as a stop flag — ``[0]`` to evaluate,
+        ``[1]`` to terminate all ranks.
+    fun :
+        MPI-collective cost function; must be called on all ranks simultaneously.
 
-    Returns:
-        Reduced cost value on rank 0; 0 on all other ranks.
+    Returns
+    -------
+    float
+        Reduced cost value on rank 0; ``0`` on all other ranks.
     """
     stop_all[0] = comm.bcast(stop_all[0], root=0)
     f = 0
@@ -131,17 +143,23 @@ def nm_select_evaluated_points(
     y_all: list[float],
     verbose: bool = False,
 ) -> tuple[list, list]:
-    """For NM algorithm: from best-so-far points x_best retrieve corresponding
-    value of cost function.
+    """Retrieve cost values for the best-so-far Nelder-Mead simplex vertices.
 
-    Args:
-        x_best: sequence of best simplex vertices per NM iteration (res.allvecs).
-        x_all: all evaluated points.
-        y_all: cost values corresponding to x_all.
+    Parameters
+    ----------
+    x_best :
+        Sequence of best simplex vertices per NM iteration (``res.allvecs``).
+    x_all :
+        All evaluated points.
+    y_all :
+        Cost values corresponding to ``x_all``.
 
-    Returns:
-        x_good: deduplicated best-so-far points (in order of first appearance).
-        y_good: corresponding cost values.
+    Returns
+    -------
+    x_good :
+        Deduplicated best-so-far points in order of first appearance.
+    y_good :
+        Corresponding cost values.
     """
     uidx = np.unique(x_best, axis=0, return_index=True)[1]
     x_good = [x_best[index] for index in sorted(uidx)]
@@ -165,16 +183,22 @@ def nm_select_evaluated_points(
 def cummin(
     y: np.ndarray, return_index: bool = True
 ) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
-    """Return cumulative minimum of 2D column-vector y (shape n x 1).
+    """Return the cumulative minimum of a column vector.
 
-    Args:
-        y: 2D array of shape (n, 1).
-        return_index: if True, also return idx where idx[i] is the index in the
-            original array where the cumulative minimum at step i was first achieved.
+    Parameters
+    ----------
+    y :
+        Input array of shape ``(n, 1)``.
+    return_index :
+        If ``True``, also return the index of first occurrence of each minimum.
 
-    Returns:
-        y_cummin: cumulative minimum, shape (n, 1).
-        idx: (only if return_index=True) indices of first occurrence, shape (n,).
+    Returns
+    -------
+    y_cummin :
+        Cumulative minimum, shape ``(n, 1)``.
+    idx :
+        Indices of first occurrence, shape ``(n,)``.  Only returned when
+        ``return_index=True``.
     """
     y_cummin = np.minimum.accumulate(y)
     if return_index:
@@ -252,8 +276,32 @@ def minimize(
     options: dict,
     verbose: bool = True,
 ) -> object:
-    """Wrapper for launching optimization algorithm.
-    Supported algorithms: Scipy (NM, COBYLA, BFGS, SLSQP), DFO, BO."""
+    """Run an optimization algorithm on a cost function.
+
+    Parameters
+    ----------
+    costfun :
+        Scalar cost function to minimize.
+    x0 :
+        Initial parameter vector.
+    alg :
+        Algorithm name: ``'nm'``, ``'cobyla'``, ``'bfgs'``, ``'slsqp'``,
+        ``'dfo'``, or ``'bo'``.
+    options :
+        Algorithm-specific options dict (merged with defaults).
+    verbose :
+        If ``True``, enable solver progress output.
+
+    Returns
+    -------
+    object
+        Optimization result object (scipy ``OptimizeResult`` or equivalent).
+
+    Raises
+    ------
+    ValueError
+        If ``alg`` is not a supported algorithm name.
+    """
     tstart = time.time()
     alg = alg.lower()
     options = dict(options)  # don't mutate caller's dict
@@ -357,14 +405,20 @@ def write_results(
 ) -> None:
     """Write all optimization evaluations and their cumulative minimum to CSV.
 
-    Writes two files into optim_path with columns ["J", "x0", "x1", ...]:
-        J_costfun.csv        — all evaluated (J, x) pairs in order.
-        J_costfun_cummin.csv — best-so-far (J, x) at each iteration.
+    Writes two files into ``optim_path`` with columns ``["J", "x0", "x1", ...]``:
+    ``J_costfun.csv`` (all evaluations) and ``J_costfun_cummin.csv``
+    (best-so-far at each iteration).
 
-    Args:
-        x_data: sequence of parameter vectors, shape (n_iter, dim).
-        y_data: sequence of cost values, length n_iter.
-        optim_path: directory to write into.
+    Parameters
+    ----------
+    x_data :
+        Parameter vectors, shape ``(n_iter, dim)``.
+    y_data :
+        Cost values, length ``n_iter``.
+    optim_path :
+        Directory to write files into.
+    verbose :
+        If ``True``, log the output path.
     """
     optim_path = Path(optim_path)
     x_data_wr = np.array(x_data)
@@ -392,18 +446,26 @@ def sobol_sample(
 ) -> np.ndarray:
     """Generate samples from a Sobol low-discrepancy sequence.
 
-    Args:
-        ndim: dimension of each sample point.
-        npt: number of points to generate.
-        xlimits: optional bounds, shape (ndim, 2) or (2, ndim). If None,
-            samples are in [0, 1]^ndim.
-        skip: number of initial Sobol points to skip (default 1000 avoids
-            the low-uniformity warm-up region of the sequence).
-        seed: if not None, use this integer seed to draw a random additional
-            offset added to skip, producing a different sub-sequence each run.
+    Parameters
+    ----------
+    ndim :
+        Dimension of each sample point.
+    npt :
+        Number of points to generate.
+    xlimits :
+        Optional bounds, shape ``(ndim, 2)`` or ``(2, ndim)``.  Samples are
+        in ``[0, 1]^ndim`` when ``None``.
+    skip :
+        Number of initial Sobol points to skip (default 1000 avoids the
+        low-uniformity warm-up region of the sequence).
+    seed :
+        If not ``None``, add a random offset to ``skip`` for a different
+        sub-sequence each run.
 
-    Returns:
-        X: array of shape (npt, ndim).
+    Returns
+    -------
+    np.ndarray
+        Sample array of shape ``(npt, ndim)``.
     """
     engine = Sobol(d=ndim, scramble=False)
     skip = int(skip)
@@ -434,14 +496,26 @@ def compute_signal_cost(
 ) -> float:
     """Compute integral or terminal cost of a 1D timeseries signal.
 
-    Args:
-        signal: pandas Series of signal values over time.
-        Tnorm: time normalisation factor — fs.dt / (fs.t - fs.Tc).
-        criterion: "integral" (time-averaged) or "terminal" (final value only).
-        scaling: optional function applied to the signal before aggregation.
+    Parameters
+    ----------
+    signal :
+        Time series of signal values.
+    Tnorm :
+        Time normalisation factor (``fs.dt / (fs.t - fs.Tc)``).
+    criterion :
+        ``'integral'`` for time-averaged cost or ``'terminal'`` for final value.
+    scaling :
+        Optional function applied to the signal before aggregation.
 
-    Returns:
+    Returns
+    -------
+    float
         Scalar cost value.
+
+    Raises
+    ------
+    ValueError
+        If ``criterion`` is not ``'integral'`` or ``'terminal'``.
     """
     if criterion not in ("integral", "terminal"):
         raise ValueError(
@@ -459,15 +533,19 @@ def compute_signal_cost(
 
 
 def compute_control_cost(u_ctrl: pd.Series | pd.DataFrame, Tnorm: float) -> float:
-    """Compute time-normalised control effort ∫‖u‖²dt.
+    """Compute time-normalised control effort ``∫‖u‖²dt``.
 
-    Args:
-        u_ctrl: pandas Series or DataFrame of control inputs — pass all actuator
-            columns (e.g. timeseries[["u_ctrl_1", "u_ctrl_2"]]). All channels
-            are summed.
-        Tnorm: time normalisation factor — fs.dt / (fs.t - fs.Tc).
+    Parameters
+    ----------
+    u_ctrl :
+        Control input time series.  Pass all actuator columns; all channels
+        are summed (e.g. ``timeseries[["u_ctrl_1", "u_ctrl_2"]]``).
+    Tnorm :
+        Time normalisation factor (``fs.dt / (fs.t - fs.Tc)``).
 
-    Returns:
+    Returns
+    -------
+    float
         Scalar control cost.
     """
     return float(np.sum(u_ctrl**2) * Tnorm)
@@ -476,13 +554,18 @@ def compute_control_cost(u_ctrl: pd.Series | pd.DataFrame, Tnorm: float) -> floa
 def write_optim_csv(
     timeseries: pd.DataFrame, savedir: str | Path, diverged: bool, iteration: int
 ) -> None:
-    """Write timeseries CSV for one controller evaluation.
+    """Write the timeseries CSV for one controller evaluation.
 
-    Args:
-        timeseries: fs.timeseries DataFrame.
-        savedir: root save directory (fs.savedir0).
-        diverged: if True, appends _DIVERGED to the filename.
-        iteration: zero-padded iteration index used in the filename.
+    Parameters
+    ----------
+    timeseries :
+        ``fs.timeseries`` DataFrame.
+    savedir :
+        Root save directory.
+    diverged :
+        If ``True``, appends ``_DIVERGED`` to the filename.
+    iteration :
+        Zero-padded iteration index used in the filename.
     """
     suffix = "_DIVERGED" if diverged else ""
     filename = f"timeseries_iter_{iteration:04d}{suffix}.csv"

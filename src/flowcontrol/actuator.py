@@ -30,9 +30,8 @@ from numpy.typing import NDArray
 class ACTUATOR_TYPE(IntEnum):
     """Enumeration of actuator types.
 
-    Args:
-        BC: boundary condition actuation
-        FORCE: volumic force in momentum equation
+    ``BC`` applies a Dirichlet boundary condition; ``FORCE`` adds a volumic
+    force to the momentum equation.
     """
 
     BC = 1
@@ -40,12 +39,11 @@ class ACTUATOR_TYPE(IntEnum):
 
 
 class CYLINDER_ACTUATION_MODE(IntEnum):
-    """Modes for actuation on cylinders. This IntEnum is intended to be used
-    by the user, it is never called by the original FlowSolver.
+    """User-facing hint for cylinder actuation mode.
 
-    Args:
-        SUCTION: blowing & suction devices at the poles (ex. ActuatorBCParabolicV)
-        ROTATION: rotation of whole cylinder (= ActuatorBCRotation)
+    ``SUCTION`` selects blowing/suction slots at the poles
+    (``ActuatorBCParabolicV``); ``ROTATION`` selects full-cylinder spin
+    (``ActuatorBCRotation``).  Not used internally by FlowSolver.
     """
 
     SUCTION = 1
@@ -54,11 +52,15 @@ class CYLINDER_ACTUATION_MODE(IntEnum):
 
 @dataclass(kw_only=True)
 class Actuator(ABC):
-    """Actuator abstract base class
+    """Abstract base class for all actuators.
 
-    Args:
-        actuator_type (ACTUATOR_TYPE): boundary condition or force actuation
-        expression (dolfin.Expression): mathematical expression of the actuator profile
+    Attributes
+    ----------
+    actuator_type :
+        Whether this actuator applies a boundary condition or a volumic force.
+    expression :
+        The dolfin Expression encoding the actuator profile.  Set by
+        :meth:`load_expression`; ``None`` until then.
     """
 
     actuator_type: ACTUATOR_TYPE
@@ -74,14 +76,31 @@ class Actuator(ABC):
         Implementations must not access the FlowSolver directly; all mesh
         and function-space information is passed explicitly.
 
-        Args:
-            V: velocity function space (used for ``ufl_element()``).
-            mesh: computational mesh (needed by force actuators for norm computation).
+        Parameters
+        ----------
+        V :
+            Velocity function space (used for ``ufl_element()``).
+        mesh :
+            Computational mesh (needed by force actuators for norm computation).
         """
         pass
 
     def load_expression(self, flowsolver: FlowSolver) -> dolfin.Expression:
-        """Resolve the actuator expression against a live FlowSolver."""
+        """Build and cache the dolfin Expression for this actuator.
+
+        Calls ``_load_expression`` with the function space and mesh from
+        ``flowsolver`` and stores the result in ``self.expression``.
+
+        Parameters
+        ----------
+        flowsolver :
+            The live FlowSolver instance providing ``V`` and ``mesh``.
+
+        Returns
+        -------
+        dolfin.Expression
+            The resolved expression, also stored as ``self.expression``.
+        """
         self.expression = self._load_expression(flowsolver.V, flowsolver.mesh)
         return self.expression
 
@@ -101,17 +120,42 @@ class ActuatorBC(Actuator):
     subclasses that do not provide ``boundary_name`` (e.g. examples that set
     directly the actuator boundary in _make_bcs).
 
-    Args:
-        boundary_name: key into ``FlowSolver.boundaries`` (e.g. ``"actuator_up"``).
-        boundary: resolved subdomain — set automatically from ``boundary_name``
-            during ``load_expression``, or manually for legacy callers.
+    Attributes
+    ----------
+    boundary_name :
+        Key into ``FlowSolver.boundaries`` (e.g. ``"actuator_up"``).
+    boundary :
+        Resolved subdomain — set automatically from ``boundary_name`` during
+        :meth:`load_expression`, or manually for legacy callers.
     """
 
     boundary_name: Optional[str] = None
     boundary: Optional[dolfin.SubDomain] = None
 
     def load_expression(self, flowsolver: FlowSolver) -> dolfin.Expression:
-        """Resolve the expression then set self.boundary from boundary_name if provided."""
+        """Build the actuator expression and resolve the boundary subdomain.
+
+        Extends the base ``load_expression`` by also looking up
+        ``self.boundary_name`` in ``flowsolver.boundaries`` and storing the
+        result in ``self.boundary``.
+
+        Parameters
+        ----------
+        flowsolver :
+            The live FlowSolver instance providing ``V``, ``mesh``, and
+            ``boundaries``.
+
+        Returns
+        -------
+        dolfin.Expression
+            The resolved expression, also stored as ``self.expression``.
+
+        Raises
+        ------
+        KeyError
+            If ``boundary_name`` is set but is not found in
+            ``flowsolver.boundaries``.
+        """
         super().load_expression(flowsolver)
         if self.boundary_name is not None:
             try:
@@ -159,7 +203,21 @@ class ActuatorBCParabolicV(ActuatorBC):
     def angular_size_deg_to_width(
         angular_size_deg: float, cylinder_radius: float
     ) -> float:
-        """Convert slot angular size (degrees) to half-width L for a given cylinder radius."""
+        """Convert a slot angular size in degrees to the half-width parameter ``L``.
+
+        Parameters
+        ----------
+        angular_size_deg :
+            Total angular span of the actuator slot in degrees.
+        cylinder_radius :
+            Radius of the cylinder on which the slot sits.
+
+        Returns
+        -------
+        float
+            Half-width ``L`` such that the slot spans ``[x0-L, x0+L]`` in the
+            parabolic expression.
+        """
         return cylinder_radius * np.sin(1 / 2 * angular_size_deg * dolfin.pi / 180)
 
 

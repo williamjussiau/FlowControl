@@ -214,6 +214,19 @@ class FlowSolver(ABC):
                 sensor.load(self)
 
     def set_actuators_u_ctrl(self, u_ctrl: Iterable) -> None:
+        """Set control amplitude for every actuator.
+
+        Parameters
+        ----------
+        u_ctrl :
+            Sequence of amplitudes, one per actuator, in the same order as
+            ``params_control.actuator_list``.
+
+        Raises
+        ------
+        ValueError
+            If the length of ``u_ctrl`` does not match the number of actuators.
+        """
         u_ctrl = list(u_ctrl)
         if len(u_ctrl) != self.params_control.actuator_number:
             raise ValueError(
@@ -241,7 +254,19 @@ class FlowSolver(ABC):
         return sum(forces, dolfin.Constant((0, 0)))
 
     def make_measurement(self, up: dolfin.Function) -> NDArray[np.float64]:
-        """Evaluate all sensors on the given mixed field and return the measurement vector."""
+        """Evaluate all sensors on a mixed velocity-pressure field.
+
+        Parameters
+        ----------
+        up :
+            Mixed-space dolfin.Function holding the current (u, p) state.
+
+        Returns
+        -------
+        NDArray[np.float64]
+            1-D array of sensor readings, one entry per sensor in
+            ``params_control.sensor_list``.
+        """
         return np.array(
             [sensor.eval(up=up) for sensor in self.params_control.sensor_list]
         )
@@ -268,7 +293,31 @@ class FlowSolver(ABC):
         max_iter: int = 10,
         **kwargs,
     ) -> None:
-        """Compute steady state and store it in self.fields.U0/P0/UP0."""
+        """Compute the steady-state base flow and store it in ``self.fields``.
+
+        Runs Newton or Picard iteration to convergence and stores the result in
+        ``self.fields.U0``, ``self.fields.P0``, and ``self.fields.UP0``.  Also
+        writes U0/P0 XDMF files when ``params_save.save_every`` is set.
+
+        Parameters
+        ----------
+        u_ctrl :
+            Control amplitudes applied during the steady-state solve.
+        method :
+            Nonlinear solver — ``'newton'`` (default) or ``'picard'``.
+        initial_guess :
+            Starting point for the iteration.  Defaults to a uniform flow at
+            ``params_flow.uinf`` when ``None``.
+        max_iter :
+            Maximum number of nonlinear iterations.
+        **kwargs :
+            Extra keyword arguments forwarded to the underlying solver.
+
+        Raises
+        ------
+        ValueError
+            If ``method`` is not ``'newton'`` or ``'picard'``.
+        """
         self.set_actuators_u_ctrl(u_ctrl)
         f = self._gather_actuators_expressions()
 
@@ -371,6 +420,20 @@ class FlowSolver(ABC):
     def initialize_time_stepping(
         self, Tstart: float = 0.0, ic: Optional[dolfin.Function] = None
     ) -> None:
+        """Prepare all time-stepping fields and log the initial condition.
+
+        Must be called once before the first call to :meth:`step`.  Resets the
+        exporter and records the initial measurement.
+
+        Parameters
+        ----------
+        Tstart :
+            Simulation time at which to start.  Use ``0.0`` to initialise from
+            scratch; pass a non-zero value to restart from a checkpoint.
+        ic :
+            Initial perturbation field.  Only used when ``Tstart == 0.0``;
+            ignored on restart.  Defaults to zero perturbation when ``None``.
+        """
         restart_order = (
             self.params_restart.restart_order if self.params_restart else "n/a"
         )
@@ -737,13 +800,43 @@ class FlowSolver(ABC):
     # ── Utilities ─────────────────────────────────────────────────────────────
 
     def merge(self, u: dolfin.Function, p: dolfin.Function) -> dolfin.Function:
-        """Assign (u, p) into a new mixed-space function and return it."""
+        """Assign separate velocity and pressure fields into a mixed-space function.
+
+        Parameters
+        ----------
+        u :
+            Velocity field defined on ``self.V``.
+        p :
+            Pressure field defined on ``self.P``.
+
+        Returns
+        -------
+        dolfin.Function
+            A new function on ``self.W`` containing both ``u`` and ``p``.
+        """
         up = dolfin.Function(self.W)
         self._function_assigner.assign(up, [u, p])
         return up
 
     def get_subdomain(self, name: str) -> dolfin.SubDomain | dolfin.CompiledSubDomain:
-        """Look up a named boundary subdomain from the boundaries DataFrame."""
+        """Return the subdomain object for a named boundary region.
+
+        Parameters
+        ----------
+        name :
+            Boundary name as indexed in ``self.boundaries`` (e.g. ``'inlet'``,
+            ``'walls'``, ``'cylinder'``).
+
+        Returns
+        -------
+        dolfin.SubDomain or dolfin.CompiledSubDomain
+            The subdomain object used to apply boundary conditions.
+
+        Raises
+        ------
+        KeyError
+            If ``name`` is not present in ``self.boundaries``.
+        """
         return self.boundaries.loc[name].subdomain
 
     # ── Default IC / perturbation ─────────────────────────────────────────────
