@@ -74,9 +74,7 @@ def get_mat_vp_slepc(
     eigensolver = SLEPc.EPS().create()
     eigensolver.setType(eps_type)
 
-    pbtype = (
-        eigensolver.ProblemType.NHEP if B is None else eigensolver.ProblemType.GNHEP
-    )
+    pbtype = eigensolver.ProblemType.NHEP if B is None else eigensolver.ProblemType.GNHEP
     eigensolver.setProblemType(pbtype)
     eigensolver.setTarget(target)
     eigensolver.setWhichEigenpairs(eigensolver.Which.TARGET_REAL)
@@ -95,8 +93,10 @@ def get_mat_vp_slepc(
     pc.setFactorSolverType("mumps")
 
     if verbose:
+
         def epsmonitor(eps, it, nconv, eig, err):
             logger.info("EPS it=%d  converged=%d/%d", it, nconv, n)
+
         eigensolver.setMonitor(epsmonitor)
 
     eigensolver.setFromOptions()
@@ -121,9 +121,7 @@ def get_mat_vp_slepc(
         vecp_re[istart_r:iend_r, i] = vr.array
         vecp_im[istart_i:iend_i, i] = vi.array
         if verbose:
-            logger.info(
-                "Eigenvalue %2d: %+.6f %+.6fj", i + 1, valp[i].real, valp[i].imag
-            )
+            logger.info("Eigenvalue %2d: %+.6f %+.6fj", i + 1, valp[i].real, valp[i].imag)
 
     vecp = vecp_re + 1j * vecp_im
     if return_eigensolver:
@@ -181,8 +179,7 @@ def _format_freqresp_matrices(
 
 def _show_freqresp_info(n: int, nu: int, ny: int, nw: int, ww: np.ndarray) -> None:
     logger.info(
-        "System dimensions: n=%d, nu=%d, ny=%d | Frequency points: nw=%d, "
-        "w in [1e%g, 1e%g]",
+        "System dimensions: n=%d, nu=%d, ny=%d | Frequency points: nw=%d, w in [1e%g, 1e%g]",
         n,
         nu,
         ny,
@@ -327,9 +324,7 @@ def get_frequency_response_mpi(
 
     ksp.destroy()
     if rank == 0:
-        logger.info(
-            "Frequency response computed in %.3fs total.", time.time() - t_start
-        )
+        logger.info("Frequency response computed in %.3fs total.", time.time() - t_start)
     return H, ww
 
 
@@ -468,9 +463,7 @@ def _create_mumps_ksp(comm: PETSc.Comm) -> PETSc.KSP:
     return ksp
 
 
-def _gather_solution(
-    sol_blk: PETSc.Vec, n: int, comm: PETSc.Comm
-) -> tuple[np.ndarray, np.ndarray]:
+def _gather_solution(sol_blk: PETSc.Vec, n: int, comm: PETSc.Comm) -> tuple[np.ndarray, np.ndarray]:
     """Gather distributed block solution [xr; xi] into full arrays on all ranks."""
     local_vals = sol_blk.getArray()
     rstart, rend = sol_blk.getOwnershipRange()
@@ -486,4 +479,3 @@ def _gather_solution(
     comm.tompi4py().Allreduce(xr_local, xr)
     comm.tompi4py().Allreduce(xi_local, xi)
     return xr, xi
-

@@ -14,8 +14,24 @@ logger = logging.getLogger(__name__)
 
 
 def compute_signal_frequency(sig, Tf, dt, nzp=10):
-    """Compute frequency of periodic signal with FFT+zero-padding (nzp*len(sig)).
-    Can be used to compute Strouhal number by setting sig=Cl."""
+    """Estimate the dominant frequency of a periodic signal via zero-padded FFT.
+
+    Parameters
+    ----------
+    sig :
+        1-D signal array.
+    Tf :
+        Total simulation time; the first half is discarded as transient.
+    dt :
+        Sampling interval.
+    nzp :
+        Zero-padding factor (``nzp * len(sig)`` FFT points).
+
+    Returns
+    -------
+    float
+        Frequency of the dominant spectral peak.
+    """
     fftstart = int((Tf / 2) / dt)
     sig_cp = sig[fftstart:]
     sig_cp = sig_cp - np.mean(sig_cp)
@@ -29,8 +45,22 @@ def compute_signal_frequency(sig, Tf, dt, nzp=10):
 
 
 def sample_lco(Tlco, Tstartlco, nsim):
-    """Define times for sampling a LCO in simulation.
-    Tlco: period of LCO, Tstartlco: start time, nsim: number of simulations."""
+    """Return sampling times evenly spread over one LCO period.
+
+    Parameters
+    ----------
+    Tlco :
+        Period of the limit cycle oscillation.
+    Tstartlco :
+        Start time of the LCO region.
+    nsim :
+        Number of sample points.
+
+    Returns
+    -------
+    np.ndarray
+        Array of ``nsim`` sampling times.
+    """
     return Tstartlco + Tlco / nsim * np.arange(nsim)
 
 
@@ -75,13 +105,27 @@ def multisine(
 
     Parameters
     ----------
-    N:             Length of one period.
-    Fs:            Sampling frequency.
-    fmin, fmax:    Min/max frequency as fractions of Fs/2.
-    skip_even:     Use only odd harmonics.
-    opt_cf:        Number of iterations to minimize crest factor (0 = disabled).
-    plot:          Plot time and frequency domain signals.
-    include_fbounds: Include fmin/fmax in the frequency set.
+    N :
+        Length of one period (samples).
+    Fs :
+        Sampling frequency.
+    fmin :
+        Minimum frequency as a fraction of ``Fs/2``.
+    fmax :
+        Maximum frequency as a fraction of ``Fs/2``.
+    skip_even :
+        If ``True``, use only odd harmonics.
+    opt_cf :
+        Number of random trials to minimize crest factor (0 = disabled).
+    plot :
+        If ``True``, plot time and frequency domain signals.
+    include_fbounds :
+        If ``True``, include ``fmin`` and ``fmax`` in the frequency set.
+
+    Returns
+    -------
+    np.ndarray
+        One period of the multisine signal, shape ``(N,)``.
     """
     Fmin = np.max([fmin, 0.0]) * Fs / 2
     Fmax = np.min([fmax, 1.0]) * Fs / 2
@@ -117,8 +161,24 @@ def multisine(
 
 
 def multisine_MP(M, P, unwrap=True, **kwargs):
-    """M realizations of a multisine on P periods.
-    Returns a 1D array if unwrap=True, else shape (M, N*P)."""
+    """Generate M realizations of a multisine tiled over P periods.
+
+    Parameters
+    ----------
+    M :
+        Number of independent realizations.
+    P :
+        Number of periods to tile each realization.
+    unwrap :
+        If ``True``, return a 1-D array; otherwise shape ``(M, N*P)``.
+    **kwargs :
+        Keyword arguments forwarded to :func:`multisine` (must include ``N``).
+
+    Returns
+    -------
+    np.ndarray
+        Signal array, shape ``(M*N*P,)`` if ``unwrap=True``, else ``(M, N*P)``.
+    """
     yy = np.zeros((M, kwargs["N"]))
     for im in range(M):
         yy[im, :] = multisine(**kwargs)

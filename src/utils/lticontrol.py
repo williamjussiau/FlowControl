@@ -152,8 +152,22 @@ def isstablecl(G, K0, sign=+1):
 
 
 def norm(G, p=np.inf):
-    """Compute H2 or H-infinity norm of G. Returns inf for unstable systems.
-    Delegates to control.norm (H2) and control.linfnorm (H-inf)."""
+    """Compute the H2 or H-infinity norm of a system.
+
+    Returns ``inf`` for unstable systems.
+
+    Parameters
+    ----------
+    G :
+        The system to evaluate.
+    p :
+        Norm order: ``2`` for H2 or ``np.inf`` for H-infinity.
+
+    Returns
+    -------
+    float
+        The norm value, or ``np.inf`` if ``G`` is unstable.
+    """
     if p not in (2, np.inf):
         raise ValueError("p must be 2 or np.inf")
     if not isstable(G):
@@ -167,9 +181,24 @@ def norm(G, p=np.inf):
 
 
 def youla(G, K0, Q):
-    """Return controller K parametrized with Q using Youla formula.
-    G: plant, K0: stabilizing base controller, Q: Youla parameter.
-    Feedback convention: (+)."""
+    """Return the controller parametrized by Q via the Youla formula.
+
+    Uses positive feedback convention.
+
+    Parameters
+    ----------
+    G :
+        Plant.
+    K0 :
+        Stabilizing base controller.
+    Q :
+        Youla parameter (stable system).
+
+    Returns
+    -------
+    control.StateSpace
+        The parametrized controller ``K = K0 + Psi.lft(Q)``.
+    """
     Gstab = G.feedback(other=K0, sign=+1)
     Psi = build_block_Psi(Gstab)
     Kq = Psi.lft(Q)
@@ -177,8 +206,21 @@ def youla(G, K0, Q):
 
 
 def build_block_Psi(G):
-    """Build block function Psi=[1, 0; 1, -G] for Youla parametrization.
-    If G is SIMO: Psi=[zeros(1,ny), 1; eye(ny), -G]"""
+    """Build the block function Psi for the Youla parametrization.
+
+    For SISO: ``Psi = [1, 0; 1, -G]``.
+    For SIMO with ``ny`` outputs: ``Psi = [zeros(1,ny), 1; eye(ny), -G]``.
+
+    Parameters
+    ----------
+    G :
+        Stabilized closed-loop system ``feedback(G_plant, K0, +1)``.
+
+    Returns
+    -------
+    control.StateSpace
+        The block function Psi.
+    """
     ny = G.noutputs
     O1 = control.StateSpace([], [], [], 1)
     Z1 = control.StateSpace([], [], [], np.zeros((1, ny)))
@@ -208,8 +250,26 @@ def youla_laguerre(G, K0, p, theta, verbose=False):
 
 
 def youla_laguerre_mimo(G, K0, p, theta, verbose=False):
-    """Youla with SIMO plant G and MISO controller K using Laguerre basis.
-    p=[p1, p2, ...], theta has Qi on each row."""
+    """Youla parametrization for a SIMO plant using a Laguerre basis.
+
+    Parameters
+    ----------
+    G :
+        SIMO plant.
+    K0 :
+        Stabilizing base controller.
+    p :
+        Laguerre poles, one per output channel ``[p1, p2, ...]``.
+    theta :
+        Coefficient matrix; row ``i`` contains the Laguerre coefficients for ``Qi``.
+    verbose :
+        If ``True``, print closed-loop stability status.
+
+    Returns
+    -------
+    control.StateSpace
+        The parametrized MISO controller.
+    """
     nout = G.noutputs
     Q = basis_laguerre_ss(p=p[0], theta=theta[0, :])
     for i in range(1, nout):
@@ -279,9 +339,31 @@ def youla_right_coprime(G, K, Q):
 
 
 def lqg_regulator(G, Qx, Ru, Qw, Rv):
-    """Make LQG regulator. Returns (Klqg, F, L).
-    Qx/Ru: scalar state/input cost (LQR); Qw/Rv: scalar process/measurement noise covariances.
-    L uses the sign convention x_dot = (A + LC)x + ..., so L = -L_kalman."""
+    """Synthesize an LQG regulator.
+
+    Parameters
+    ----------
+    G :
+        Plant state-space system.
+    Qx :
+        Scalar state cost weight (LQR): ``Q = Qx * I``.
+    Ru :
+        Scalar input cost weight (LQR): ``R = Ru * I``.
+    Qw :
+        Scalar process noise covariance: ``Qw * I``.
+    Rv :
+        Scalar measurement noise covariance: ``Rv * I``.
+
+    Returns
+    -------
+    Klqg :
+        LQG controller as a StateSpace system.
+    F :
+        State-feedback gain matrix.
+    L :
+        Observer gain with sign convention ``ẋ = (A + LC)x + ...``
+        (i.e. ``L = -L_kalman``).
+    """
     A, B, C, D = ssdata(G)
     n = A.shape[0]
     p, m = D.shape
@@ -444,8 +526,22 @@ def balreal(G):
 
 
 def baltransform(G):
-    """Return transformation matrix T making G balanced.
-    Algorithm from Laub, Heath, Paige, Ward (1987)."""
+    """Return the transformation matrix that balances G.
+
+    Parameters
+    ----------
+    G :
+        Stable state-space system.
+
+    Returns
+    -------
+    np.ndarray
+        Transformation matrix T such that ``T^{-1} A T`` is balanced.
+
+    Notes
+    -----
+    Algorithm from Laub, Heath, Paige & Ward (1987).
+    """
     Wo = control.gram(G, "o")
     Wc = control.gram(G, "c")
     Lo = np.linalg.cholesky(Wo)
@@ -644,8 +740,37 @@ def make_tf_real(G):
 
 
 def condswitch(ur, yr, K, dt, w_y, w_u, w_decay):
-    """Controller conditioning for switching (Paxman PhD).
-    Finds initial state compatible with offline controller given past signals."""
+    """Condition a controller state for bumpless switching (Paxman PhD).
+
+    Finds an initial controller state compatible with the past input/output
+    signals by solving a weighted least-squares problem.
+
+    Parameters
+    ----------
+    ur :
+        Past control input signal, shape ``(r,)``.
+    yr :
+        Past plant output signal, shape ``(r,)``.
+    K :
+        Continuous-time controller to condition.
+    dt :
+        Sampling period for Tustin discretization.
+    w_y :
+        Output tracking weight.
+    w_u :
+        Input tracking weight.
+    w_decay :
+        Exponential decay weight applied to older samples.
+
+    Returns
+    -------
+    xn :
+        Conditioned initial state for the controller.
+    yhat :
+        Estimated output sequence.
+    uhat :
+        Estimated input sequence.
+    """
     Kd = control.c2d(K, dt, "tustin")
     A, B, C, D = ssdata(Kd)
     r = len(ur)
