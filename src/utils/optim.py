@@ -116,8 +116,23 @@ def parallel_function_wrapper(
 def construct_simplex(
     x0: np.ndarray, rectangular: bool = True, edgelen: float | list[float] = 1
 ) -> np.ndarray:
-    """Construct simplex around x0 to initialize Nelder-Mead algorithm.
-    A rectangular simplex has x0 as a vertex and edgelen[i]*e_i as edges."""
+    """Construct an initial simplex around x0 for Nelder-Mead.
+
+    Parameters
+    ----------
+    x0 :
+        Centre point of the simplex.
+    rectangular :
+        If ``True``, build a rectangular simplex with ``x0`` as a vertex and
+        edges ``edgelen[i] * e_i``.  If ``False``, build a regular simplex.
+    edgelen :
+        Edge length(s).  Scalar applies uniformly; a list sets per-dimension lengths.
+
+    Returns
+    -------
+    np.ndarray
+        Simplex array of shape ``(n+1, n)``.
+    """
     x0 = x0.ravel()
     n = x0.shape[0]
 
@@ -222,8 +237,19 @@ def _minimize_bo(costfun: Callable[..., float], options: dict) -> object:
     """Run Bayesian Optimization via SMT EGO with MPI-collective cost evaluation.
 
     Rank 0 drives the EGO loop; all other ranks spin in a worker loop until
-    rank 0 signals termination. See parallel_function_wrapper for details.
-    res.x and res.fun are only populated on rank 0.
+    rank 0 signals termination (see :func:`parallel_function_wrapper`).
+
+    Parameters
+    ----------
+    costfun :
+        MPI-collective cost function; must be called on all ranks simultaneously.
+    options :
+        BO options dict (see ``_DEFAULT_OPTIONS['bo']`` for valid keys).
+
+    Returns
+    -------
+    object
+        Result object; ``res.x`` and ``res.fun`` are populated on rank 0 only.
     """
     sampling = LHS(xlimits=options["xlimits"], random_state=options["random_state"])
     xdoe = sampling(options["n_doe"])
@@ -395,8 +421,20 @@ def optimizer_default_options(alg: str) -> dict:
 
 
 def optimizer_check_options(default_options: dict, options: dict) -> dict:
-    """Merge options into default_options, ignoring keys not in defaults.
-    Prevents passing unsupported options to scipy/DFO/BO backends."""
+    """Merge user options into defaults, silently ignoring unknown keys.
+
+    Parameters
+    ----------
+    default_options :
+        Full set of valid options with their default values.
+    options :
+        User-supplied overrides.
+
+    Returns
+    -------
+    dict
+        Merged options dict containing only keys present in ``default_options``.
+    """
     return {k: options.get(k, v) for k, v in default_options.items()}
 
 
