@@ -35,3 +35,11 @@ select = ["E", "F", "I"]
 [tool.mypy]
 python_version = "3.10"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
+markers = [
+    "slow: expensive simulations (deselect with -m 'not slow')",
+    "mpi: requires mpirun (deselect with -m 'not mpi')",
+]
