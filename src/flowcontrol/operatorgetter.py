@@ -29,7 +29,25 @@ class OperatorGetter:
         autodiff: bool = True,
         u_ctrl: Optional[NDArray[np.float64]] = None,
     ) -> dolfin.PETScMatrix:
-        """Get state-space dynamic matrix A = -dF/dUP0 linearized around UP0."""
+        """Assemble the linearized dynamic matrix A = -dF/dUP0.
+
+        Parameters
+        ----------
+        UP0 :
+            Base-flow point around which to linearize.  Defaults to
+            ``flowsolver.fields.UP0`` when ``None``.
+        autodiff :
+            If ``True`` (default), use UFL automatic differentiation to form
+            the Jacobian.  If ``False``, use the hand-coded bilinear form.
+        u_ctrl :
+            Control amplitudes to apply before assembling.  Defaults to zero
+            when ``None``.
+
+        Returns
+        -------
+        dolfin.PETScMatrix
+            Sparse Jacobian matrix with Dirichlet rows eliminated.
+        """
         logger.info("Computing jacobian A...")
 
         if UP0 is None:
@@ -66,7 +84,16 @@ class OperatorGetter:
         return Jac
 
     def get_mass_matrix(self) -> dolfin.PETScMatrix:
-        """Get mass matrix associated to spatial discretization"""
+        """Assemble the velocity mass matrix E.
+
+        Only the velocity components (u, v) are included; the pressure row is
+        zero, consistent with the incompressible formulation E·dq/dt = A·q + B·u.
+
+        Returns
+        -------
+        dolfin.PETScMatrix
+            Sparse mass matrix on the mixed function space W.
+        """
         logger.info("Computing mass matrix E...")
         up = dolfin.TrialFunction(self.flowsolver.W)
         vq = dolfin.TestFunction(self.flowsolver.W)
@@ -82,13 +109,22 @@ class OperatorGetter:
         self,
         UP0: Optional[dolfin.Function] = None,
     ) -> NDArray[np.float64]:
-        """Get actuation matrix B.
+        """Assemble the actuation matrix B.
 
-        For FORCE actuators: B column = load vector ∫ b(x)·v dx, i.e. B = -∂F/∂u_ctrl.
-        For BC actuators: B column = A_raw · w_lift, where A_raw is the raw Jacobian
-            (no BC rows zeroed) and w_lift is the unit lifting function for the actuator BC.
+        Each column corresponds to one actuator.  For FORCE actuators the
+        column is the load vector ``∫ b(x)·v dx``; for BC actuators it is
+        computed via the lifting approach ``A_raw · w_lift``.  Sign convention
+        is consistent with ``get_A``: ``A = -dF/dq``, ``B = -dF/du_ctrl``.
 
-        Sign convention consistent with get_A: A = -dF/dq, B = -dF/du_ctrl.
+        Parameters
+        ----------
+        UP0 :
+            Base-flow point.  Defaults to ``flowsolver.fields.UP0`` when ``None``.
+
+        Returns
+        -------
+        NDArray[np.float64]
+            Dense array of shape ``(n_dof, n_actuators)`` on the local MPI rank.
         """
         logger.info("Computing actuation matrix B...")
 
@@ -157,15 +193,21 @@ class OperatorGetter:
         return B
 
     def get_C(self) -> NDArray[np.float64]:
-        """Get measurement matrix C.
+        """Assemble the measurement matrix C.
 
-        For SensorPoint: uses dolfin.PointSource to assemble the basis function
-            weights at the sensor location — correct even when the point falls
-            between DOFs.
-        For SensorIntegral: assembles sensor.linear_form(v) with a TestFunction,
-            giving the C row as a single dolfin.assemble call.
+        Each row corresponds to one sensor.  ``SensorPoint`` rows are assembled
+        via ``dolfin.PointSource``; ``SensorIntegral`` rows via the sensor's
+        ``linear_form``.  Both are MPI-compatible.
 
-        Both approaches are MPI-compatible and scale as O(sensor_number).
+        Returns
+        -------
+        NDArray[np.float64]
+            Dense array of shape ``(n_sensors, n_dof)`` on the local MPI rank.
+
+        Raises
+        ------
+        TypeError
+            If a sensor type is not supported.
         """
         logger.info("Computing measurement matrix C...")
 
@@ -202,14 +244,20 @@ class OperatorGetter:
         autodiff: bool = True,
         u_ctrl: Optional[NDArray[np.float64]] = None,
     ) -> tuple:
-        """Compute all four state-space operators (A, E, B, C) in one call.
+        """Compute all four state-space operators in one call.
+
+        Parameters
+        ----------
+        autodiff :
+            Passed through to :meth:`get_A`.
+        u_ctrl :
+            Passed through to :meth:`get_A`.
 
         Returns
         -------
-        A : dolfin.PETScMatrix  — Jacobian (dynamic matrix)
-        E : dolfin.PETScMatrix  — Mass matrix
-        B : NDArray             — Actuation matrix
-        C : NDArray             — Measurement matrix
+        tuple
+            ``(A, E, B, C)`` where A and E are ``dolfin.PETScMatrix`` and
+            B and C are ``NDArray[np.float64]``.
         """
         A = self.get_A(autodiff=autodiff, u_ctrl=u_ctrl)
         E = self.get_mass_matrix()

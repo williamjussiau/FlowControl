@@ -304,15 +304,23 @@ def save_Hw(
     output_labels: Optional[list[str]] = None,
 ) -> None:
     """Save frequency response data to .mat files.
+
     Saves one combined file (full H) and one file per (output, input) pair.
 
-    Args:
-        H:             Frequency response, shape (ny, nu, nw), complex.
-        ww:            Frequency array, shape (nw,).
-        save_dir:      Directory to save files into.
-        save_suffix:   Optional suffix appended to filenames.
-        input_labels:  Names for each input channel, length nu.
-        output_labels: Names for each output channel, length ny.
+    Parameters
+    ----------
+    H :
+        Frequency response array, shape ``(ny, nu, nw)``, complex.
+    ww :
+        Frequency array, shape ``(nw,)``.
+    save_dir :
+        Directory to save files into.
+    save_suffix :
+        Optional suffix appended to filenames.
+    input_labels :
+        Names for each input channel, length ``nu``.
+    output_labels :
+        Names for each output channel, length ``ny``.
     """
     ny, nu, nw = H.shape
 
@@ -364,15 +372,23 @@ def plot_Hw(
     output_labels: Optional[list[str]] = None,
 ) -> None:
     """Plot and save Bode diagrams for each (output, input) pair.
-    Produces one figure per input channel, with ny subplots (one per output).
 
-    Args:
-        H:             Frequency response, shape (ny, nu, nw), complex.
-        ww:            Frequency array, shape (nw,).
-        save_dir:      Directory to save figures into.
-        save_suffix:   Optional suffix appended to filenames.
-        input_labels:  Names for each input channel, length nu.
-        output_labels: Names for each output channel, length ny.
+    Produces one figure per input channel with ``ny`` subplots (one per output).
+
+    Parameters
+    ----------
+    H :
+        Frequency response array, shape ``(ny, nu, nw)``, complex.
+    ww :
+        Frequency array, shape ``(nw,)``.
+    save_dir :
+        Directory to save figures into.
+    save_suffix :
+        Optional suffix appended to filenames.
+    input_labels :
+        Names for each input channel, length ``nu``.
+    output_labels :
+        Names for each output channel, length ``ny``.
     """
     ny, nu, _ = H.shape
 

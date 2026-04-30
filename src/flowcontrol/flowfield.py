@@ -39,13 +39,16 @@ class SimPaths:
 
 @dataclass
 class FlowField:
-    """
-    Flow field for incompressible 2D flow.
+    """Flow field for incompressible 2D flow.
 
-    Args:
-        u (dolfin.Function): velocity field in dolfin.FunctionSpace V
-        p (dolfin.Function): pressure field in dolfin.FunctionSpace P
-        up (dolfin.Function): mixed field in mixed dolfin.FunctionSpace W
+    Attributes
+    ----------
+    up :
+        Mixed (u, p) field in the mixed function space W.  Required at construction.
+    u :
+        Velocity field in V, split from ``up`` automatically.
+    p :
+        Pressure field in P, split from ``up`` automatically.
     """
 
     u: dolfin.Function = field(init=False)
@@ -58,22 +61,22 @@ class FlowField:
 
 @dataclass
 class FlowFieldCollection:
-    """Collection of fields used for computations in FlowSolver.
+    """Collection of all dolfin fields used during a FlowSolver simulation.
 
-    Args:
-        U0 (dolfin.Function): base flow (full) U — linearization point
-        P0 (dolfin.Function): base flow (full) P
-        UP0 (dolfin.Function): base flow (full) UP
-        ic (FlowField): initial condition (pert) u, p, up as FlowField
-        u_ (dolfin.Function): current (pert) field u
-        p_ (dolfin.Function): current (pert) field p
-        up_ (dolfin.Function): current (pert) field up
-        u_n (dolfin.Function): previous (pert) field u
-        u_nn (dolfin.Function): previous^2 (pert) field u
-        p_n (dolfin.Function): previous (pert) field p
-        Usave (dolfin.Function): (full) field U for saving -- preallocation
-        Psave (dolfin.Function): (full) field P for saving -- preallocation
-        Usave_n (dolfin.Function): (full) field UP for saving -- preallocation
+    Attributes
+    ----------
+    U0, P0, UP0 :
+        Base-flow (full) velocity, pressure, and mixed field — linearization point.
+    ic :
+        Initial condition as a :class:`FlowField` (perturbation).
+    u_, p_ :
+        Current perturbation velocity and pressure fields.
+    u_n, u_nn :
+        Previous and second-previous perturbation velocity fields (for BDF2).
+    p_n :
+        Previous perturbation pressure field.
+    Usave, Psave, Usave_n :
+        Pre-allocated full-field buffers used when writing XDMF snapshots.
     """
 
     # Base flow (full field) — linearization point
