@@ -4,7 +4,9 @@ import math
 
 import gmsh
 
-from ._common import _write_mesh
+from ._common import _bbox, _write_mesh
+
+_CYLINDER_MARGIN = 0.1
 
 _DEFAULT_MESH_PARAM = {
     "xinfa": -10.0,
@@ -126,13 +128,13 @@ def _build_mesh(prm):
 
     factory.synchronize()
 
-    ext_ = gmsh.model.getEntitiesInBoundingBox(prm["xinfa"], -prm["yinf"], -1, prm["xinf"], prm["yinf"], 1, dim=0)
-    mid_ = gmsh.model.getEntitiesInBoundingBox(prm["xinfa"], -prm["yint"], -1, prm["xinf"], prm["yint"], 1, dim=0)
-    in_ = gmsh.model.getEntitiesInBoundingBox(prm["xinfa"], -prm["lint"], -1, prm["xinf"], prm["lint"], 1, dim=0)
+    ext_ = _bbox(prm["xinfa"], -prm["yinf"], prm["xinf"], prm["yinf"])
+    mid_ = _bbox(prm["xinfa"], -prm["yint"], prm["xinf"], prm["yint"])
+    in_ = _bbox(prm["xinfa"], -prm["lint"], prm["xinf"], prm["lint"])
     gmsh.model.mesh.setSize(ext_, 1 / prm["n3"])
     gmsh.model.mesh.setSize(mid_, 1 / prm["n2"])
     gmsh.model.mesh.setSize(in_, 1 / prm["n1"])
 
-    r = prm["D"] / 2 + 0.1
+    r = prm["D"] / 2 + _CYLINDER_MARGIN
     cyl_ = gmsh.model.getEntitiesInBoundingBox(-r, -r, -1, r, r, 1, dim=0)
     gmsh.model.mesh.setSize(cyl_, min(1 / prm["n1"], 2 * math.pi / prm["segments"]))
