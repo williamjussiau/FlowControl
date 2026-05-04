@@ -51,7 +51,7 @@ def generate_mesh(filename, formats=("xml", "xdmf"), verbose=False, **mesh_param
 
     Notes
     -----
-    Cylinder centers follow the equilateral triangle layout (Delphin-Ruche 2019),
+    Cylinder centers follow the equilateral triangle layout
     with R = D/2::
 
         mid: (-3R·cos(π/6),  0)    upstream cylinder
@@ -94,7 +94,7 @@ def _build_mesh(prm):
 
     R = prm["D"] / 2
 
-    # Cylinder centers: equilateral triangle layout (Delphin-Ruche 2019)
+    # Cylinder centers: equilateral triangle layout
     mid_x, mid_y = -3 * R * math.cos(math.pi / 6), 0.0
     top_x, top_y = 0.0, 3 * R / 2
     bot_x, bot_y = 0.0, -3 * R / 2

@@ -9,6 +9,7 @@
 
 # Editor
 .vscode/
+CLAUDE.md
 
 # FEniCS / dolfin
 jitfailure*
