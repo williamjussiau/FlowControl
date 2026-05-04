@@ -213,5 +213,5 @@ class ParamIC(ParamFlowSolver):
 
     xloc: float = 0.0
     yloc: float = 0.0
-    radius: float = 0.0
+    radius: float = 1.0
     amplitude: float = 1.0

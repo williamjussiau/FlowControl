@@ -69,6 +69,18 @@ class FlowSolver(ABC):
         params_restart: Optional[flowsolverparameters.ParamRestart] = None,
         verbose: int = 1,
     ) -> None:
+        # Validate parameters
+        self._validate_params(
+            params_flow,
+            params_time,
+            params_save,
+            params_solver,
+            params_mesh,
+            params_control,
+            params_ic,
+            params_restart,
+        )
+
         self.params_flow = params_flow
         self.params_time = params_time
         self.params_save = params_save
@@ -91,6 +103,65 @@ class FlowSolver(ABC):
             logger.debug(param)
 
         self._setup()
+
+    @staticmethod
+    def _validate_params(
+        params_flow: flowsolverparameters.ParamFlow,
+        params_time: flowsolverparameters.ParamTime,
+        params_save: flowsolverparameters.ParamSave,
+        params_solver: flowsolverparameters.ParamSolver,
+        params_mesh: flowsolverparameters.ParamMesh,
+        params_control: flowsolverparameters.ParamControl,
+        params_ic: flowsolverparameters.ParamIC,
+        params_restart: Optional[flowsolverparameters.ParamRestart] = None,
+    ) -> None:
+        """Validate parameter combinations.
+
+        Raises
+        ------
+        ValueError
+            If any parameter combination is invalid.
+        """
+        # Time parameters
+        if params_time.dt <= 0:
+            raise ValueError(f"dt must be positive, got {params_time.dt}")
+        if params_time.num_steps < 0:
+            raise ValueError(f"num_steps must be non-negative, got {params_time.num_steps}")
+
+        # Flow parameters
+        if params_flow.Re <= 0:
+            raise ValueError(f"Re must be positive, got {params_flow.Re}")
+
+        # Save parameters
+        if params_save.save_every < 0:
+            raise ValueError(f"save_every must be non-negative, got {params_save.save_every}")
+        if params_save.energy_every < 0:
+            raise ValueError(f"energy_every must be non-negative, got {params_save.energy_every}")
+
+        # Control parameters
+        if params_control.actuator_number < 0:
+            raise ValueError(f"actuator_number must be non-negative, got {params_control.actuator_number}")
+        if params_control.sensor_number < 0:
+            raise ValueError(f"sensor_number must be non-negative, got {params_control.sensor_number}")
+        if len(params_control.actuator_list) != params_control.actuator_number:
+            raise ValueError(
+                f"actuator_list length ({len(params_control.actuator_list)}) "
+                f"does not match actuator_number ({params_control.actuator_number})"
+            )
+        if len(params_control.sensor_list) != params_control.sensor_number:
+            raise ValueError(
+                f"sensor_list length ({len(params_control.sensor_list)}) "
+                f"does not match sensor_number ({params_control.sensor_number})"
+            )
+
+        # Mesh parameter
+        if not params_mesh.meshpath.exists():
+            raise FileNotFoundError(f"Mesh file not found at {params_mesh.meshpath}")
+
+        # Restart parameters (if provided)
+        if params_restart is not None:
+            if params_restart.Trestartfrom < 0:
+                raise ValueError(f"Trestartfrom must be non-negative, got {params_restart.Trestartfrom}")
 
     # ── Setup ─────────────────────────────────────────────────────────────────
 
@@ -162,13 +233,9 @@ class FlowSolver(ABC):
         """Read the XDMF mesh file and return a dolfin.Mesh."""
         logger.info(f"Mesh @ {self.params_mesh.meshpath}")
         mesh = dolfin.Mesh(dolfin.MPI.comm_world)
-        with dolfin.XDMFFile(
-            dolfin.MPI.comm_world, str(self.params_mesh.meshpath)
-        ) as f:
+        with dolfin.XDMFFile(dolfin.MPI.comm_world, str(self.params_mesh.meshpath)) as f:
             f.read(mesh)
-        logger.info(
-            f"Mesh has {mesh.num_entities_global(mesh.topology().dim())} cells (global)"
-        )
+        logger.info(f"Mesh has {mesh.num_entities_global(mesh.topology().dim())} cells (global)")
         return mesh
 
     def _make_function_spaces(self) -> tuple[dolfin.FunctionSpace, ...]:
@@ -183,21 +250,15 @@ class FlowSolver(ABC):
 
     def _mark_boundaries(self) -> None:
         """Mark each boundary subdomain and build ds/dx integration measures."""
-        self.bnd_markers = dolfin.MeshFunction(
-            "size_t", self.mesh, self.mesh.topology().dim() - 1
-        )
-        cell_markers = dolfin.MeshFunction(
-            "size_t", self.mesh, self.mesh.topology().dim()
-        )
+        self.bnd_markers = dolfin.MeshFunction("size_t", self.mesh, self.mesh.topology().dim() - 1)
+        cell_markers = dolfin.MeshFunction("size_t", self.mesh, self.mesh.topology().dim())
         indices = []
         for i, row in enumerate(self.boundaries.itertuples()):
             row.subdomain.mark(self.bnd_markers, i)
             row.subdomain.mark(cell_markers, i)
             indices.append(i)
         self.boundaries["idx"] = indices
-        self.ds = dolfin.Measure(
-            "ds", domain=self.mesh, subdomain_data=self.bnd_markers
-        )
+        self.ds = dolfin.Measure("ds", domain=self.mesh, subdomain_data=self.bnd_markers)
         self.dx = dolfin.Measure("dx", domain=self.mesh, subdomain_data=cell_markers)
 
     # ── Actuators / sensors ───────────────────────────────────────────────────
@@ -229,10 +290,7 @@ class FlowSolver(ABC):
         """
         u_ctrl = list(u_ctrl)
         if len(u_ctrl) != self.params_control.actuator_number:
-            raise ValueError(
-                f"Expected {self.params_control.actuator_number} control inputs, "
-                f"got {len(u_ctrl)}"
-            )
+            raise ValueError(f"Expected {self.params_control.actuator_number} control inputs, got {len(u_ctrl)}")
         for actuator, val in zip(self.params_control.actuator_list, u_ctrl):
             actuator.expression.u_ctrl = val
 
@@ -246,11 +304,7 @@ class FlowSolver(ABC):
 
     def _gather_actuators_expressions(self) -> dolfin.Expression | dolfin.Constant:
         """Sum all FORCE-type actuator expressions; return a zero Constant if none are present."""
-        forces = [
-            a.expression
-            for a in self.params_control.actuator_list
-            if a.actuator_type is ACTUATOR_TYPE.FORCE
-        ]
+        forces = [a.expression for a in self.params_control.actuator_list if a.actuator_type is ACTUATOR_TYPE.FORCE]
         return sum(forces, dolfin.Constant((0, 0)))
 
     def make_measurement(self, up: dolfin.Function) -> NDArray[np.float64]:
@@ -267,9 +321,7 @@ class FlowSolver(ABC):
             1-D array of sensor readings, one entry per sensor in
             ``params_control.sensor_list``.
         """
-        return np.array(
-            [sensor.eval(up=up) for sensor in self.params_control.sensor_list]
-        )
+        return np.array([sensor.eval(up=up) for sensor in self.params_control.sensor_list])
 
     # ── Boundary conditions ───────────────────────────────────────────────────
 
@@ -341,21 +393,13 @@ class FlowSolver(ABC):
         P0 = projectm(P0, self.P)
 
         if self.params_save.save_every:
-            write_xdmf(
-                self.paths.U0, U0, "U0", time_step=0.0, append=False, write_mesh=True
-            )
-            write_xdmf(
-                self.paths.P0, P0, "P0", time_step=0.0, append=False, write_mesh=True
-            )
+            write_xdmf(self.paths.U0, U0, "U0", time_step=0.0, append=False, write_mesh=True)
+            write_xdmf(self.paths.P0, P0, "P0", time_step=0.0, append=False, write_mesh=True)
             if get_rank() == 0:
                 self.paths.steady_meta.parent.mkdir(parents=True, exist_ok=True)
                 self.paths.steady_meta.write_text(
                     json.dumps(
-                        {
-                            "mesh_cells": self.mesh.num_entities_global(
-                                self.mesh.topology().dim()
-                            )
-                        },
+                        {"mesh_cells": self.mesh.num_entities_global(self.mesh.topology().dim())},
                         indent=2,
                     )
                 )
@@ -397,17 +441,13 @@ class FlowSolver(ABC):
         self.fields.UP0 = self.merge(U0, P0)
         self.E0 = 0.5 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
 
-    def _define_initial_guess(
-        self, initial_guess: Optional[dolfin.Function] = None
-    ) -> dolfin.Function:
+    def _define_initial_guess(self, initial_guess: Optional[dolfin.Function] = None) -> dolfin.Function:
         """Return a valid initial guess for the steady-state solver.
 
         Falls back to a uniform-flow field at uinf when none is provided.
         """
         if initial_guess is None:
-            logger.info(
-                "Steady-state solver — no initial guess provided, using default"
-            )
+            logger.info("Steady-state solver — no initial guess provided, using default")
             UP0 = dolfin.Function(self.W)
             UP0.interpolate(self._default_steady_state_initial_guess())
         else:
@@ -417,9 +457,7 @@ class FlowSolver(ABC):
 
     # ── Time stepping ─────────────────────────────────────────────────────────
 
-    def initialize_time_stepping(
-        self, Tstart: float = 0.0, ic: Optional[dolfin.Function] = None
-    ) -> None:
+    def initialize_time_stepping(self, Tstart: float = 0.0, ic: Optional[dolfin.Function] = None) -> None:
         """Prepare all time-stepping fields and log the initial condition.
 
         Must be called once before the first call to :meth:`step`.  Resets the
@@ -434,9 +472,7 @@ class FlowSolver(ABC):
             Initial perturbation field.  Only used when ``Tstart == 0.0``;
             ignored on restart.  Defaults to zero perturbation when ``None``.
         """
-        restart_order = (
-            self.params_restart.restart_order if self.params_restart else "n/a"
-        )
+        restart_order = self.params_restart.restart_order if self.params_restart else "n/a"
         logger.info(f"Initialising from t={Tstart}, restart_order={restart_order}")
 
         if Tstart == 0.0:
@@ -459,9 +495,7 @@ class FlowSolver(ABC):
             dE=self.compute_perturbation_energy(),
         )
 
-    def _initialize_with_ic(
-        self, ic: Optional[dolfin.Function] = None
-    ) -> tuple[dolfin.Function, ...]:
+    def _initialize_with_ic(self, ic: Optional[dolfin.Function] = None) -> tuple[dolfin.Function, ...]:
         """Initialise time-stepping fields from an initial condition at t=0.
 
         Starts from zero perturbation when ic is None. A non-zero ParamIC amplitude
@@ -482,14 +516,11 @@ class FlowSolver(ABC):
             self.fields.ic = FlowField(up=ic)
 
         if self.params_ic.amplitude:
+            # Generate base perturbation (peak=1.0) and scale by user amplitude
             ic_pert = self._default_initial_perturbation(
-                xloc=self.params_ic.xloc,
-                yloc=self.params_ic.yloc,
-                radius=self.params_ic.radius,
+                xloc=self.params_ic.xloc, yloc=self.params_ic.yloc, radius=self.params_ic.radius
             )
-            self.fields.ic.up.vector()[:] += (
-                self.params_ic.amplitude * ic_pert.vector()[:]
-            )
+            self.fields.ic.up.vector()[:] += self.params_ic.amplitude * ic_pert.vector()[:]
             self.fields.ic.up.vector().apply("insert")
             # Reconstruct so that ic.u / ic.p reflect the mutated vector.
             self.fields.ic = FlowField(self.fields.ic.up)
@@ -523,9 +554,7 @@ class FlowSolver(ABC):
             return result
         return self._find_restart_from_params(Tstart)
 
-    def _find_restart_from_json(
-        self, Tstart: float
-    ) -> Optional[tuple[dict, int, Path]]:
+    def _find_restart_from_json(self, Tstart: float) -> Optional[tuple[dict, int, Path]]:
         """Scan path_out for JSON sidecars and return the one covering Tstart."""
         path_out = self.params_save.path_out
         for json_path in sorted(path_out.glob("meta_restart*.json")):
@@ -538,9 +567,7 @@ class FlowSolver(ABC):
             Tend = T0 + step * n
             if T0 - 1e-10 <= Tstart <= Tend + 1e-10:
                 counter = round((Tstart - T0) / step)
-                logger.info(
-                    f"Restart: found JSON sidecar {json_path.name}, counter={counter}"
-                )
+                logger.info(f"Restart: found JSON sidecar {json_path.name}, counter={counter}")
                 return meta, counter, path_out
         return None
 
@@ -659,9 +686,7 @@ class FlowSolver(ABC):
             self.assemblers[order] = assembler
             self.solvers[order] = solver
 
-        self._up_work = dolfin.Function(
-            self.W
-        )  # reused every step to avoid per-step allocation
+        self._up_work = dolfin.Function(self.W)  # reused every step to avoid per-step allocation
 
     def step(self, u_ctrl: NDArray[np.float64]) -> Optional[NDArray[np.float64]]:
         """Advance the simulation by one time step.
@@ -783,9 +808,7 @@ class FlowSolver(ABC):
         """Return ½‖u'‖²_L2, the kinetic energy of the current perturbation field."""
         return 0.5 * dolfin.norm(self.fields.u_, norm_type="L2", mesh=self.mesh) ** 2
 
-    def compute_energy_field(
-        self, export: bool = False, filename: Optional[Path | str] = None
-    ) -> dolfin.Function:
+    def compute_energy_field(self, export: bool = False, filename: Optional[Path | str] = None) -> dolfin.Function:
         """Project u'·u' onto a P4 space and optionally write it to XDMF.
 
         Returns a scalar energy-density field on the P4 space.
@@ -862,9 +885,7 @@ class FlowSolver(ABC):
         """Return the default initial perturbation field (delegates to _perturbation_div0)."""
         return self._perturbation_div0(xloc, yloc, radius)
 
-    def _perturbation_div0(
-        self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0
-    ) -> dolfin.Function:
+    def _perturbation_div0(self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0) -> dolfin.Function:
         """Build a divergence-free Gaussian perturbation field merged with the base-flow pressure."""
         u_nodiv = get_div0_u(self.V, self.P, xloc=xloc, yloc=yloc, size=radius)
         p_default = projectm(self.fields.P0, self.P)
