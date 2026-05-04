@@ -36,10 +36,21 @@ def get_div0_u(
     yloc: float,
     size: float,
 ) -> Function:
-    """Create velocity field with zero divergence using a Gaussian stream function."""
+    """Create velocity field with zero divergence using a Gaussian stream function.
+    
+    Uses a divergence-free construction: u = (∂ψ/∂y, -∂ψ/∂x) where ψ is a 
+    Gaussian stream function ψ = exp(-0.5 * r² / size²).
+    
+    Note: The actual amplitude is controlled by the caller (ParamIC.amplitude).
+    """
+    # Handle edge case: zero size means no perturbation (return zero field)
+    if size <= 0:
+        logger.warning(f"get_div0_u: size={size} <= 0, returning zero field")
+        return dolfin.Function(V)
+    
     xm, ym = sp.symbols("x[0], x[1]")
     rr = (xm - xloc) ** 2 + (ym - yloc) ** 2
-    fpsi = 0.25 * sp.exp(-1 / 2 * rr / size**2)
+    fpsi = 1.0 * sp.exp(-0.5 * rr / size**2)  # Amplitude controlled by caller
     dfx_expr = dolfin.Expression(sp.ccode(fpsi.diff(xm, 1)), element=P.ufl_element())
     dfy_expr = dolfin.Expression(sp.ccode(fpsi.diff(ym, 1)), element=P.ufl_element())
     return projectm(dolfin.as_vector([dfy_expr, -dfx_expr]), V)
