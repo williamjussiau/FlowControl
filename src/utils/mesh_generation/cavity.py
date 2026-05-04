@@ -2,7 +2,7 @@
 
 import gmsh
 
-from ._common import _write_mesh
+from ._common import _bbox, _write_mesh
 
 _DEFAULT_MESH_PARAM = {
     "n": 50.0,
@@ -55,7 +55,8 @@ def generate_mesh(filename, formats=("xml", "xdmf"), verbose=False, **mesh_param
       |        -------------------------------------------------------|  0.1
       |        |               n                                      |
       ---------------------              ------------------------------  0
-    -1.2     -0.6         |--------------| -0.1                      2.5
+    -1.2     -0.6         0              1                           2.5
+                          |--------------| -0.1
                           |    n1-       |
                           |--------------| -0.2
                           |    n2-       |
@@ -63,7 +64,6 @@ def generate_mesh(filename, formats=("xml", "xdmf"), verbose=False, **mesh_param
                           |    n3-       |
                           |              |
                           ---------------- -1
-                          0              1
     """
     prm = {**_DEFAULT_MESH_PARAM, **mesh_param}
     if verbose:
@@ -121,21 +121,18 @@ def _build_mesh(prm):
 
     eps = 0.01
 
-    def bbox(x0, y0, x1, y1):
-        return gmsh.model.getEntitiesInBoundingBox(x0, y0, -1, x1, y1, 1, dim=0)
-
     # Channel: coarsest to finest, moving toward the cavity opening.
     # Each call overrides the previous for all points inside the bounding box.
-    gmsh.model.mesh.setSize(bbox(x_left - eps, -eps, x_right + eps, y_top + eps), 1 / prm["n3+"])
-    gmsh.model.mesh.setSize(bbox(x_left - eps, -eps, x_right + eps, y_n3_n2 + eps), 1 / prm["n2+"])
-    gmsh.model.mesh.setSize(bbox(x_refine_start - eps, -eps, x_right + eps, y_n2_n1 + eps), 1 / prm["n1+"])
-    gmsh.model.mesh.setSize(bbox(x_refine_start - eps, -eps, x_right + eps, y_n1_n + eps), 1 / prm["n"])
+    gmsh.model.mesh.setSize(_bbox(x_left - eps, -eps, x_right + eps, y_top + eps), 1 / prm["n3+"])
+    gmsh.model.mesh.setSize(_bbox(x_left - eps, -eps, x_right + eps, y_n3_n2 + eps), 1 / prm["n2+"])
+    gmsh.model.mesh.setSize(_bbox(x_refine_start - eps, -eps, x_right + eps, y_n2_n1 + eps), 1 / prm["n1+"])
+    gmsh.model.mesh.setSize(_bbox(x_refine_start - eps, -eps, x_right + eps, y_n1_n + eps), 1 / prm["n"])
 
     # Cavity: coarsest (bottom) to finest (mouth).
-    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_cav_bot - eps, x_cav_r + eps, eps), 1 / prm["n3-"])
-    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_n2m_n3m - eps, x_cav_r + eps, eps), 1 / prm["n2-"])
-    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_n1m_n2m - eps, x_cav_r + eps, eps), 1 / prm["n1-"])
+    gmsh.model.mesh.setSize(_bbox(x_cav_l - eps, y_cav_bot - eps, x_cav_r + eps, eps), 1 / prm["n3-"])
+    gmsh.model.mesh.setSize(_bbox(x_cav_l - eps, y_n2m_n3m - eps, x_cav_r + eps, eps), 1 / prm["n2-"])
+    gmsh.model.mesh.setSize(_bbox(x_cav_l - eps, y_n1m_n2m - eps, x_cav_r + eps, eps), 1 / prm["n1-"])
 
     # Re-apply finest channel density to the shared y=0 boundary (cavity mouth),
     # overriding the cavity sizing that was just applied there.
-    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_n_cav - eps, x_cav_r + eps, y_n1_n + eps), 1 / prm["n"])
+    gmsh.model.mesh.setSize(_bbox(x_cav_l - eps, y_n_cav - eps, x_cav_r + eps, y_n1_n + eps), 1 / prm["n"])
