@@ -1,12 +1,16 @@
 """Tests for utils.signal."""
 
+import json
+
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
 from utils.signal import (
     MultisineGenerator,
+    MyEncoder,
     NoIndent,
+    compute_signal_frequency,
     crest_factor,
     multisine,
     multisine_MP,
@@ -95,10 +99,11 @@ class TestCrestFactor:
         y = np.sin(t)
         assert crest_factor(y) == pytest.approx(np.sqrt(2), rel=1e-3)
 
-    def test_always_positive(self):
-        rng = np.random.default_rng(0)
-        y = rng.standard_normal(1000)
-        assert crest_factor(y) > 0
+    def test_higher_than_sine_for_impulse_like_signal(self):
+        """A signal with one large spike has a higher CF than a pure sine."""
+        y = np.zeros(100)
+        y[0] = 1.0
+        assert crest_factor(y) > np.sqrt(2)
 
 
 # ── multisine ─────────────────────────────────────────────────────────────────
@@ -214,6 +219,71 @@ class TestMultisineGenerator:
         f0, nharm, Fs = 10.0, 20, 200.0
         freqs = MultisineGenerator.compute_harmonics(f0, nharm, Fs)
         assert np.all(freqs <= Fs / 2)
+
+
+# ── compute_signal_frequency ──────────────────────────────────────────────────
+
+
+class TestComputeSignalFrequency:
+    def _make_sine(self, freq, dt, n_total):
+        """Pure sine of given frequency sampled at dt for n_total steps."""
+        t = np.arange(n_total) * dt
+        return np.sin(2 * np.pi * freq * t)
+
+    def test_recovers_known_frequency(self):
+        dt = 0.01
+        freq = 5.0
+        n_total = 2000
+        sig = self._make_sine(freq, dt, n_total)
+        Tf = n_total * dt
+        result = compute_signal_frequency(sig, Tf=Tf, dt=dt)
+        assert result == pytest.approx(freq, rel=1e-2)
+
+    def test_discards_transient_half(self):
+        """Signal starts at wrong frequency, switches at Tf/2; correct freq recovered."""
+        dt = 0.01
+        n_total = 2000
+        Tf = n_total * dt
+        t = np.arange(n_total) * dt
+        sig = np.where(t < Tf / 2, np.sin(2 * np.pi * 1.0 * t), np.sin(2 * np.pi * 7.0 * t))
+        result = compute_signal_frequency(sig, Tf=Tf, dt=dt)
+        assert result == pytest.approx(7.0, rel=0.05)
+
+    def test_returns_float(self):
+        dt = 0.01
+        sig = self._make_sine(3.0, dt, 1000)
+        result = compute_signal_frequency(sig, Tf=1000 * dt, dt=dt)
+        assert isinstance(result, float)
+
+
+# ── MyEncoder ─────────────────────────────────────────────────────────────────
+
+
+class TestMyEncoder:
+    def test_noindent_list_on_single_line(self):
+        """NoIndent-wrapped lists must appear on one line in the JSON output."""
+        data = {"values": NoIndent([1, 2, 3])}
+        encoded = json.dumps(data, cls=MyEncoder, indent=2)
+        # The list should appear as [1, 2, 3] not spread over multiple indented lines
+        assert "[1, 2, 3]" in encoded
+
+    def test_normal_dict_still_indented(self):
+        """Non-wrapped objects must still be formatted with the requested indent."""
+        data = {"a": 1, "b": 2}
+        encoded = json.dumps(data, cls=MyEncoder, indent=2)
+        assert "\n" in encoded
+
+    def test_numpy_scalar_serialized(self):
+        """np.float64 values must serialize without TypeError."""
+        data = {"v": np.float64(3.14)}
+        encoded = json.dumps(data, cls=MyEncoder)
+        assert json.loads(encoded)["v"] == pytest.approx(3.14)
+
+    def test_roundtrip_values_preserved(self):
+        data = {"nums": NoIndent([10, 20, 30])}
+        encoded = json.dumps(data, cls=MyEncoder, indent=2)
+        decoded = json.loads(encoded)
+        assert decoded["nums"] == [10, 20, 30]
 
 
 # ── NoIndent ──────────────────────────────────────────────────────────────────
