@@ -57,7 +57,7 @@ def generate_mesh(filename, formats=("xml", "xdmf"), verbose=False, **mesh_param
     -----
     Mesh topology (not to scale)::
 
-             xinfa                              xinf
+             xinfa                                     xinf
              --------------------------------------------  <<<yinf
              |  yint>>>-------------------------        |
              |         |  lint      xplus      |        |
