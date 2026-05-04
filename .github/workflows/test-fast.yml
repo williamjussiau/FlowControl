@@ -1,0 +1,13 @@
+name: Fast Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: fenics
+          environment-file: environment.yml
+      - run: conda develop src
+      - run: pytest tests/ -m "not slow and not mpi" -q

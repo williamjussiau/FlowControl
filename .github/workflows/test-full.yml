@@ -1,0 +1,14 @@
+name: Full Tests
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: fenics
+          environment-file: environment.yml
+      - run: conda develop src
+      - run: pytest tests/ -m "not mpi" -q
