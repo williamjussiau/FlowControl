@@ -86,23 +86,32 @@ def _build_mesh(prm):
     x_cav_l, x_cav_r = 0.0, 1.0
     y_top, y_cav_bot = 0.5, -1.0
 
+    # Density zone boundaries
+    x_refine_start = -0.6  # x start of n1+/n channel zones
+    y_n3_n2 = 0.3  # n3+/n2+ boundary
+    y_n2_n1 = 0.15  # n2+/n1+ boundary
+    y_n1_n = 0.1  # n1+/n boundary (also n zone upper limit in cavity)
+    y_n_cav = -0.1  # n zone lower limit in cavity
+    y_n1m_n2m = -0.2  # n1-/n2- boundary
+    y_n2m_n3m = -0.35  # n2-/n3- boundary
+
     # Outer boundary: L-shaped domain (channel + open cavity)
-    p_cl  = factory.addPoint(x_left,  0.0,       0)
-    p_tl  = factory.addPoint(x_left,  y_top,     0)
-    p_tr  = factory.addPoint(x_right, y_top,     0)
-    p_cr  = factory.addPoint(x_right, 0.0,       0)
-    p_cvr = factory.addPoint(x_cav_r, 0.0,       0)
+    p_cl = factory.addPoint(x_left, 0.0, 0)
+    p_tl = factory.addPoint(x_left, y_top, 0)
+    p_tr = factory.addPoint(x_right, y_top, 0)
+    p_cr = factory.addPoint(x_right, 0.0, 0)
+    p_cvr = factory.addPoint(x_cav_r, 0.0, 0)
     p_cbr = factory.addPoint(x_cav_r, y_cav_bot, 0)
     p_cbl = factory.addPoint(x_cav_l, y_cav_bot, 0)
-    p_cvl = factory.addPoint(x_cav_l, 0.0,       0)
+    p_cvl = factory.addPoint(x_cav_l, 0.0, 0)
 
-    l_left    = factory.addLine(p_cl,  p_tl)
-    l_top     = factory.addLine(p_tl,  p_tr)
-    l_right   = factory.addLine(p_tr,  p_cr)
-    l_floor_r = factory.addLine(p_cr,  p_cvr)
-    l_cav_r   = factory.addLine(p_cvr, p_cbr)
+    l_left = factory.addLine(p_cl, p_tl)
+    l_top = factory.addLine(p_tl, p_tr)
+    l_right = factory.addLine(p_tr, p_cr)
+    l_floor_r = factory.addLine(p_cr, p_cvr)
+    l_cav_r = factory.addLine(p_cvr, p_cbr)
     l_cav_bot = factory.addLine(p_cbr, p_cbl)
-    l_cav_l   = factory.addLine(p_cbl, p_cvl)
+    l_cav_l = factory.addLine(p_cbl, p_cvl)
     l_floor_l = factory.addLine(p_cvl, p_cl)
 
     loop = factory.addCurveLoop([l_left, l_top, l_right, l_floor_r, l_cav_r, l_cav_bot, l_cav_l, l_floor_l])
@@ -117,16 +126,16 @@ def _build_mesh(prm):
 
     # Channel: coarsest to finest, moving toward the cavity opening.
     # Each call overrides the previous for all points inside the bounding box.
-    gmsh.model.mesh.setSize(bbox(x_left - eps, -eps,    x_right + eps, y_top + eps),  1 / prm["n3+"])
-    gmsh.model.mesh.setSize(bbox(x_left - eps, -eps,    x_right + eps, 0.3 + eps),    1 / prm["n2+"])
-    gmsh.model.mesh.setSize(bbox(-0.6 - eps,   -eps,    x_right + eps, 0.15 + eps),   1 / prm["n1+"])
-    gmsh.model.mesh.setSize(bbox(-0.6 - eps,   -eps,    x_right + eps, 0.1 + eps),    1 / prm["n"])
+    gmsh.model.mesh.setSize(bbox(x_left - eps, -eps, x_right + eps, y_top + eps), 1 / prm["n3+"])
+    gmsh.model.mesh.setSize(bbox(x_left - eps, -eps, x_right + eps, y_n3_n2 + eps), 1 / prm["n2+"])
+    gmsh.model.mesh.setSize(bbox(x_refine_start - eps, -eps, x_right + eps, y_n2_n1 + eps), 1 / prm["n1+"])
+    gmsh.model.mesh.setSize(bbox(x_refine_start - eps, -eps, x_right + eps, y_n1_n + eps), 1 / prm["n"])
 
     # Cavity: coarsest (bottom) to finest (mouth).
     gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_cav_bot - eps, x_cav_r + eps, eps), 1 / prm["n3-"])
-    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, -0.35 - eps,     x_cav_r + eps, eps), 1 / prm["n2-"])
-    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, -0.2 - eps,      x_cav_r + eps, eps), 1 / prm["n1-"])
+    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_n2m_n3m - eps, x_cav_r + eps, eps), 1 / prm["n2-"])
+    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_n1m_n2m - eps, x_cav_r + eps, eps), 1 / prm["n1-"])
 
     # Re-apply finest channel density to the shared y=0 boundary (cavity mouth),
     # overriding the cavity sizing that was just applied there.
-    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, -eps, x_cav_r + eps, 0.1 + eps),     1 / prm["n"])
+    gmsh.model.mesh.setSize(bbox(x_cav_l - eps, y_n_cav - eps, x_cav_r + eps, y_n1_n + eps), 1 / prm["n"])
