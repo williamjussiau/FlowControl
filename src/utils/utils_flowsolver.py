@@ -43,14 +43,11 @@ from utils.io import (  # noqa: F401, E402
 from utils.linalg import (  # noqa: F401, E402
     dolfin_to_petsc,
     dolfin_to_scipy,
-    get_all_enum_petsc_slepc,
     get_field_response,
     get_frequency_response_mpi,
     get_frequency_response_parallel,
     get_frequency_response_sequential,
     get_mat_vp_slepc,
-    load_mat_from_file,
-    make_mat_to_test_slepc,
     numpy_to_petsc,
     petsc_to_scipy,
     scipy_to_petsc,
@@ -86,7 +83,6 @@ from utils.lticontrol import (  # noqa: F401, E402
     reduceorder,
     rncf,
     show_ss,
-    sigma_trivial,
     slowfast,
     ss_blkdiag_list,
     ss_hstack,
@@ -117,11 +113,20 @@ from utils.lticontrol import (  # noqa: F401, E402
 from utils.mpi import MpiUtils  # noqa: F401, E402
 
 # Cross optimization-Flowsolver utility #################################
-from utils.optim import compute_cost, write_optim_csv  # noqa: F401, E402
+from utils.optim import (  # noqa: F401, E402
+    compute_control_cost,
+    compute_signal_cost,
+    write_optim_csv,
+    write_results,
+)
 
 # Signal processing and array utility ###################################
 from utils.signal import (  # noqa: F401, E402
+    MultisineGenerator,
     compute_signal_frequency,
+    crest_factor,
+    multisine,
+    multisine_MP,
     pad_upto,
     sample_lco,
     saturate,
