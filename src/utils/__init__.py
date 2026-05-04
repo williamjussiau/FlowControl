@@ -11,12 +11,6 @@ mpi         -- MPI rank/comm utilities
 optim       -- Cost function and CSV logging for optimisation loops
 physics     -- Vorticity, divergence, stress tensor, divergence-free ICs
 signal      -- Multisine generation, crest-factor optimisation, JSON export
-
-Deprecated shims (kept for backward compatibility)
---------------------------------------------------
-utils_flowsolver  -- re-exports everything above
-utils_extract     -- re-exports utils.physics
-youla_utils       -- re-exports utils.lticontrol
 """
 
 __all__ = [
@@ -26,6 +20,7 @@ __all__ = [
     "lticontrol",
     "mesh",
     "mpi",
+    "mesh_generation",
     "optim",
     "physics",
     "signal",
