@@ -23,22 +23,14 @@ from flowcontrol.sensor import (
 # ── Shared mock ───────────────────────────────────────────────────────────────
 
 
-class MockFlowSolver:
-    """Minimal stand-in for FlowSolver with mesh, W and V."""
-
-    def __init__(self):
-        mesh = dolfin.UnitSquareMesh(8, 8)
-        P2 = dolfin.VectorElement("Lagrange", mesh.ufl_cell(), 2)
-        P1 = dolfin.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
-        W = dolfin.FunctionSpace(mesh, P2 * P1)
-        self.mesh = mesh
-        self.W = W
-        self.V = W.sub(0).collapse()
-
-
 @pytest.fixture(scope="module")
-def mock_fs():
-    return MockFlowSolver()
+def mock_fs(mixed_space_fine):
+    """Minimal FlowSolver-like object with 8×8 mesh, W and V."""
+    class Mock:
+        mesh = mixed_space_fine.mesh()
+        W = mixed_space_fine
+        V = mixed_space_fine.sub(0).collapse()
+    return Mock()
 
 
 # ── No-mesh: SENSOR_TYPE enum ─────────────────────────────────────────────────

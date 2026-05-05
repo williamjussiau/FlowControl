@@ -29,6 +29,27 @@ CONTROLLER_PATH = (
 )
 
 
+# ── Fast CI test with coarse generated mesh ───────────────────────────────────
+
+
+def test_cylinder_fast(coarse_cylinder_mesh, tmp_path_factory):
+    """Fast smoke test with coarse generated mesh - runs in CI on every push."""
+    path_out = tmp_path_factory.mktemp("cylinder_fast")
+
+    # Override mesh path in make_default
+    fs = CylinderFlowSolver.make_default(Re=100, path_out=path_out, num_steps=3)
+    fs.params_mesh.meshpath = coarse_cylinder_mesh
+
+    fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
+    fs.initialize_time_stepping(ic=None)
+
+    for _ in range(fs.params_time.num_steps):
+        fs.step(u_ctrl=[0.0, 0.0])
+
+    u_vals = fs.fields.u_.vector().get_local()
+    assert np.all(np.isfinite(u_vals)), "velocity field contains non-finite values"
+
+
 # ── Smoke test ────────────────────────────────────────────────────────────────
 
 
@@ -100,15 +121,6 @@ def test_cylinder_regression(tmp_path_factory):
     u_max = flu.apply_fun(fs_restart.fields.Usave, np.max)
     u_mean = flu.apply_fun(fs_restart.fields.Usave, np.mean)
     last = fs_restart.timeseries.iloc[-1]
-
-    if any(v is None for v in [_U_MAX_REF, _U_MEAN_REF, _LAST_TIME_REF]):
-        print(f"\n[CAPTURE] u_max_ref = {u_max!r}")
-        print(f"[CAPTURE] u_mean_ref = {u_mean!r}")
-        print(f"[CAPTURE] last_time = {last['time']!r}")
-        print(f"[CAPTURE] last_y_meas_1 = {last['y_meas_1']!r}")
-        print(f"[CAPTURE] last_y_meas_2 = {last['y_meas_2']!r}")
-        print(f"[CAPTURE] last_y_meas_3 = {last['y_meas_3']!r}")
-        print(f"[CAPTURE] last_dE = {last['dE']!r}")
 
     assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
     assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), (

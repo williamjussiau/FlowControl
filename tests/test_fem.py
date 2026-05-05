@@ -47,9 +47,9 @@ class TestBetweenCpp:
 
 
 @pytest.fixture(scope="module")
-def scalar_space():
-    mesh = dolfin.UnitSquareMesh(4, 4)
-    return dolfin.FunctionSpace(mesh, "CG", 1)
+def scalar_space(unit_square_mesh):
+    """CG1 scalar space on 4×4 unit square."""
+    return dolfin.FunctionSpace(unit_square_mesh, "CG", 1)
 
 
 class TestExpressionToDolfinFunction:

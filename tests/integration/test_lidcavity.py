@@ -6,6 +6,29 @@ import pytest
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 
 
+# ── Fast CI test with coarse generated mesh ───────────────────────────────────
+
+
+def test_lidcavity_fast(coarse_lidcavity_mesh, tmp_path_factory):
+    """Fast smoke test with coarse generated mesh - runs in CI on every push."""
+    path_out = tmp_path_factory.mktemp("lidcavity_fast")
+
+    fs = LidCavityFlowSolver.make_default(Re=1000, path_out=path_out, num_steps=3)
+    fs.params_mesh.meshpath = coarse_lidcavity_mesh
+
+    fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0])
+    fs.initialize_time_stepping(ic=None)
+
+    for _ in range(fs.params_time.num_steps):
+        fs.step(u_ctrl=[0.0])
+
+    u_vals = fs.fields.u_.vector().get_local()
+    assert np.all(np.isfinite(u_vals)), "velocity field contains non-finite values"
+
+
+# ── Slow tests with pre-generated meshes ─────────────────────────────────────
+
+
 @pytest.mark.slow
 def test_lidcavity_smoke(tmp_path_factory):
     """Pipeline runs without crashing; velocity values are finite after 3 steps."""
