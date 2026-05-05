@@ -38,11 +38,11 @@ ignore_missing_imports = true
 
 [project.optional-dependencies]
 # Optional dependencies for optimization algorithms
-optim = ["smt>=1.0", "blackbox-opt>=1.0"]
+optim_algs = ["smt>=1.0", "blackbox-opt>=1.0"]
 # Optional dependencies for mesh generation
 mesh = ["gmsh>=4.0", "meshio>=4.0"]
 # All optional dependencies
-all = ["flowcontrol[optim,mesh]"]
+all = ["flowcontrol[optim_algs,mesh]"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
