@@ -6,15 +6,6 @@ import pytest
 from flowcontrol.flowfield import BoundaryConditions, FlowField, FlowFieldCollection
 
 
-@pytest.fixture(scope="module")
-def mixed_space():
-    mesh = dolfin.UnitSquareMesh(4, 4)
-    P2 = dolfin.VectorElement("Lagrange", mesh.ufl_cell(), 2)
-    P1 = dolfin.FiniteElement("Lagrange", mesh.ufl_cell(), 1)
-    W = dolfin.FunctionSpace(mesh, P2 * P1)
-    return W
-
-
 # ── FlowField ─────────────────────────────────────────────────────────────────
 
 
