@@ -8,5 +8,6 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v3
         with:
           environment-file: environment.yml
-      - run: conda run -n fenics conda-develop src
-      - run: conda run -n fenics mpirun -n 4 pytest tests/ -m mpi -q
+          activate-environment: "fenics"
+      - run: conda-develop src
+      - run: mpirun -n 4 pytest tests/ -m mpi -q
