@@ -7,7 +7,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
         with:
-          activate-environment: fenics
           environment-file: environment.yml
-      - run: pip install -e .
-      - run: mpirun -n 4 pytest tests/ -m mpi -q
+      - run: conda run -n fenics conda-develop src
+      - run: conda run -n fenics mpirun -n 4 pytest tests/ -m mpi -q
