@@ -14,4 +14,4 @@ jobs:
           activate-environment: "fenics"
           auto-activate-base: false
       - run: conda-develop src
-      - run: mpirun -n 4 pytest tests/ -m mpi -q
+      - run: mpirun --oversubscribe -n 4 pytest tests/ -m mpi -q

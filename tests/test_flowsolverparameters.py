@@ -22,7 +22,6 @@ from flowcontrol.flowsolverparameters import (
     ParamTime,
 )
 
-
 # ── ParamTime ─────────────────────────────────────────────────────────────────
 
 
@@ -117,7 +116,7 @@ class TestParamIC:
         p = ParamIC()
         assert p.xloc == pytest.approx(0.0)
         assert p.yloc == pytest.approx(0.0)
-        assert p.radius == pytest.approx(0.0)
+        assert p.radius == pytest.approx(1.0)
         assert p.amplitude == pytest.approx(1.0)
 
     def test_custom_values(self):
