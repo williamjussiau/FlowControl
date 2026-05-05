@@ -9,5 +9,5 @@ jobs:
         with:
           activate-environment: fenics
           environment-file: environment.yml
-      - run: conda-develop src
+      - run: conda develop src
       - run: pytest tests/ -m "not slow and not mpi" -q
