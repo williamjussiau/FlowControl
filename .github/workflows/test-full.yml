@@ -10,5 +10,5 @@ jobs:
         with:
           activate-environment: fenics
           environment-file: environment.yml
-      - run: conda-develop src
+      - run: pip install -e .
       - run: pytest tests/ -m "not mpi" -q

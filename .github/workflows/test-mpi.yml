@@ -9,5 +9,5 @@ jobs:
         with:
           activate-environment: fenics
           environment-file: environment.yml
-      - run: conda-develop src
+      - run: pip install -e .
       - run: mpirun -n 4 pytest tests/ -m mpi -q
