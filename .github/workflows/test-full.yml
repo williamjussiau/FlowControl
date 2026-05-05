@@ -7,12 +7,14 @@ jobs:
       run:
         shell: bash -l {0}
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
         with:
           environment-file: environment.yml
           activate-environment: "fenics"
-          auto-activate-base: false
+          auto-activate: false
       - run: conda-develop src
       - run: pytest tests/ -m "not mpi" -q
