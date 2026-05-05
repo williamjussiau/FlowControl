@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
 jobs:
   test:
+    defaults:
+      run:
+        shell: bash -l {0}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -10,5 +13,6 @@ jobs:
         with:
           environment-file: environment.yml
           activate-environment: "fenics"
+          auto-activate-base: false
       - run: conda-develop src
       - run: pytest tests/ -m "not mpi" -q
