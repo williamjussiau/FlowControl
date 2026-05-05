@@ -18,7 +18,7 @@ DEMO = (
 @pytest.mark.mpi
 def test_demo_poisson_mpi(tmp_path):
     result = subprocess.run(
-        ["mpirun", "-np", "4", sys.executable, str(DEMO)],
+        ["mpirun", "--oversubscribe", "-np", "4", sys.executable, str(DEMO)],
         capture_output=True,
         text=True,
         cwd=tmp_path,  # pvd/pvtu output files land here, not in the source tree
