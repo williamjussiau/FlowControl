@@ -10,5 +10,7 @@ dependencies:
   - pandas=2.2.3
   - control=0.10.1
   - conda-build
-  - pytest
   - joblib
+  - pytest
+  - gmsh
+  - python-gmsh
