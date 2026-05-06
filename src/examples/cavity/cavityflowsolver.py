@@ -4,6 +4,7 @@ Nondimensional incompressible Navier-Stokes. Suggested Re=7500.
 """
 
 import logging
+from pathlib import Path
 
 import dolfin
 import pandas
@@ -66,30 +67,18 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             MESH_TOL=MESH_TOL,
         )
         cavity_left = dolfin.CompiledSubDomain(
-            on_boundary_cpp
-            + and_cpp
-            + near_cpp("x[0]", 0, "MESH_TOL")
-            + and_cpp
-            + between_cpp("x[1]", "-D", "0"),
+            on_boundary_cpp + and_cpp + near_cpp("x[0]", 0, "MESH_TOL") + and_cpp + between_cpp("x[1]", "-D", "0"),
             MESH_TOL=MESH_TOL,
             D=D,
         )
         cavity_botm = dolfin.CompiledSubDomain(
-            on_boundary_cpp
-            + and_cpp
-            + near_cpp("x[1]", "-D", "MESH_TOL")
-            + and_cpp
-            + between_cpp("x[0]", "0", "L"),
+            on_boundary_cpp + and_cpp + near_cpp("x[1]", "-D", "MESH_TOL") + and_cpp + between_cpp("x[0]", "0", "L"),
             L=L,
             D=D,
             MESH_TOL=MESH_TOL,
         )
         cavity_right = dolfin.CompiledSubDomain(
-            on_boundary_cpp
-            + and_cpp
-            + "near(x[0], L, MESH_TOL)"
-            + and_cpp
-            + between_cpp("x[1]", -D, "0"),
+            on_boundary_cpp + and_cpp + "near(x[0], L, MESH_TOL)" + and_cpp + between_cpp("x[1]", -D, "0"),
             L=L,
             D=D,
             MESH_TOL=MESH_TOL,
@@ -118,21 +107,13 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             MESH_TOL=MESH_TOL,
         )
         lower_wall_right_ns = dolfin.CompiledSubDomain(
-            on_boundary_cpp
-            + and_cpp
-            + near_cpp("x[1]", 0)
-            + and_cpp
-            + between_cpp("x[0]", "L", "x0ns_right"),
+            on_boundary_cpp + and_cpp + near_cpp("x[1]", 0) + and_cpp + between_cpp("x[0]", "L", "x0ns_right"),
             x0ns_right=x0ns_right,
             L=L,
             MESH_TOL=MESH_TOL,
         )
         lower_wall_right_sf = dolfin.CompiledSubDomain(
-            on_boundary_cpp
-            + and_cpp
-            + near_cpp("x[1]", 0)
-            + and_cpp
-            + between_cpp("x[0]", "x0ns_right", "xinf"),
+            on_boundary_cpp + and_cpp + near_cpp("x[1]", 0) + and_cpp + between_cpp("x[0]", "x0ns_right", "xinf"),
             x0ns_right=x0ns_right,
             xinf=xinf,
             MESH_TOL=MESH_TOL,
@@ -169,12 +150,8 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
     def _make_bcs(self):
         """Return perturbation-field BCs: zero on inlet; slip (v=0) on sf walls; no-slip on ns walls and cavity faces."""
-        bcu_inlet = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet")
-        )
-        bcu_upper_wall = dolfin.DirichletBC(
-            self.W.sub(0).sub(1), dolfin.Constant(0), self.get_subdomain("upper_wall")
-        )
+        bcu_inlet = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet"))
+        bcu_upper_wall = dolfin.DirichletBC(self.W.sub(0).sub(1), dolfin.Constant(0), self.get_subdomain("upper_wall"))
         bcu_lower_wall_left_sf = dolfin.DirichletBC(
             self.W.sub(0).sub(1),
             dolfin.Constant(0),
@@ -195,12 +172,8 @@ class CavityFlowSolver(flowsolver.FlowSolver):
             dolfin.Constant(0),
             self.get_subdomain("lower_wall_right_sf"),
         )
-        bcu_cavity_left = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("cavity_left")
-        )
-        bcu_cavity_botm = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("cavity_botm")
-        )
+        bcu_cavity_left = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("cavity_left"))
+        bcu_cavity_botm = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("cavity_botm"))
         bcu_cavity_right = dolfin.DirichletBC(
             self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("cavity_right")
         )
@@ -221,6 +194,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
 
     def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
         """u=1 in the channel, u=0 inside the cavity (x[1] < 0)."""
+
         class _CavityFlow(dolfin.UserExpression):
             def eval(self, value, x):
                 value[0] = 1.0 if x[1] >= 0 else 0.0
@@ -241,6 +215,7 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         save_every: int = 0,
         Tstart: float = 0.0,
         verbose: int = 0,
+        meshpath: str | Path | None = None,
     ) -> "CavityFlowSolver":
         """Return a CavityFlowSolver with standard parameters (Re=7500, 1 FORCE actuator, 2 sensors)."""
         from pathlib import Path
@@ -264,13 +239,18 @@ class CavityFlowSolver(flowsolver.FlowSolver):
         params_time = fsp.ParamTime(num_steps=num_steps, dt=0.0004, Tstart=Tstart)
         params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
         params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
-        params_mesh = fsp.ParamMesh(
-            meshpath=Path(__file__).parent / "data_input" / "cavity_coarse.xdmf"
+
+        default_mesh = Path(__file__).parent / "data_input" / "cavity_coarse.xdmf"
+        params_mesh = fsp.ParamMesh(meshpath=meshpath or default_mesh)
+        params_mesh.user_data.update(
+            {
+                "xinf": 2.5,
+                "xinfa": -1.2,
+                "yinf": 0.5,
+                "x0ns_left": -0.4,
+                "x0ns_right": 1.75,
+            }
         )
-        params_mesh.user_data.update({
-            "xinf": 2.5, "xinfa": -1.2, "yinf": 0.5,
-            "x0ns_left": -0.4, "x0ns_right": 1.75,
-        })
         params_control = fsp.ParamControl(
             sensor_list=[
                 SensorHorizontalWallShear(

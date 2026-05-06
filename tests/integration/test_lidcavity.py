@@ -13,8 +13,9 @@ def test_lidcavity_fast(coarse_lidcavity_mesh, tmp_path_factory):
     """Fast smoke test with coarse generated mesh - runs in CI on every push."""
     path_out = tmp_path_factory.mktemp("lidcavity_fast")
 
-    fs = LidCavityFlowSolver.make_default(Re=1000, path_out=path_out, num_steps=3)
-    fs.params_mesh.meshpath = coarse_lidcavity_mesh
+    fs = LidCavityFlowSolver.make_default(
+        Re=1000, path_out=path_out, num_steps=3, meshpath=coarse_lidcavity_mesh
+    )
 
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0])
     fs.initialize_time_stepping(ic=None)

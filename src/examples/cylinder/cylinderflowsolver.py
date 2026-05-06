@@ -1,6 +1,7 @@
 """Flow past a cylinder, using flowsolver.FlowSolver."""
 
 import logging
+from pathlib import Path
 
 import dolfin
 import pandas
@@ -57,20 +58,14 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         ldelta = self.params_control.actuator_list[0].width
 
         close_to_cylinder_cpp = (
-            between_cpp("x[0]", "-radius", "radius")
-            + and_cpp
-            + between_cpp("x[1]", "-radius", "radius")
+            between_cpp("x[0]", "-radius", "radius") + and_cpp + between_cpp("x[1]", "-radius", "radius")
         )
         cylinder_boundary_cpp = on_boundary_cpp + and_cpp + close_to_cylinder_cpp
         cone_up_cpp = (
-            between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01")
-            + and_cpp
-            + between_cpp("x[1]", "0", "radius")
+            between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01") + and_cpp + between_cpp("x[1]", "0", "radius")
         )
         cone_lo_cpp = (
-            between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01")
-            + and_cpp
-            + between_cpp("x[1]", "-radius", "0")
+            between_cpp("x[0]", "-ldelta", "ldelta", tol="0.01") + and_cpp + between_cpp("x[1]", "-radius", "0")
         )
         cone_le_cpp = between_cpp("x[0]", "-radius", "-ldelta")
         cone_ri_cpp = between_cpp("x[0]", "ldelta", "radius")
@@ -94,15 +89,9 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
 
     def _make_bcs(self):
         """Return perturbation-field BCs: zero on inlet/walls/cylinder; actuator expressions on the two slots."""
-        bcu_inlet = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet")
-        )
-        bcu_walls = dolfin.DirichletBC(
-            self.W.sub(0).sub(1), dolfin.Constant(0), self.get_subdomain("walls")
-        )
-        bcu_cylinder = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("cylinder")
-        )
+        bcu_inlet = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet"))
+        bcu_walls = dolfin.DirichletBC(self.W.sub(0).sub(1), dolfin.Constant(0), self.get_subdomain("walls"))
+        bcu_cylinder = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("cylinder"))
         bcu_actuation_up = dolfin.DirichletBC(
             self.W.sub(0),
             self.params_control.actuator_list[0].expression,
@@ -129,10 +118,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         nu = self.params_flow.uinf * D / self.params_flow.Re
         sigma = stress_tensor(nu, u, p)
         Fo = -dolfin.dot(sigma, dolfin.FacetNormal(self.mesh))
-        surfaces_idx = [
-            self.boundaries.loc[nm].idx
-            for nm in ["cylinder", "actuator_up", "actuator_lo"]
-        ]
+        surfaces_idx = [self.boundaries.loc[nm].idx for nm in ["cylinder", "actuator_up", "actuator_lo"]]
         drag = dolfin.assemble(sum(Fo[0] * self.ds(int(i)) for i in surfaces_idx))
         lift = dolfin.assemble(sum(Fo[1] * self.ds(int(i)) for i in surfaces_idx))
         cd = drag / (0.5 * self.params_flow.uinf**2 * D)
@@ -148,6 +134,7 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         save_every: int = 0,
         Tstart: float = 0.0,
         verbose: int = 0,
+        meshpath: str | Path | None = None,
     ) -> "CylinderFlowSolver":
         """Return a CylinderFlowSolver with standard parameters (Re=100, 2 BC actuators, 3 sensors)."""
         from pathlib import Path
@@ -167,9 +154,9 @@ class CylinderFlowSolver(flowsolver.FlowSolver):
         params_time = fsp.ParamTime(num_steps=num_steps, dt=0.005, Tstart=Tstart)
         params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
         params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
-        params_mesh = fsp.ParamMesh(
-            meshpath=Path(__file__).parent / "data_input" / "O1.xdmf"
-        )
+
+        default_mesh = Path(__file__).parent / "data_input" / "O1.xdmf"
+        params_mesh = fsp.ParamMesh(meshpath=meshpath or default_mesh)
         params_mesh.user_data.update({"xinf": 20, "xinfa": -10, "yinf": 10})
 
         radius = params_flow.user_data["D"] / 2
