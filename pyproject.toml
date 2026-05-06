@@ -40,7 +40,7 @@ ignore_missing_imports = true
 # Optional dependencies for optimization algorithms
 optim_algs = ["smt>=1.0", "blackbox-opt>=1.0"]
 # Optional dependencies for mesh generation
-mesh = ["gmsh>=4.0", "meshio>=4.0"]
+mesh = ["gmsh>=4.0", "meshio>=4.0", "python-gmsh"]
 # All optional dependencies
 all = ["flowcontrol[optim_algs,mesh]"]
 

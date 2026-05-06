@@ -1,5 +1,7 @@
 import pytest
 
+gmsh = pytest.importorskip("gmsh")
+
 
 def pytest_collection_modifyitems(items):
     """Auto-mark every test in tests/integration/ as slow, except _fast tests."""
