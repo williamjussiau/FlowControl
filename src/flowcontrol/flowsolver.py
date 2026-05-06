@@ -55,6 +55,7 @@ class FlowSolver(ABC):
     Subclasses must implement:
         _make_boundaries() -> pd.DataFrame
         _make_bcs()        -> BoundaryConditions
+        make_default()    -> FlowSolver  (factory method with sensible defaults)
     """
 
     def __init__(
@@ -904,5 +905,17 @@ class FlowSolver(ABC):
 
         The first entry of bcu MUST be the inlet BC — _make_BCs() replaces it
         with the full-field uniform profile.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def make_default(cls, **kwargs) -> "FlowSolver":
+        """Return an instance with standard parameters for the specific flow configuration.
+
+        Subclasses must provide a concrete implementation that creates a FlowSolver
+        with appropriate default parameters (Re, mesh, actuators, sensors, etc.).
+
+        Typically accepts: Re, path_out, num_steps, save_every, Tstart, verbose, meshpath
         """
         pass

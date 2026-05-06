@@ -4,6 +4,7 @@ Several supercritical Hopf bifurcations. Recommended Re < 100.
 """
 
 import logging
+from pathlib import Path
 
 import dolfin
 import numpy as np
@@ -62,14 +63,10 @@ class PinballFlowSolver(flowsolver.FlowSolver):
 
         radius = self.params_flow.user_data["D"] / 2
         close_to_cylinder_top_cpp = (
-            between_cpp("x[0]", "-radius", "radius")
-            + and_cpp
-            + between_cpp("x[1]", "radius/2", "5*radius/2")
+            between_cpp("x[0]", "-radius", "radius") + and_cpp + between_cpp("x[1]", "radius/2", "5*radius/2")
         )
         close_to_cylinder_bot_cpp = (
-            between_cpp("x[0]", "-radius", "radius")
-            + and_cpp
-            + between_cpp("x[1]", "-5*radius/2", "-radius/2")
+            between_cpp("x[0]", "-radius", "radius") + and_cpp + between_cpp("x[1]", "-5*radius/2", "-radius/2")
         )
         close_to_cylinder_mid_cpp = (
             between_cpp("x[0]", "-radius-1.5*cos(pi/6)", "+radius-1.5*cos(pi/6)")
@@ -87,21 +84,13 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
             ldelta = self.params_control.actuator_list[0].width
 
-            cone_charm_act_cpp = between_cpp(
-                "x[0]", "-ldelta-1.5*cos(pi/6)", "-1.5*cos(pi/6)+ldelta"
-            )
+            cone_charm_act_cpp = between_cpp("x[0]", "-ldelta-1.5*cos(pi/6)", "-1.5*cos(pi/6)+ldelta")
             cone_top_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
             cone_bot_act_cpp = between_cpp("x[0]", "-ldelta", "+ldelta")
 
-            cylinder_top = dolfin.CompiledSubDomain(
-                cylinder_boundary_top_cpp, radius=radius, ldelta=ldelta
-            )
-            cylinder_bot = dolfin.CompiledSubDomain(
-                cylinder_boundary_bot_cpp, radius=radius, ldelta=ldelta
-            )
-            cylinder_mid = dolfin.CompiledSubDomain(
-                cylinder_boundary_mid_cpp, radius=radius, ldelta=ldelta
-            )
+            cylinder_top = dolfin.CompiledSubDomain(cylinder_boundary_top_cpp, radius=radius, ldelta=ldelta)
+            cylinder_bot = dolfin.CompiledSubDomain(cylinder_boundary_bot_cpp, radius=radius, ldelta=ldelta)
+            cylinder_mid = dolfin.CompiledSubDomain(cylinder_boundary_mid_cpp, radius=radius, ldelta=ldelta)
             actuator_top = dolfin.CompiledSubDomain(
                 cylinder_boundary_top_cpp + and_cpp + cone_top_act_cpp,
                 radius=radius,
@@ -151,12 +140,8 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         """
         mode_actuation = self.params_control.user_data["mode_actuation"]
 
-        bcu_inlet = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet")
-        )
-        bcu_walls = dolfin.DirichletBC(
-            self.W.sub(0).sub(1), dolfin.Constant(0), self.get_subdomain("walls")
-        )
+        bcu_inlet = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("inlet"))
+        bcu_walls = dolfin.DirichletBC(self.W.sub(0).sub(1), dolfin.Constant(0), self.get_subdomain("walls"))
         bcu = [bcu_inlet, bcu_walls]
 
         if mode_actuation == CYLINDER_ACTUATION_MODE.SUCTION:
@@ -256,6 +241,7 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         save_every: int = 0,
         Tstart: float = 0.0,
         verbose: int = 0,
+        meshpath: str | Path | None = None,
     ) -> "PinballFlowSolver":
         """Return a PinballFlowSolver with standard parameters (Re=50, rotation actuation, 3 sensors)."""
         from pathlib import Path
@@ -281,9 +267,9 @@ class PinballFlowSolver(flowsolver.FlowSolver):
         params_time = fsp.ParamTime(num_steps=num_steps, dt=0.005, Tstart=Tstart)
         params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
         params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
-        params_mesh = fsp.ParamMesh(
-            meshpath=Path(__file__).parent / "data_input" / "mesh_middle_gmsh.xdmf"
-        )
+
+        default_mesh = Path(__file__).parent / "data_input" / "mesh_middle_gmsh.xdmf"
+        params_mesh = fsp.ParamMesh(meshpath=meshpath or default_mesh)
         params_mesh.user_data.update({"xinf": 20, "xinfa": -6, "yinf": 6})
 
         cylinder_diameter = params_flow.user_data["D"]

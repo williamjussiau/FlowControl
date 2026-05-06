@@ -19,8 +19,8 @@ def test_pinball_fast(coarse_pinball_mesh, tmp_path_factory):
         mode_actuation=CYLINDER_ACTUATION_MODE.SUCTION,
         path_out=path_out,
         num_steps=3,
+        meshpath=coarse_pinball_mesh,
     )
-    fs.params_mesh.meshpath = coarse_pinball_mesh
 
     fs.compute_steady_state(
         method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0, 0.0]

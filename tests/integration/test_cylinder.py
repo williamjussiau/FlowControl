@@ -36,9 +36,9 @@ def test_cylinder_fast(coarse_cylinder_mesh, tmp_path_factory):
     """Fast smoke test with coarse generated mesh - runs in CI on every push."""
     path_out = tmp_path_factory.mktemp("cylinder_fast")
 
-    # Override mesh path in make_default
-    fs = CylinderFlowSolver.make_default(Re=100, path_out=path_out, num_steps=3)
-    fs.params_mesh.meshpath = coarse_cylinder_mesh
+    fs = CylinderFlowSolver.make_default(
+        Re=100, path_out=path_out, num_steps=3, meshpath=coarse_cylinder_mesh
+    )
 
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
     fs.initialize_time_stepping(ic=None)

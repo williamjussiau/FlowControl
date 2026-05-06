@@ -4,6 +4,7 @@ Supercritical Hopf bifurcation near Re_c=7700. Proposed Re=8000.
 """
 
 import logging
+from pathlib import Path
 
 import dolfin
 import pandas
@@ -64,18 +65,10 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
             self.params_control.actuator_list[0].expression,
             self.get_subdomain("lid"),
         )
-        bcu_leftwall = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("leftwall")
-        )
-        bcu_rightwall = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("rightwall")
-        )
-        bcu_bottomwall = dolfin.DirichletBC(
-            self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("bottomwall")
-        )
-        return BoundaryConditions(
-            bcu=[bcu_lid, bcu_leftwall, bcu_rightwall, bcu_bottomwall], bcp=[]
-        )
+        bcu_leftwall = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("leftwall"))
+        bcu_rightwall = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("rightwall"))
+        bcu_bottomwall = dolfin.DirichletBC(self.W.sub(0), dolfin.Constant((0, 0)), self.get_subdomain("bottomwall"))
+        return BoundaryConditions(bcu=[bcu_lid, bcu_leftwall, bcu_rightwall, bcu_bottomwall], bcp=[])
 
     def _make_BCs(self) -> BoundaryConditions:
         """Steady-state BCs: lid moves at uinf; walls no-slip."""
@@ -89,6 +82,7 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
 
     def _default_steady_state_initial_guess(self) -> dolfin.UserExpression:
         """Zero everywhere — cavity starts from rest."""
+
         class _ZeroFlow(dolfin.UserExpression):
             def eval(self, value, x):
                 value[0] = 0.0
@@ -109,6 +103,7 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
         save_every: int = 0,
         Tstart: float = 0.0,
         verbose: int = 0,
+        meshpath: str | Path | None = None,
     ) -> "LidCavityFlowSolver":
         """Return a LidCavityFlowSolver with standard parameters (Re=8000, 1 BC actuator, 2 sensors)."""
         from pathlib import Path
@@ -128,9 +123,9 @@ class LidCavityFlowSolver(flowsolver.FlowSolver):
         params_time = fsp.ParamTime(num_steps=num_steps, dt=0.005, Tstart=Tstart)
         params_save = fsp.ParamSave(save_every=save_every, path_out=path_out)
         params_solver = fsp.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
-        params_mesh = fsp.ParamMesh(
-            meshpath=Path(__file__).parent / "data_input" / "mesh64.xdmf"
-        )
+
+        default_mesh = Path(__file__).parent / "data_input" / "mesh64.xdmf"
+        params_mesh = fsp.ParamMesh(meshpath=meshpath or default_mesh)
         params_mesh.user_data.update({"yup": 1, "ylo": 0, "xri": 1, "xle": 0})
         params_control = fsp.ParamControl(
             sensor_list=[
