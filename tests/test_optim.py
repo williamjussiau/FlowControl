@@ -12,8 +12,6 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_allclose
 
-pytest.importorskip("utils.optim")
-
 from utils.optim import (  # noqa: E402
     compute_control_cost,
     compute_signal_cost,
@@ -22,7 +20,6 @@ from utils.optim import (  # noqa: E402
     write_optim_csv,
     write_results,
 )
-
 
 # ── cummin ────────────────────────────────────────────────────────────────────
 
@@ -91,15 +88,11 @@ class TestComputeSignalCost:
         assert result == pytest.approx(4.0)
 
     def test_scaling_applied_to_integral(self, signal):
-        result = compute_signal_cost(
-            signal, Tnorm=1.0, criterion="integral", scaling=lambda x: x**2
-        )
+        result = compute_signal_cost(signal, Tnorm=1.0, criterion="integral", scaling=lambda x: x**2)
         assert result == pytest.approx(sum(x**2 for x in signal))
 
     def test_scaling_applied_to_terminal(self, signal):
-        result = compute_signal_cost(
-            signal, Tnorm=1.0, criterion="terminal", scaling=lambda x: x * 2
-        )
+        result = compute_signal_cost(signal, Tnorm=1.0, criterion="terminal", scaling=lambda x: x * 2)
         assert result == pytest.approx(8.0)
 
     def test_unknown_criterion_raises(self, signal):
@@ -135,9 +128,7 @@ class TestComputeControlCost:
 
     def test_tnorm_scales_result(self):
         u = pd.Series([1.0, 1.0])
-        assert compute_control_cost(u, Tnorm=3.0) == pytest.approx(
-            compute_control_cost(u, Tnorm=1.0) * 3.0
-        )
+        assert compute_control_cost(u, Tnorm=3.0) == pytest.approx(compute_control_cost(u, Tnorm=1.0) * 3.0)
 
 
 # ── write_results ─────────────────────────────────────────────────────────────
