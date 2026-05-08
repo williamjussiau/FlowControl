@@ -11,6 +11,8 @@ Actuator          : actuator class hierarchy (actuator.py)
 Sensor            : sensor class hierarchy (sensor.py)
 """
 
+__version__ = "0.1.0"
+
 from flowcontrol.actuator import (
     ACTUATOR_TYPE,
     Actuator,
@@ -45,6 +47,7 @@ from flowcontrol.sensor import (
 from flowcontrol.steadystate import SteadyStateSolver
 
 __all__ = [
+    "__version__",
     # Main classes
     "FlowSolver",
     "Controller",
