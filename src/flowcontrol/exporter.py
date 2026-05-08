@@ -232,19 +232,26 @@ class FlowExporter:
         """
         return pd.DataFrame(self._records)
 
-    def write_metadata(self) -> None:
+    def write_metadata(self, restart_order: int | str = 2) -> None:
         """Write a JSON sidecar describing this run's checkpoints (rank-0 only).
 
         The sidecar is updated after every checkpoint so that a crashed run
         still produces a valid (partial) metadata file. Its presence signals
         that the corresponding XDMF files are safe to use for restart.
+
+        Parameters
+        ----------
+        restart_order:
+            Time-stepping order to use on restart: 2 for BDF, ``"cn"`` for
+            Crank-Nicolson. Must match the key used in the assembler/solver
+            dicts built by ``_prepare_systems``.
         """
         meta = {
             "Tstart": self._Tstart,
             "dt": self._dt,
             "save_every": self._save_every,
             "checkpoints_written": self._checkpoints_written,
-            "restart_order": 2,
+            "restart_order": restart_order,
             "files": {
                 "U": self.paths.U_restart.name,
                 "Uprev": self.paths.Uprev_restart.name,

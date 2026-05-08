@@ -57,8 +57,15 @@ class TestTransient:
 
     def test_cn_returns_form(self, nsforms_setup):
         _, forms, U0, u_n, u_nn, f = nsforms_setup
-        F = forms.transient(order="cn", U0=U0, u_n=u_n, f=f)
+        V = forms.W.sub(0).collapse()
+        f_n = dolfin.Function(V)
+        F = forms.transient(order="cn", U0=U0, u_n=u_n, f=f, f_n=f_n)
         assert isinstance(F, ufl.Form)
+
+    def test_cn_without_fn_raises(self, nsforms_setup):
+        _, forms, U0, u_n, u_nn, f = nsforms_setup
+        with pytest.raises(ValueError):
+            forms.transient(order="cn", U0=U0, u_n=u_n, f=f)
 
     def test_unknown_order_raises(self, nsforms_setup):
         _, forms, U0, u_n, u_nn, f = nsforms_setup

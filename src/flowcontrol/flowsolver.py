@@ -43,7 +43,7 @@ from flowcontrol.nsforms import NSForms
 from flowcontrol.steadystate import SteadyStateSolver
 from utils.fem import projectm
 from utils.io import read_xdmf, write_xdmf
-from utils.mpi import get_rank
+from utils.mpi import get_rank, mpi_broadcast
 from utils.physics import get_div0_u
 
 logger = logging.getLogger(__name__)
@@ -418,22 +418,25 @@ class FlowSolver(ABC):
         self._assign_steady_state(U0, P0)
 
     def _check_steady_state_compatible(self, u0_path: Path) -> None:
-        """Raise ValueError if the steady-state checkpoint was written on a different mesh."""
-        if get_rank() != 0:
-            return  # rank-0 only — sidecar is written and checked by a single process
-        meta_path = u0_path.parent / "meta.json"
-        try:
-            meta = json.loads(meta_path.read_text())
-        except FileNotFoundError:
-            return  # no sidecar — can't verify, proceed
-        stored = meta.get("mesh_cells")
-        current = self.mesh.num_entities_global(self.mesh.topology().dim())
-        if stored is not None and stored != current:
-            raise ValueError(
-                f"Steady-state checkpoint at {u0_path.parent} was written with "
-                f"{stored} mesh cells, but the current mesh has {current}. "
-                "Load a checkpoint from the same mesh, or recompute the steady state."
-            )
+        """Raise ValueError on all MPI ranks if the checkpoint was written on a different mesh."""
+        error_msg = None
+        if get_rank() == 0:
+            meta_path = u0_path.parent / "meta.json"
+            try:
+                meta = json.loads(meta_path.read_text())
+            except FileNotFoundError:
+                meta = {}
+            stored = meta.get("mesh_cells")
+            current = self.mesh.num_entities_global(self.mesh.topology().dim())
+            if stored is not None and stored != current:
+                error_msg = (
+                    f"Steady-state checkpoint at {u0_path.parent} was written with "
+                    f"{stored} mesh cells, but the current mesh has {current}. "
+                    "Load a checkpoint from the same mesh, or recompute the steady state."
+                )
+        error_msg = mpi_broadcast(error_msg)
+        if error_msg is not None:
+            raise ValueError(error_msg)
 
     def _assign_steady_state(self, U0: dolfin.Function, P0: dolfin.Function) -> None:
         """Store U0/P0 in fields, build the mixed UP0, and cache the base-flow energy E0."""
@@ -675,8 +678,15 @@ class FlowSolver(ABC):
         scheme = self.params_solver.time_scheme
         orders = ("cn",) if scheme == "cn" else (1, 2)
 
+        if scheme == "cn":
+            # f_n_field caches the body force from the previous step so that
+            # _cn() can average ½(f^{n+1} + f^n) for second-order accuracy.
+            # Initialized to zero (correct for the very first step).
+            self.f_n_field = dolfin.Function(self.W.sub(0).collapse())
+
         for order in orders:
-            F = self.forms.transient(order=order, U0=U0, u_n=u_n, u_nn=u_nn, f=f)
+            extra = {"f_n": self.f_n_field} if order == "cn" else {}
+            F = self.forms.transient(order=order, U0=U0, u_n=u_n, u_nn=u_nn, f=f, **extra)
             a = dolfin.lhs(F)
             L = dolfin.rhs(F)
             assembler = dolfin.SystemAssembler(a, L, self.bc.bcu)
@@ -739,6 +749,14 @@ class FlowSolver(ABC):
         self.fields.u_n.assign(u_)
         self.fields.p_n.assign(p_)
 
+        # Cache body force for CN averaging: project current f into f_n_field
+        # so the next step can use ½(f^{n+1} + f^n).
+        if self.params_solver.time_scheme == "cn":
+            V_vel = self.W.sub(0).collapse()
+            dolfin.project(
+                self._gather_actuators_expressions(), V_vel, function=self.f_n_field
+            )
+
         # Measure
         self.y_meas = self.make_measurement(up=self.fields.up_)
         runtime = time.time() - t0
@@ -774,7 +792,8 @@ class FlowSolver(ABC):
                 time=self.t,
                 adjust_baseflow=1.0,
             )
-            self.exporter.write_metadata()
+            _restart_order = "cn" if self.params_solver.time_scheme == "cn" else 2
+            self.exporter.write_metadata(restart_order=_restart_order)
             self.exporter.write_timeseries()
 
         return self.y_meas

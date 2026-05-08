@@ -47,6 +47,21 @@ class TestInit:
         K = Controller(A, B, C, D)
         assert_allclose(K.x, np.zeros(1))
 
+    def test_reset_zeroes_state(self, siso):
+        A, B, C, D = siso
+        K = Controller(A, B, C, D, x0=np.array([3.7]))
+        K.reset()
+        assert_allclose(K.x, np.zeros(1))
+
+    def test_reset_after_steps_zeroes_state(self, siso):
+        A, B, C, D = siso
+        K = Controller(A, B, C, D)
+        for _ in range(5):
+            K.step(np.array([1.0]), dt=0.01)
+        assert not np.allclose(K.x, np.zeros(1))
+        K.reset()
+        assert_allclose(K.x, np.zeros(1))
+
     def test_custom_initial_state(self, siso):
         A, B, C, D = siso
         x0 = np.array([2.5])

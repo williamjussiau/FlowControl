@@ -158,6 +158,10 @@ class Controller(control.StateSpace):
         self.x = self._Ad @ self.x + self._Bd @ y
         return u
 
+    def reset(self) -> None:
+        """Reset the internal state to zero."""
+        self.x = np.zeros((self.nstates,))
+
     def __add__(self, other: Controller) -> Controller:
         return self._overload(other, super().__add__)
 
