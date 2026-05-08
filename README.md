@@ -30,15 +30,10 @@ The conda environment required to run the code is defined in `environment.yml`. 
 ```bash
 conda env create -n fenics --file environment.yml
 conda activate fenics
-conda develop src
+pip install -e . --no-deps --no-build-isolation
 ```
 
 Additional path tweaking is sometimes required for FEniCS to be found through the `dolfin` module (see e.g. [this problem with PKG_CONFIG](https://fenicsproject.discourse.group/t/problem-with-fenics-and-macos-catalina/2106)).
-
-
-### Docker :whale:
-
-[Coming soon]
 
 
 ## What the Toolbox Offers

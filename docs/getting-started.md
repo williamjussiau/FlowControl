@@ -11,14 +11,14 @@ Create and activate the environment:
 ```bash
 conda env create -n fenics --file environment.yml
 conda activate fenics
-conda develop src
+pip install -e . --no-deps --no-build-isolation
 ```
 
 **Requirements:**
 - Python >= 3.10 (tested with 3.10, 3.11, 3.12)
 - FEniCS 2019.1.0 (only available via conda)
 
-The folder `src` in the root must be appended to the Python system path. The `conda develop src` command above handles this automatically.
+The `pip install -e .` command installs the package in editable mode so that changes to `src/` are reflected immediately without reinstalling. `--no-deps` prevents pip from trying to install FEniCS (which is conda-only) and `--no-build-isolation` reuses the conda environment's build tools.
 
 > **Note:** Additional path tweaking is sometimes required for FEniCS to be found through the `dolfin` module (see [this problem with PKG_CONFIG](https://fenicsproject.discourse.group/t/problem-with-fenics-and-macos-catalina/2106)).
 

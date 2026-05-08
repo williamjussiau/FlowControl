@@ -15,9 +15,9 @@ cd FlowControl
 # Create the conda environment
 conda env create -n fenics --file environment.yml
 
-# Activate and install in development mode
+# Activate and install in editable mode
 conda activate fenics
-conda develop src
+pip install -e . --no-deps --no-build-isolation
 ```
 
 ## Optional Dependencies
