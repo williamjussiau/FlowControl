@@ -44,15 +44,12 @@ def test_cavity_smoke(tmp_path_factory):
 
 
 # ── Regression test ───────────────────────────────────────────────────────────
-
-_U_MAX_REF = np.float64(1.5156062660295946)
-_U_MEAN_REF = np.float64(0.30206598116909644)
+_U_MAX_REF = np.float64(1.1897880864595587)
+_U_MEAN_REF = np.float64(0.3565655424638333)
 _LAST_TIME_REF = np.float64(0.004)
-# y_meas_1 is now SensorHorizontalWallShear (sensor 0 in make_default) — recapture needed
-_LAST_Y_MEAS_1_REF = None
-# y_meas_2 is SensorPoint U at [0.1, 0.1] — was y_meas_1 before, value unchanged
-_LAST_Y_MEAS_2_REF = np.float64(-0.000269010763522036)
-_LAST_DE_REF = np.float64(0.0065978318196011545)
+_LAST_Y_MEAS_1_REF = np.float64(6.048048818888427)  # SensorHorizontalWallShear (sensor 0)
+_LAST_Y_MEAS_2_REF = np.float64(0.024786366371997486)  # SensorPoint U at [0.1, 0.1]
+_LAST_DE_REF = np.float64(0.004998824043045247)
 
 
 @pytest.mark.slow
@@ -62,7 +59,7 @@ def test_cavity_regression(tmp_path_factory):
 
     path_out = tmp_path_factory.mktemp("cavity_regression")
 
-    fs = CavityFlowSolver.make_default(Re=500, path_out=path_out, num_steps=10, save_every=5)
+    fs = CavityFlowSolver.make_default(Re=7500, path_out=path_out, num_steps=10, save_every=5)
     fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=[0.0])
     fs.compute_steady_state(method="newton", max_iter=10, u_ctrl=[0.0], initial_guess=fs.fields.UP0)
     fs.initialize_time_stepping(ic=None)
@@ -75,11 +72,6 @@ def test_cavity_regression(tmp_path_factory):
     u_max = flu.apply_fun(fs.fields.Usave, np.max)
     u_mean = flu.apply_fun(fs.fields.Usave, np.mean)
     last = fs.timeseries.iloc[-1]
-
-    if _LAST_Y_MEAS_1_REF is None:
-        print(f"\n[CAPTURE] last_y_meas_1 = {last['y_meas_1']!r}")
-        print(f"[CAPTURE] last_y_meas_2 = {last['y_meas_2']!r}")
-        pytest.skip("y_meas_1 ref not yet captured — run with -s to capture")
 
     assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
     assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"

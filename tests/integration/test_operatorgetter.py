@@ -22,7 +22,7 @@ from flowcontrol.operatorgetter import OperatorGetter
 
 _A_FROBENIUS_REF = {
     "fs_cylinder": 55.37024024761875,
-    "fs_cavity": 47.318499,  # set after first run with -s
+    "fs_cavity": 47.31849925281407,
 }
 
 
@@ -32,26 +32,18 @@ _A_FROBENIUS_REF = {
 @pytest.fixture(scope="session")
 def fs_cylinder(tmp_path_factory):
     """CylinderFlowSolver (BC actuators) with a converged steady state."""
-    fs = CylinderFlowSolver.make_default(
-        Re=100, path_out=tmp_path_factory.mktemp("opget_cylinder")
-    )
+    fs = CylinderFlowSolver.make_default(Re=100, path_out=tmp_path_factory.mktemp("opget_cylinder"))
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
-    fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0
-    )
+    fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0)
     return fs
 
 
 @pytest.fixture(scope="session")
 def fs_cavity(tmp_path_factory):
     """CavityFlowSolver (FORCE actuator) with a converged steady state."""
-    fs = CavityFlowSolver.make_default(
-        Re=500, path_out=tmp_path_factory.mktemp("opget_cavity")
-    )
+    fs = CavityFlowSolver.make_default(Re=500, path_out=tmp_path_factory.mktemp("opget_cavity"))
     fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=[0.0])
-    fs.compute_steady_state(
-        method="newton", max_iter=10, u_ctrl=[0.0], initial_guess=fs.fields.UP0
-    )
+    fs.compute_steady_state(method="newton", max_iter=10, u_ctrl=[0.0], initial_guess=fs.fields.UP0)
     return fs
 
 
@@ -83,9 +75,7 @@ def _interior_dofs(fs) -> np.ndarray:
     for bc in fs.bc.bcu:
         bc_dofs.update(bc.get_boundary_values().keys())
     ownership = W.dofmap().ownership_range()
-    bc_dofs_local = {
-        d - ownership[0] for d in bc_dofs if ownership[0] <= d < ownership[1]
-    }
+    bc_dofs_local = {d - ownership[0] for d in bc_dofs if ownership[0] <= d < ownership[1]}
     mask = np.ones(len(all_dofs), dtype=bool)
     mask[list(bc_dofs_local)] = False
     return all_dofs[mask]
@@ -136,9 +126,7 @@ def test_get_A_finite_difference(fs_fixture, request):
     fd_approx = -(_assemble_residual(fs, UP0_pert) - _assemble_residual(fs, UP0)) / h
     Ax = _matvec(A, x_full)
 
-    rel_err = np.linalg.norm(Ax[interior] - fd_approx[interior]) / (
-        np.linalg.norm(Ax[interior]) + 1e-14
-    )
+    rel_err = np.linalg.norm(Ax[interior] - fd_approx[interior]) / (np.linalg.norm(Ax[interior]) + 1e-14)
     assert rel_err < 1e-4, f"FD validation relative error: {rel_err:.2e}"
 
 
@@ -152,10 +140,6 @@ def test_get_A_regression(fs_fixture, request):
     frob = A.norm("frobenius")
 
     ref = _A_FROBENIUS_REF[fs_fixture]
-    if ref is None:
-        pytest.skip(
-            f"Reference not yet captured — set _A_FROBENIUS_REF['{fs_fixture}'] = {frob!r}"
-        )
 
     assert np.isclose(frob, ref, rtol=1e-6), f"||A||_F = {frob} != reference {ref}"
 
@@ -188,9 +172,7 @@ def test_get_B_shape_bc_actuators(fs_cylinder):
 
     n_local = len(fs_cylinder.W.dofmap().dofs())
     n_act = fs_cylinder.params_control.actuator_number
-    assert B.shape == (n_local, n_act), (
-        f"B.shape={B.shape}, expected ({n_local}, {n_act})"
-    )
+    assert B.shape == (n_local, n_act), f"B.shape={B.shape}, expected ({n_local}, {n_act})"
     assert np.all(np.isfinite(B))
 
 
@@ -202,9 +184,7 @@ def test_get_B_shape_force_actuator(fs_cavity):
 
     n_local = len(fs_cavity.W.dofmap().dofs())
     n_act = fs_cavity.params_control.actuator_number
-    assert B.shape == (n_local, n_act), (
-        f"B.shape={B.shape}, expected ({n_local}, {n_act})"
-    )
+    assert B.shape == (n_local, n_act), f"B.shape={B.shape}, expected ({n_local}, {n_act})"
     assert np.all(np.isfinite(B))
 
 
@@ -221,7 +201,5 @@ def test_get_C_shape(fs_fixture, request):
 
     n_local = len(fs.W.dofmap().dofs())
     n_sens = fs.params_control.sensor_number
-    assert C.shape == (n_sens, n_local), (
-        f"C.shape={C.shape}, expected ({n_sens}, {n_local})"
-    )
+    assert C.shape == (n_sens, n_local), f"C.shape={C.shape}, expected ({n_sens}, {n_local})"
     assert np.all(np.isfinite(C))

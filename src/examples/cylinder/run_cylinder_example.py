@@ -31,18 +31,10 @@ def make_params(path_out, num_steps, save_every, Tstart=0.0):
     params_flow = flowsolverparameters.ParamFlow(Re=100, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(
-        num_steps=num_steps, dt=0.005, Tstart=Tstart
-    )
-    params_save = flowsolverparameters.ParamSave(
-        save_every=save_every, path_out=path_out
-    )
-    params_solver = flowsolverparameters.ParamSolver(
-        throw_error=True, is_eq_nonlinear=True, shift=0.0
-    )
-    params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "O1.xdmf"
-    )
+    params_time = flowsolverparameters.ParamTime(num_steps=num_steps, dt=0.05, Tstart=Tstart)
+    params_save = flowsolverparameters.ParamSave(save_every=save_every, path_out=path_out)
+    params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+    params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "O1.xdmf")
     params_mesh.user_data["xinf"] = 20
     params_mesh.user_data["xinfa"] = -10
     params_mesh.user_data["yinf"] = 10
@@ -50,12 +42,8 @@ def make_params(path_out, num_steps, save_every, Tstart=0.0):
     angular_size_deg = 10
     radius = params_flow.user_data["D"] / 2
     width = ActuatorBCParabolicV.angular_size_deg_to_width(angular_size_deg, radius)
-    actuator_bc_1 = ActuatorBCParabolicV(
-        width=width, position_x=0.0, boundary_name="actuator_up"
-    )
-    actuator_bc_2 = ActuatorBCParabolicV(
-        width=width, position_x=0.0, boundary_name="actuator_lo"
-    )
+    actuator_bc_1 = ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_up")
+    actuator_bc_2 = ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_lo")
 
     sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.0, 0.0]))
     sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1.0]))
@@ -64,9 +52,7 @@ def make_params(path_out, num_steps, save_every, Tstart=0.0):
         sensor_list=[sensor_feedback, sensor_perf_1, sensor_perf_2],
         actuator_list=[actuator_bc_1, actuator_bc_2],
     )
-    params_ic = flowsolverparameters.ParamIC(
-        xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
-    )
+    params_ic = flowsolverparameters.ParamIC(xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0)
 
     return dict(
         params_flow=params_flow,
@@ -84,16 +70,12 @@ def main():
     path_out = cwd / "data_output"
 
     # ── First run ─────────────────────────────────────────────────────────────
-    kw = make_params(path_out=path_out, num_steps=10, save_every=5)
+    kw = make_params(path_out=path_out, num_steps=1000, save_every=25)
     fs = CylinderFlowSolver(**kw, verbose=5)
-    flu.export_subdomains(
-        fs.mesh, fs.boundaries.subdomain, path_out / "subdomains.xdmf"
-    )
+    flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, path_out / "subdomains.xdmf")
 
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
-    fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0
-    )
+    fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0)
     fs.initialize_time_stepping(ic=None)
 
     Kss = Controller.from_file(file=cwd / "data_input" / "Kopt_reduced13.mat", x0=None)
