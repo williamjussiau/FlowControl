@@ -15,5 +15,5 @@ jobs:
           environment-file: environment.yml
           activate-environment: "fenics"
           auto-activate: false
-      - run: conda-develop src
+      - run: pip install -e . --no-deps --no-build-isolation --quiet
       - run: pytest tests/ -m mpi -q
