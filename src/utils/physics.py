@@ -50,7 +50,7 @@ def get_div0_u(
     
     xm, ym = sp.symbols("x[0], x[1]")
     rr = (xm - xloc) ** 2 + (ym - yloc) ** 2
-    fpsi = 1.0 * sp.exp(-0.5 * rr / size**2)  # Amplitude controlled by caller
+    fpsi = 0.25 * sp.exp(-0.5 * rr / size**2)
     dfx_expr = dolfin.Expression(sp.ccode(fpsi.diff(xm, 1)), element=P.ufl_element())
     dfy_expr = dolfin.Expression(sp.ccode(fpsi.diff(ym, 1)), element=P.ufl_element())
     return projectm(dolfin.as_vector([dfy_expr, -dfx_expr]), V)

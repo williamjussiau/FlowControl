@@ -353,6 +353,6 @@ class PinballCustomInitialGuess(dolfin.UserExpression):
         """Return (3,) — mixed (u, v, p) field shape."""
         return (3,)
 
-    def as_dolfin_function(self, functionSpace, interp=True):
-        """Project or interpolate this expression onto functionSpace and return as dolfin.Function."""
-        return flu.expression_to_dolfin_function(self, functionSpace=functionSpace, interp=interp)
+    def as_dolfin_function(self, function_space, interp=True):
+        """Project or interpolate this expression onto function_space and return as dolfin.Function."""
+        return flu.expression_to_dolfin_function(self, function_space=function_space, interp=interp)

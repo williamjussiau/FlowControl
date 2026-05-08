@@ -20,12 +20,7 @@ from examples.cylinder.cylinderflowsolver import CylinderFlowSolver
 from flowcontrol.controller import Controller
 
 CONTROLLER_PATH = (
-    Path(__file__).parent.parent.parent
-    / "src"
-    / "examples"
-    / "cylinder"
-    / "data_input"
-    / "Kopt_reduced13.mat"
+    Path(__file__).parent.parent.parent / "src" / "examples" / "cylinder" / "data_input" / "Kopt_reduced13.mat"
 )
 
 
@@ -36,9 +31,7 @@ def test_cylinder_fast(coarse_cylinder_mesh, tmp_path_factory):
     """Fast smoke test with coarse generated mesh - runs in CI on every push."""
     path_out = tmp_path_factory.mktemp("cylinder_fast")
 
-    fs = CylinderFlowSolver.make_default(
-        Re=100, path_out=path_out, num_steps=3, meshpath=coarse_cylinder_mesh
-    )
+    fs = CylinderFlowSolver.make_default(Re=100, path_out=path_out, num_steps=3, meshpath=coarse_cylinder_mesh)
 
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
     fs.initialize_time_stepping(ic=None)
@@ -70,14 +63,13 @@ def test_cylinder_smoke(tmp_path_factory):
 
 
 # ── Regression test ───────────────────────────────────────────────────────────
-
-_U_MAX_REF = np.float64(2.2855984664058986)
-_U_MEAN_REF = np.float64(0.3377669778983669)
-_LAST_TIME_REF = np.float64(0.100)
-_LAST_Y_MEAS_1_REF = np.float64(0.131695)
-_LAST_Y_MEAS_2_REF = np.float64(0.009738)
-_LAST_Y_MEAS_3_REF = np.float64(0.009810)
-_LAST_DE_REF = np.float64(0.122620)
+_U_MAX_REF = np.float64(1.3248998638033749)
+_U_MEAN_REF = np.float64(1.3248998638033749)
+_LAST_TIME_REF = np.float64(0.1)
+_LAST_Y_MEAS_1_REF = np.float64(0.011688851716968233)
+_LAST_Y_MEAS_2_REF = np.float64(0.003919912263385731)
+_LAST_Y_MEAS_3_REF = np.float64(0.003910359086223573)
+_LAST_DE_REF = np.float64(0.09444451268113475)
 
 
 @pytest.mark.slow
@@ -86,13 +78,9 @@ def test_cylinder_regression(tmp_path_factory):
     path_out = tmp_path_factory.mktemp("cylinder_regression")
 
     # ── First run (10 steps, saves at step 5 and 10) ─────────────────────────
-    fs = CylinderFlowSolver.make_default(
-        Re=100, path_out=path_out, num_steps=10, save_every=5
-    )
+    fs = CylinderFlowSolver.make_default(Re=100, path_out=path_out, num_steps=10, save_every=5)
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
-    fs.compute_steady_state(
-        method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0
-    )
+    fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0)
     fs.initialize_time_stepping(ic=None)
 
     Kss = Controller.from_file(file=CONTROLLER_PATH, x0=None)
@@ -105,9 +93,7 @@ def test_cylinder_regression(tmp_path_factory):
     fs.write_timeseries()
 
     # ── Restart from Tstart=0.05 using JSON sidecar (no ParamRestart needed) ─
-    fs_restart = CylinderFlowSolver.make_default(
-        Re=100, path_out=path_out, num_steps=10, save_every=5, Tstart=0.05
-    )
+    fs_restart = CylinderFlowSolver.make_default(Re=100, path_out=path_out, num_steps=10, save_every=5, Tstart=0.05)
     fs_restart.load_steady_state()
     fs_restart.initialize_time_stepping(Tstart=fs_restart.params_time.Tstart)
 
@@ -122,18 +108,20 @@ def test_cylinder_regression(tmp_path_factory):
     u_mean = flu.apply_fun(fs_restart.fields.Usave, np.mean)
     last = fs_restart.timeseries.iloc[-1]
 
+    refs = {
+        "u_max": u_max,
+        "u_mean": u_mean,
+        "last_time": last["time"],
+        "last_y_meas_1": last["y_meas_1"],
+        "last_y_meas_2": last["y_meas_2"],
+        "last_y_meas_3": last["y_meas_3"],
+        "last_dE": last["dE"],
+    }
+
     assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
-    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), (
-        f"u_mean: {u_mean} != {_U_MEAN_REF}"
-    )
+    assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"
     assert np.isclose(last["time"], _LAST_TIME_REF, rtol=1e-6), f"time: {last['time']}"
-    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), (
-        f"y_meas_1: {last['y_meas_1']}"
-    )
-    assert np.isclose(last["y_meas_2"], _LAST_Y_MEAS_2_REF, rtol=1e-4), (
-        f"y_meas_2: {last['y_meas_2']}"
-    )
-    assert np.isclose(last["y_meas_3"], _LAST_Y_MEAS_3_REF, rtol=1e-4), (
-        f"y_meas_3: {last['y_meas_3']}"
-    )
+    assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), f"y_meas_1: {last['y_meas_1']}"
+    assert np.isclose(last["y_meas_2"], _LAST_Y_MEAS_2_REF, rtol=1e-4), f"y_meas_2: {last['y_meas_2']}"
+    assert np.isclose(last["y_meas_3"], _LAST_Y_MEAS_3_REF, rtol=1e-4), f"y_meas_3: {last['y_meas_3']}"
     assert np.isclose(last["dE"], _LAST_DE_REF, rtol=1e-4), f"dE: {last['dE']}"

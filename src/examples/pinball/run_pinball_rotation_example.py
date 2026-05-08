@@ -34,15 +34,9 @@ def main():
     params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=20, dt=0.005, Tstart=0.0)
-    params_save = flowsolverparameters.ParamSave(
-        save_every=10, path_out=cwd / "data_output"
-    )
-    params_solver = flowsolverparameters.ParamSolver(
-        throw_error=True, is_eq_nonlinear=True, shift=0.0
-    )
-    params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh_middle_gmsh.xdmf"
-    )
+    params_save = flowsolverparameters.ParamSave(save_every=10, path_out=cwd / "data_output")
+    params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+    params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "mesh_middle_gmsh.xdmf")
     params_mesh.user_data["xinf"] = 20
     params_mesh.user_data["xinfa"] = -6
     params_mesh.user_data["yinf"] = 6
@@ -78,9 +72,7 @@ def main():
         actuator_list=[actuator_mid, actuator_top, actuator_bot],
         user_data={"mode_actuation": CYLINDER_ACTUATION_MODE.ROTATION},
     )
-    params_ic = flowsolverparameters.ParamIC(
-        xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0
-    )
+    params_ic = flowsolverparameters.ParamIC(xloc=2.0, yloc=0.0, radius=0.5, amplitude=1.0)
 
     fs = PinballFlowSolver(
         params_flow=params_flow,
@@ -93,20 +85,16 @@ def main():
         verbose=10,
     )
 
-    flu.export_subdomains(
-        fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
-    )
+    flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf")
     initial_guess = PinballCustomInitialGuess(mode="antisymmetric_bot")
     fs.compute_steady_state(
         method="picard",
         max_iter=15,
         tol=1e-7,
         u_ctrl=[0.0, 0.0, 0.0],
-        initial_guess=initial_guess.as_dolfin_function(fs.W),
+        initial_guess=initial_guess.as_dolfin_function(function_space=fs.W),
     )
-    fs.compute_steady_state(
-        method="newton", max_iter=10, u_ctrl=[0.0, 0.0, 0.0], initial_guess=fs.fields.UP0
-    )
+    fs.compute_steady_state(method="newton", max_iter=10, u_ctrl=[0.0, 0.0, 0.0], initial_guess=fs.fields.UP0)
     fs.initialize_time_stepping(ic=None)
 
     # Open-loop: Gaussian-bump rotation on each cylinder

@@ -22,24 +22,17 @@ from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 logging.basicConfig(level=logging.INFO)
 
 cwd = Path(__file__).parent
-Re = 8000
 
 
 def main():
     """Run the lid-driven cavity example: steady state then unactuated time simulation."""
-    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1.0)
+    params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
     params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
-    params_save = flowsolverparameters.ParamSave(
-        save_every=20, path_out=cwd / "data_output"
-    )
-    params_solver = flowsolverparameters.ParamSolver(
-        throw_error=True, is_eq_nonlinear=True, shift=0.0
-    )
-    params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh64.xdmf"
-    )
+    params_save = flowsolverparameters.ParamSave(save_every=20, path_out=cwd / "data_output")
+    params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+    params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "mesh64.xdmf")
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
     params_mesh.user_data["ylo"] = 0
@@ -54,9 +47,7 @@ def main():
         sensor_list=[sensor_1, sensor_2, sensor_3],
         actuator_list=[actuator_bc_up],
     )
-    params_ic = flowsolverparameters.ParamIC(
-        xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1
-    )
+    params_ic = flowsolverparameters.ParamIC(xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1)
 
     fs = LidCavityFlowSolver(
         params_flow=params_flow,
@@ -69,9 +60,7 @@ def main():
         verbose=10,
     )
 
-    flu.export_subdomains(
-        fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
-    )
+    flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf")
     fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=[0.0])
     fs.initialize_time_stepping(ic=None)
 
