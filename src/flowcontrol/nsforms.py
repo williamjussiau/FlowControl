@@ -16,6 +16,7 @@ import logging
 from typing import Any, Optional
 
 import dolfin
+import ufl
 from dolfin import div, dot, dx, inner, nabla_grad
 
 # UFL_Argument is not part of dolfin's public API (it lives in ufl).
@@ -65,7 +66,7 @@ class NSForms:
         u_n: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
         u_nn: Optional[dolfin.Function] = None,
-    ) -> dolfin.Form:
+    ) -> ufl.Form:
         """Linearized transient NS variational form of given BDF order.
 
         The linearization is around the base flow U0. The nonlinear advection
@@ -87,9 +88,9 @@ class NSForms:
 
         Returns
         -------
-        dolfin.Form
+        ufl.Form
             Bilinear-minus-linear (a - L) variational form, suitable for
-            ``dolfin.lhs`` / ``dolfin.rhs`` splitting and ``SystemAssembler``.
+            ``dolfin.lhs`` / ``dolfin.rhs`` splitting.
         """
         u, p = dolfin.TrialFunctions(self.W)
         v, q = dolfin.TestFunctions(self.W)
@@ -109,7 +110,7 @@ class NSForms:
         self,
         UP0: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
-    ) -> dolfin.Form:
+    ) -> ufl.Form:
         """Nonlinear steady-state NS variational form for Newton iteration.
 
         The form is nonlinear in UP0: evaluating it at the steady state gives
@@ -125,7 +126,7 @@ class NSForms:
 
         Returns
         -------
-        dolfin.Form
+        ufl.Form
             Nonlinear residual form F such that F == 0 at steady state.
         """
         v, q = dolfin.TestFunctions(self.W)
@@ -142,7 +143,7 @@ class NSForms:
         self,
         U0: UFL_Argument,  # dolfin.as_vector(...) — a UFL expression, not a plain Function
         f: dolfin.Expression | dolfin.Constant,
-    ) -> tuple[dolfin.Form, dolfin.Form]:
+    ) -> tuple[ufl.Form, ufl.Form]:
         """Linearized (Picard) steady-state form for fixed-point iteration.
 
         The nonlinear advection velocity is frozen at U0 (a UFL expression
@@ -163,7 +164,7 @@ class NSForms:
         a:
             Bilinear form (linearized momentum + incompressibility).
         L:
-            Linear form (zero right-hand side, compatible shape).
+            Linear form (body-force right-hand side).
         """
         u, p = dolfin.TrialFunctions(self.W)
         v, q = dolfin.TestFunctions(self.W)
@@ -174,8 +175,7 @@ class NSForms:
             - p * div(v) * dx
             - q * div(u) * dx
         )
-        # Zero RHS built as a compatible form so assemble() gives the right shape.
-        L = dolfin.Constant(0) * inner(U0, v) * dx + dolfin.Constant(0) * q * dx
+        L = dot(f, v) * dx
 
         return a, L
 
@@ -190,7 +190,7 @@ class NSForms:
         U0: dolfin.Function,
         u_n: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
-    ) -> dolfin.Form:
+    ) -> ufl.Form:
         """Crank-Nicolson (θ=½) linearized NS form.
 
         Linear stiff terms (diffusion + base-flow advection) are averaged
@@ -231,7 +231,7 @@ class NSForms:
         U0: dolfin.Function,
         u_n: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
-    ) -> dolfin.Form:
+    ) -> ufl.Form:
         """BDF1 (backward-Euler) linearized NS form."""
         b0 = dolfin.Constant(1.0 if self.is_nonlinear else 0.0)
         return (
@@ -265,7 +265,7 @@ class NSForms:
         u_n: dolfin.Function,
         u_nn: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
-    ) -> dolfin.Form:
+    ) -> ufl.Form:
         """BDF2 linearized NS form."""
         b0 = dolfin.Constant(2.0 if self.is_nonlinear else 0.0)
         b1 = dolfin.Constant(-1.0 if self.is_nonlinear else 0.0)
