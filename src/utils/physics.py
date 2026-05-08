@@ -51,8 +51,9 @@ def get_div0_u(
     xm, ym = sp.symbols("x[0], x[1]")
     rr = (xm - xloc) ** 2 + (ym - yloc) ** 2
     fpsi = 0.25 * sp.exp(-0.5 * rr / size**2)
-    dfx_expr = dolfin.Expression(sp.ccode(fpsi.diff(xm, 1)), element=P.ufl_element())
-    dfy_expr = dolfin.Expression(sp.ccode(fpsi.diff(ym, 1)), element=P.ufl_element())
+    scalar_elem = V.sub(0).ufl_element()
+    dfx_expr = dolfin.Expression(sp.ccode(fpsi.diff(xm, 1)), element=scalar_elem)
+    dfy_expr = dolfin.Expression(sp.ccode(fpsi.diff(ym, 1)), element=scalar_elem)
     return projectm(dolfin.as_vector([dfy_expr, -dfx_expr]), V)
 
 

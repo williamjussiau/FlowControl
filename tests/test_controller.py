@@ -187,12 +187,12 @@ class TestStep:
 
         K_switched = Controller(A, B, C, D)
         K_switched.step(y, dt=0.1)  # warm up with dt=0.1
+        x_mid = K_switched.x.copy()  # state after first step, before dt change
         u_switched = K_switched.step(y, dt=0.2)  # switch to dt=0.2
 
-        # Reference: fresh controller stepping directly with dt=0.2 from same state
-        x_after_first = Controller(A, B, C, D).step(y, dt=0.1)  # noqa: F841
-        K_ref = Controller(A, B, C, D)
-        K_ref.step(y, dt=0.1)
+        # Reference: fresh controller initialized to state after the first step,
+        # then stepped once at dt=0.2 only — must match despite the dt switch.
+        K_ref = Controller(A, B, C, D, x0=x_mid)
         u_ref = K_ref.step(y, dt=0.2)
 
         assert_allclose(u_switched, u_ref, atol=1e-12)
