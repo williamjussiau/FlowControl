@@ -189,7 +189,11 @@ class SensorHorizontalWallShear(SensorIntegral):
     y_sensor: float = 0.0
 
     def linear_form(self, v: Any) -> Any:
-        """Return the UFL form integrating dv/dx2 (wall shear stress) over the wall segment."""
+        """Return the UFL form integrating ∂v[0]/∂x[1] over the wall segment.
+
+        Integrates the wall-normal derivative of the streamwise velocity
+        component (v[0] = u_x) along the marked horizontal boundary segment.
+        """
         return v[0].dx(1) * self.ds(self.sensor_index)
 
     def load(self, flowsolver: FlowSolver) -> None:

@@ -431,8 +431,8 @@ def _build_rhs(B: np.ndarray, n: int, comm: PETSc.Comm) -> list[PETSc.Vec]:
         rstart, rend = rhs.getOwnershipRange()
         indices = np.arange(rstart, rend)
         top = indices[indices < n]
-        for i in top:
-            rhs.setValue(i, B[i, iu])
+        if len(top) > 0:
+            rhs.setValues(top, B[top, iu])
         rhs.assemblyBegin()
         rhs.assemblyEnd()
         vecs.append(rhs)

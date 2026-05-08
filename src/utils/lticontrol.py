@@ -795,7 +795,7 @@ def condswitch(ur, yr, K, dt, w_y, w_u, w_decay):
         Tr[:, jj] = np.vstack((np.zeros((jj, 1)), Tr0[:-jj])).ravel()
 
     W_decay = np.diag(w_decay ** np.flip(np.arange(0, r)))
-    W = la.block_diag(w_y * np.eye(r), w_u * np.eye(r))
+    W = la.block_diag(w_u * np.eye(r), w_y * np.eye(r))
     W *= la.block_diag(W_decay, W_decay)
 
     Asol = W @ np.block(

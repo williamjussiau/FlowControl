@@ -245,7 +245,8 @@ def export_square_operators(
     for Mat, Matname in zip(operators, operators_names):
         export_sparse_matrix(Mat, save_path / f"{Matname}.png")
         indptr, indices, data = Mat.mat().getValuesCSR()
-        Acsr = spr.csr_matrix((data, indices, indptr))
+        nrows, ncols = Mat.mat().getSize()
+        Acsr = spr.csr_matrix((data, indices, indptr), shape=(nrows, ncols))
         spr.save_npz(save_path / f"{Matname}.npz", Acsr)
         spr.save_npz(save_path / f"{Matname}_coo.npz", Acsr.tocoo())
 

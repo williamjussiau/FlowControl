@@ -66,6 +66,7 @@ class NSForms:
         u_n: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
         u_nn: Optional[dolfin.Function] = None,
+        f_n: Optional[dolfin.Function] = None,
     ) -> ufl.Form:
         """Linearized transient NS variational form of given BDF order.
 
@@ -82,9 +83,13 @@ class NSForms:
         u_n:
             Velocity perturbation at previous time step.
         f:
-            Body-force term (sum of FORCE-type actuator expressions, or zero).
+            Body-force term at the current step (sum of FORCE-type actuator
+            expressions, or zero).
         u_nn:
             Velocity perturbation two time steps back. Required when order=2.
+        f_n:
+            Body-force term at the previous step. Required when order is
+            ``"cn"`` for second-order accurate body-force averaging.
 
         Returns
         -------
@@ -102,7 +107,9 @@ class NSForms:
                 raise ValueError("u_nn is required for order-2 form")
             return self._order2(u, p, v, q, U0, u_n, u_nn, f)
         elif order == "cn":
-            return self._cn(u, p, v, q, U0, u_n, f)
+            if f_n is None:
+                raise ValueError("f_n is required for Crank-Nicolson form")
+            return self._cn(u, p, v, q, U0, u_n, f, f_n)
         else:
             raise ValueError(f"order must be 1, 2, or 'cn', got {order}")
 
@@ -190,6 +197,7 @@ class NSForms:
         U0: dolfin.Function,
         u_n: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
+        f_n: dolfin.Function,
     ) -> ufl.Form:
         """Crank-Nicolson (θ=½) linearized NS form.
 
@@ -198,6 +206,9 @@ class NSForms:
         treated explicitly at t^n.  Pressure is fully implicit so that
         lhs/rhs splitting yields a well-posed saddle-point system.
         Self-starting: no BDF1 warm-up step needed.
+
+        The body force is also averaged: ½(f^{n+1} + f^n), where f^n is the
+        force applied at the previous step, cached as a dolfin.Function.
         """
         b0 = dolfin.Constant(1.0 if self.is_nonlinear else 0.0)
         half = dolfin.Constant(0.5)
@@ -217,8 +228,10 @@ class NSForms:
             # Pressure / incompressibility
             - p * div(v) * dx
             - div(u) * q * dx
-            # Body force and spectral shift
-            - dot(f, v) * dx
+            # Body force: CN-averaged ½(f^{n+1} + f^n) for second-order accuracy
+            - half * dot(f, v) * dx
+            - half * dot(f_n, v) * dx
+            # Spectral shift
             - self.shift * dot(u, v) * dx
         )
 
