@@ -25,7 +25,7 @@ def mesh_spaces():
 class TestGetDiv0U:
     def test_returns_function(self, mesh_spaces):
         mesh, V, P = mesh_spaces
-        u = get_div0_u(V=V, P=P, xloc=0.5, yloc=0.5, size=0.1)
+        u = get_div0_u(V=V, xloc=0.5, yloc=0.5, size=0.1)
         assert isinstance(u, dolfin.Function)
 
     def test_divergence_is_numerically_zero(self):
@@ -40,14 +40,14 @@ class TestGetDiv0U:
         W = dolfin.FunctionSpace(mesh, P2 * P1)
         V = W.sub(0).collapse()
         P = W.sub(1).collapse()
-        u = get_div0_u(V=V, P=P, xloc=0.5, yloc=0.5, size=0.1)
+        u = get_div0_u(V=V, xloc=0.5, yloc=0.5, size=0.1)
         div_u = dolfin.project(dolfin.div(u), P)
         div_norm = dolfin.norm(div_u, norm_type="L2")
         assert div_norm < 1e-2
 
     def test_field_is_not_identically_zero(self, mesh_spaces):
         mesh, V, P = mesh_spaces
-        u = get_div0_u(V=V, P=P, xloc=0.5, yloc=0.5, size=0.1)
+        u = get_div0_u(V=V, xloc=0.5, yloc=0.5, size=0.1)
         assert u.vector().norm("l2") > 1e-12
 
 

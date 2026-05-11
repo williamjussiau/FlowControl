@@ -199,7 +199,7 @@ class Controller(control.StateSpace):
         """
         return np.concatenate((self.x, other.x), axis=0)
 
-    def _overload(self, other: Controller, binary_op: Callable) -> Controller:
+    def _overload(self, other: control.StateSpace, binary_op: Callable) -> Controller:
         """Apply a binary operation and cast the result back to Controller.
 
         Parameters
