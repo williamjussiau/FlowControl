@@ -188,6 +188,36 @@ def test_get_B_shape_force_actuator(fs_cavity):
     assert np.all(np.isfinite(B))
 
 
+@pytest.mark.slow
+def test_get_B_value_force_actuator(fs_cavity):
+    """For FORCE actuators, B[:, i] must equal the assembled load vector at unit input.
+
+    Uses a non-unit scale factor to verify linearity independently of the shape test.
+    """
+    from flowcontrol.actuator import ACTUATOR_TYPE
+
+    opget = OperatorGetter(fs_cavity)
+    B = opget.get_B()
+
+    u_ctrl_val = 2.3
+    fs_cavity.set_actuators_u_ctrl([u_ctrl_val])
+    v = dolfin.TestFunction(fs_cavity.W)
+
+    for ii, actuator in enumerate(fs_cavity.params_control.actuator_list):
+        if actuator.actuator_type is ACTUATOR_TYPE.FORCE:
+            b_direct = dolfin.assemble(
+                (actuator.expression[0] * v[0] + actuator.expression[1] * v[1]) * fs_cavity.dx
+            ).get_local()
+            np.testing.assert_allclose(
+                B[:, ii] * u_ctrl_val,
+                b_direct,
+                atol=1e-14,
+                err_msg=f"B column {ii} scaled by {u_ctrl_val} != direct assembly",
+            )
+
+    fs_cavity.set_actuators_u_ctrl([0.0])
+
+
 # ── get_C tests ───────────────────────────────────────────────────────────────
 
 
@@ -203,3 +233,22 @@ def test_get_C_shape(fs_fixture, request):
     n_sens = fs.params_control.sensor_number
     assert C.shape == (n_sens, n_local), f"C.shape={C.shape}, expected ({n_sens}, {n_local})"
     assert np.all(np.isfinite(C))
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("fs_fixture", ["fs_cylinder", "fs_cavity"])
+def test_get_C_value_matches_sensor_eval(fs_fixture, request):
+    """C[i, :] @ dof_vector must equal sensor.eval(up) for each sensor."""
+    fs = request.getfixturevalue(fs_fixture)
+    opget = OperatorGetter(fs)
+    C = opget.get_C()
+
+    up = fs.fields.UP0
+    dof_vec = up.vector().get_local()
+
+    for ii, sensor in enumerate(fs.params_control.sensor_list):
+        y_matrix = float(C[ii, :] @ dof_vec)
+        y_eval = sensor.eval(up)
+        assert abs(y_matrix - y_eval) < 1e-10 * (abs(y_eval) + 1.0), (
+            f"Sensor {ii}: C[{ii},:] @ x = {y_matrix:.6e}, sensor.eval = {y_eval:.6e}"
+        )

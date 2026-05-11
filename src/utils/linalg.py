@@ -190,10 +190,10 @@ def _show_freqresp_info(n: int, nu: int, ny: int, nw: int, ww: np.ndarray) -> No
 
 
 def get_frequency_response_sequential(
-    A: PETSc.Mat,
+    A: PETSc.Mat | spr.spmatrix,
     B: np.ndarray,
     C: np.ndarray,
-    Q: PETSc.Mat,
+    Q: PETSc.Mat | spr.spmatrix,
     ww: np.ndarray,
     verbose: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -233,10 +233,10 @@ def get_frequency_response_sequential(
 
 
 def get_frequency_response_parallel(
-    A: PETSc.Mat,
+    A: PETSc.Mat | spr.spmatrix,
     B: np.ndarray,
     C: np.ndarray,
-    Q: PETSc.Mat,
+    Q: PETSc.Mat | spr.spmatrix,
     ww: np.ndarray,
     verbose: bool = True,
     n_jobs: int = 1,
