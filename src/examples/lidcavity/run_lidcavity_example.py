@@ -1,21 +1,16 @@
 """
-----------------------------------------------------------------------
 Lid-driven cavity
 Nondimensional incompressible Navier-Stokes equations
-Supercritical Hopf bifurcation near Re_c=7700
-----------------------------------------------------------------------
-This file demonstrates the following possibilites:
-    - Initialize CylinderFlowSolver object
-    - Load steady-state from XDMF file
-    - Perform unactuated time simulation
-----------------------------------------------------------------------
+Supercritical Hopf bifurcation near Re_c≈7700. Suggested Re=8000.
+
+Demonstrates:
+- compute_steady_state with Re close to bifurcation (Picard only)
+- unactuated time simulation
 """
 
 import logging
-import time
 from pathlib import Path
 
-import dolfin
 import numpy as np
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
@@ -24,46 +19,27 @@ from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCUniformU
 from flowcontrol.sensor import SENSOR_TYPE, SensorPoint
 
-Re = 8000
+logging.basicConfig(level=logging.INFO)
+
+cwd = Path(__file__).parent
 
 
 def main():
-    # LOG
-    dolfin.set_log_level(dolfin.LogLevel.INFO)  # DEBUG TRACE PROGRESS INFO
-    logger = logging.getLogger(__name__)
-    FORMAT = "[%(asctime)s %(filename)s->%(funcName)s():%(lineno)s]: %(message)s"
-    logging.basicConfig(format=FORMAT, level=logging.DEBUG)
-
-    t000 = time.time()
-    cwd = Path(__file__).parent
-
-    logger.info("Trying to instantiate FlowSolver...")
-
-    params_flow = flowsolverparameters.ParamFlow(Re=Re, uinf=1)
+    """Run the lid-driven cavity example: steady state then unactuated time simulation."""
+    params_flow = flowsolverparameters.ParamFlow(Re=8000, uinf=1.0)
     params_flow.user_data["D"] = 1.0
 
-    params_time = flowsolverparameters.ParamTime(num_steps=10000, dt=0.005, Tstart=0.0)
-
-    params_save = flowsolverparameters.ParamSave(
-        save_every=20, path_out=cwd / "data_output"
-    )
-
-    params_solver = flowsolverparameters.ParamSolver(
-        throw_error=True, is_eq_nonlinear=True, shift=0.0
-    )
-
-    params_mesh = flowsolverparameters.ParamMesh(
-        meshpath=cwd / "data_input" / "mesh64.xdmf"
-    )
+    params_time = flowsolverparameters.ParamTime(num_steps=100, dt=0.005, Tstart=0.0)
+    params_save = flowsolverparameters.ParamSave(save_every=20, path_out=cwd / "data_output")
+    params_solver = flowsolverparameters.ParamSolver(throw_error=True, is_eq_nonlinear=True, shift=0.0)
+    params_mesh = flowsolverparameters.ParamMesh(meshpath=cwd / "data_input" / "mesh64.xdmf")
     # mesh is in upper-right quadrant
     params_mesh.user_data["yup"] = 1
     params_mesh.user_data["ylo"] = 0
     params_mesh.user_data["xri"] = 1
     params_mesh.user_data["xle"] = 0
 
-    params_restart = flowsolverparameters.ParamRestart()
-
-    actuator_bc_up = ActuatorBCUniformU()
+    actuator_bc_up = ActuatorBCUniformU(boundary_name="lid")
     sensor_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.05, 0.5]))
     sensor_2 = SensorPoint(sensor_type=SENSOR_TYPE.U, position=np.array([0.5, 0.95]))
     sensor_3 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([0.5, 0.95]))
@@ -71,10 +47,7 @@ def main():
         sensor_list=[sensor_1, sensor_2, sensor_3],
         actuator_list=[actuator_bc_up],
     )
-
-    params_ic = flowsolverparameters.ParamIC(
-        xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1
-    )
+    params_ic = flowsolverparameters.ParamIC(xloc=0.1, yloc=0.1, radius=0.1, amplitude=0.1)
 
     fs = LidCavityFlowSolver(
         params_flow=params_flow,
@@ -82,51 +55,20 @@ def main():
         params_save=params_save,
         params_solver=params_solver,
         params_mesh=params_mesh,
-        params_restart=params_restart,
         params_control=params_control,
         params_ic=params_ic,
         verbose=10,
     )
 
-    logger.info("__init__(): successful!")
-
-    logger.info("Exporting subdomains...")
-    flu.export_subdomains(
-        fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf"
-    )
-
-    logger.info("Compute steady state...")
-    # uctrl0 = [0.0]
-    # fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=uctrl0)
-    # fs.compute_steady_state(
-    #     method="newton", max_iter=25, u_ctrl=uctrl0, initial_guess=fs.fields.UP0
-    # )
-    fs.load_steady_state(
-        path_u_p=[
-            cwd / "data_output" / "steady" / f"U0_Re={Re}.xdmf",
-            cwd / "data_output" / "steady" / f"P0_Re={Re}.xdmf",
-        ]
-    )
-
-    logger.info("Init time-stepping")
-    fs.initialize_time_stepping(ic=None)  # or ic=dolfin.Function(fs.W)
-
-    logger.info("Step several times")
+    flu.export_subdomains(fs.mesh, fs.boundaries.subdomain, cwd / "data_output" / "subdomains.xdmf")
+    fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=[0.0])
+    fs.initialize_time_stepping(ic=None)
 
     for _ in range(fs.params_time.num_steps):
         y_meas = flu.MpiUtils.mpi_broadcast(fs.y_meas)
-        # unforced:
-        u_ctrl = [0 * y_meas[0]]
-        # Forced:
-        # u_ctrl = [0.2 * np.sin(2 * np.pi * fs.t) + 0 * y_meas[0]]
+        fs.step(u_ctrl=[0.0 * y_meas[0]])
 
-        fs.step(u_ctrl=[u_ctrl[0]])
-
-    flu.summarize_timings(fs, t000)
-    logger.info(fs.timeseries)
     fs.write_timeseries()
-
-    logger.info("End with success")
 
 
 if __name__ == "__main__":

@@ -17,10 +17,10 @@ import scipy.sparse as spr
 
 import flowcontrol.flowsolverparameters as flowsolverparameters
 import utils.utils_flowsolver as flu
+from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
 from examples.lidcavity.lidcavityflowsolver import LidCavityFlowSolver
 from flowcontrol.actuator import ActuatorBCUniformU
 from flowcontrol.operatorgetter import OperatorGetter
-from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
 
 
 def main():

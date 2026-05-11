@@ -5,8 +5,8 @@ Run compute_operators.py first to save operators as .npz
 Run compute_eigenvalues.py after, pointing to the right path
 ----------------------------------------------------------------------
 Warning: these functions should be run in a dedicated slepc4py environment,
-including: slepc4py=*=*complex*, scipy, matplotlib, conda-build
-and conda-develop src (to include src/utils/eig)
+including: slepc4py=*=*complex*, scipy, matplotlib
+Install with: pip install -e . --no-deps --no-build-isolation (to include src/utils/eig)
 ----------------------------------------------------------------------
 """
 
@@ -17,10 +17,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as spr
 import scipy.sparse.linalg as sprl
-from petsc4py import PETSc
-from slepc4py import SLEPc
 
-from utils.eig.eig_utils import get_mat_vp_slepc, sparse_to_petscmat
+from utils.eig.eig_utils import sparse_to_petscmat
 
 #################################################################################
 #################################################################################

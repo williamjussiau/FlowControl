@@ -1,3 +1,12 @@
+"""Discrete-time linear state-space controller with ZOH one-step integration.
+
+Classes
+-------
+Controller : continuous-time state-space system (subclass of control.StateSpace)
+             with cached ZOH discretization, MIMO-compatible step(), and
+             arithmetic operators that preserve the Controller type.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,8 +16,7 @@ import control
 import numpy as np
 from numpy.typing import NDArray
 
-import utils.utils_flowsolver as flu
-import utils.youla_utils as yu
+from utils.lticontrol import read_matfile, ss_inv
 
 
 class Controller(control.StateSpace):
@@ -29,38 +37,45 @@ class Controller(control.StateSpace):
         file: Optional[Path] = None,
         x0: Optional[NDArray[np.float64]] = None,
     ):
-        """Initialize Controller with either (A,B,C,D) matrices
-        or file, and initialize its state x. This method allows
-        the construction of two static initializers.
+        """Initialise a Controller from (A, B, C, D) matrices and an optional initial state.
 
-        Args:
-            A (NDArray[np.float64]): System evolution matrix.
-            B (NDArray[np.float64]): System input matrix.
-            C (NDArray[np.float64]): System output matrix.
-            D (NDArray[np.float64]): System feedthrough.
-            file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (Optional[NDArray[np.float64]], optional): Internal state. Defaults to None.
+        Parameters
+        ----------
+        A :
+            System evolution matrix.
+        B :
+            Input matrix.
+        C :
+            Output matrix.
+        D :
+            Feedthrough matrix.
+        file :
+            Path from which the controller was loaded, if any.
+        x0 :
+            Initial internal state.  Defaults to zeros when ``None``.
         """
         super().__init__(A, B, C, D)
         self.file = file
-        self.x = x0
-        if x0 is None:
-            self.x = np.zeros((self.nstates,))
+        self.x = x0 if x0 is not None else np.zeros((self.nstates,))
 
     @classmethod
     def from_file(
-        cls, file: Optional[Path] = None, x0: Optional[NDArray[np.float64]] = None
+        cls, file: Path, x0: Optional[NDArray[np.float64]] = None
     ) -> Controller:
-        """Initialize Controller from file only, with given inital state x0.
+        """Load a Controller from a ``.mat`` file.
 
-        Args:
-            file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (Optional[NDArray[np.float64]], optional): Internal state. Defaults to None.
+        Parameters
+        ----------
+        file :
+            Path to the ``.mat`` file containing A, B, C, D matrices.
+        x0 :
+            Initial internal state.  Defaults to zeros when ``None``.
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
         """
-        stateSpaceMatrices = flu.read_matfile(file)
+        stateSpaceMatrices = read_matfile(file)
         return cls(
             stateSpaceMatrices["A"],
             stateSpaceMatrices["B"],
@@ -80,46 +95,72 @@ class Controller(control.StateSpace):
         file: Optional[Path] = None,
         x0: Optional[NDArray[np.float64]] = None,
     ) -> Controller:
-        """Initialize Controller from matrices (A,B,C,D), with given initial state x0.
+        """Construct a Controller directly from (A, B, C, D) matrices.
 
-        Args:
-            A (NDArray[np.float64]): System evolution matrix.
-            B (NDArray[np.float64]): System input matrix.
-            C (NDArray[np.float64]): System output matrix.
-            D (NDArray[np.float64]): System feedthrough.
-            file (Path, optional): File from which the Controller is read. Defaults to None.
-            x0 (Optional[NDArray[np.float64]], optional): Internal state. Defaults to None.
+        Parameters
+        ----------
+        A :
+            System evolution matrix.
+        B :
+            Input matrix.
+        C :
+            Output matrix.
+        D :
+            Feedthrough matrix.
+        file :
+            Source file, if any, for bookkeeping.
+        x0 :
+            Initial internal state.  Defaults to zeros when ``None``.
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
         """
         return cls(A, B, C, D, x0=x0, file=file)
 
-    def step(self, y: NDArray[np.float64], dt: float) -> NDArray[np.float64]:
-        """Simulate Controller from its current state self.x on the
-        time interval [0, dt] with input y, to produce a control
-        output u. MIMO-compatible.
+    def _discretize(self, dt: float) -> None:
+        """Discretize the controller with ZOH at ``dt`` and cache the result.
 
-        Args:
-            y (NDArray[np.float64]): Controller input (e.g. Plant output).
-            dt (float): Time interval for simulation.
-
-        Returns:
-            NDArray[np.float64]: control output u.
+        Parameters
+        ----------
+        dt :
+            Discretization time step.
         """
-        y_rep = np.repeat(np.atleast_2d(y), repeats=2, axis=0).T
-        Tsim = [0, dt]
-        _, yout, xout = control.forced_response(
-            self,
-            U=y_rep,
-            T=Tsim,
-            X0=self.x,
-            interpolate=False,
-            return_x=True,
-        )
-        u = np.atleast_2d(yout)[:, 0]
-        self.x = xout[:, 1]
+        sysd = control.c2d(self, dt, method="zoh")
+        self._Ad = sysd.A
+        self._Bd = sysd.B
+        self._Cd = sysd.C
+        self._Dd = sysd.D
+        self._dt = dt
+
+    def step(self, y: NDArray[np.float64], dt: float) -> NDArray[np.float64]:
+        """Advance the controller by one time step using ZOH discretization.
+
+        Discrete matrices are computed once and cached for a given ``dt``.
+        MIMO-compatible.
+
+        Parameters
+        ----------
+        y :
+            Controller input (e.g. plant output measurement vector).
+        dt :
+            Simulation time step.
+
+        Returns
+        -------
+        NDArray[np.float64]
+            Control output ``u``.
+        """
+        if not hasattr(self, "_dt") or self._dt != dt:
+            self._discretize(dt)
+        y = np.atleast_1d(y)
+        u = self._Cd @ self.x + self._Dd @ y
+        self.x = self._Ad @ self.x + self._Bd @ y
         return u
+
+    def reset(self) -> None:
+        """Reset the internal state to zero."""
+        self.x = np.zeros((self.nstates,))
 
     def __add__(self, other: Controller) -> Controller:
         return self._overload(other, super().__add__)
@@ -133,48 +174,52 @@ class Controller(control.StateSpace):
     def __rmul__(self, other: Controller) -> Controller:
         return self._overload(other, super().__rmul__)
 
-    def inv(self: Controller) -> Controller:
-        """Attempt to invert Controller provided that self.D not 0.
-        Args:
-            self (Controller): Controller to invert.
+    def inv(self) -> Controller:
+        """Return the inverse of this controller (requires D to be invertible).
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
         """
-        invK = yu.ss_inv(self)
+        invK = ss_inv(self)
         return Controller(invK.A, invK.B, invK.C, invK.D)
 
     def _concatenate_states_with(self, other: Controller) -> NDArray[np.float64]:
-        """Return a concatenatation of states from two Controller instances.
+        """Concatenate the internal states of this controller and ``other``.
 
-        Args:
-            other (Controller): other Controller to concatenate states with.
+        Parameters
+        ----------
+        other :
+            The second Controller whose state is appended.
 
-        Returns:
-            NDArray[np.float64]: concatenated internal states.
+        Returns
+        -------
+        NDArray[np.float64]
+            Concatenated state vector ``[self.x, other.x]``.
         """
         return np.concatenate((self.x, other.x), axis=0)
 
-    def _overload(
-        self, other: Controller, binary_op: Callable[[Controller], Controller]
-    ) -> Controller:
-        """Shortcut for overriding all binary operations
-        between Controller instances: use the super() operation
-        and adapt the internal state and the file accordingly.
+    def _overload(self, other: control.StateSpace, binary_op: Callable) -> Controller:
+        """Apply a binary operation and cast the result back to Controller.
 
-        Args:
-            other (Controller): other StateSpace or Controller for binary op
-            binary_op (_type_): binary operation to override
+        Parameters
+        ----------
+        other :
+            The right-hand operand (StateSpace or Controller).
+        binary_op :
+            The parent-class binary operation to delegate to.
 
-        Returns:
-            Controller
+        Returns
+        -------
+        Controller
+            Result with concatenated internal state when ``other`` is a Controller.
         """
         K = binary_op(other)
         # Cast as Controller instead of StateSpace
         K = Controller(A=K.A, B=K.B, C=K.C, D=K.D)
         if isinstance(other, Controller):
             K.x = self._concatenate_states_with(other)
-            K.file = self.file if (self.file == other.file) else None
+        # K.file stays None — derived controllers have no single file origin
         return K
 
 
@@ -184,7 +229,7 @@ if __name__ == "__main__":
         cwd / ".." / "examples" / "cylinder" / "data_input" / "sysid_o16_d=3_ssest.mat"
     )
 
-    kd = flu.read_matfile(sspath)
+    kd = read_matfile(sspath)
     K1 = Controller.from_matrices(A=kd["A"], B=kd["B"], C=kd["C"], D=kd["D"])
     K2 = Controller.from_file(
         file=cwd
@@ -231,7 +276,5 @@ if __name__ == "__main__":
     for _ in range(num_steps):
         print("---")
         uu = Kmimo.step(yy, dt)  # type: ignore
-        print(f"output {uu}")
-        print(f"states {Kmimo.x}")
         print(f"output {uu}")
         print(f"states {Kmimo.x}")

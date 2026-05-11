@@ -79,7 +79,6 @@
 import pathlib
 
 import dolfin
-import matplotlib.pyplot as plt
 
 # We begin by defining a mesh of the domain and a finite element
 # function space :math:`V` relative to this mesh. As the unit square is
@@ -193,5 +192,5 @@ file = dolfin.File(str(pathlib.Path(__file__).parent / "poisson.pvd"))
 file << u
 
 # Plot solution
-dolfin.plot(u)
-plt.show()
+# dolfin.plot(u)
+# plt.show()

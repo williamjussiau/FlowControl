@@ -1,17 +1,31 @@
-__pycache__
-._*.py
-*.npy
+# Python
+**/__pycache__/
+*.pyc
+*.egg-info/
+
+# macOS
 ._*
-*.msh
-notes.txt
 .DS_Store
+
+# Editor
+.vscode/
+CLAUDE.md
+
+# FEniCS / dolfin
 jitfailure*
-movies
-_legacy
-.vscode
-src/examples/**/data_output/*
-figs
-flowcontrol.egg-info/
+*.msh
 *.vtu
 *.pvd
 *.pvtu
+
+# Test / CI
+.pytest_cache/
+
+# Project-specific generated output
+notes.txt
+movies/
+figs/
+scripts/
+src/examples/**/data_output/
+data_output
+

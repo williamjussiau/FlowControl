@@ -1,90 +1,121 @@
+"""Sensor classes for pointwise and subdomain-integral flow measurements.
+
+Classes
+-------
+SENSOR_TYPE               : enum — U (x-velocity), V (y-velocity), P (pressure), OTHER
+Sensor                    : abstract base class; subclasses implement eval()
+SensorPoint               : pointwise probe at a 2D position (MPI-safe)
+SensorIntegral            : abstract base for sensors that integrate over a subdomain;
+                            subclasses implement load() and linear_form()
+SensorHorizontalWallShear : integral of dv/dx2 along a segment of the bottom wall
+"""
+
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from flowcontrol.flowsolver import FlowSolver
 
 import dolfin
 import numpy as np
 from numpy.typing import NDArray
 
-import utils.utils_flowsolver as flu
+from utils.mpi import peval
 
-SENSOR_INDEX_DEFAULT = 100
+SENSOR_INDEX_DEFAULT = 10000
 
 
 class SENSOR_TYPE(IntEnum):
-    """Type of data returned by the Sensor
+    """Component extracted by a sensor.
 
-    Args:
-        U: velocity, 1st component
-        V: velocity, 2nd component
-        P: pressure
-        OTHER: mixed, e.g. integral or derivative
+    ``U`` and ``V`` are the x- and y-velocity components; ``P`` is pressure;
+    ``OTHER`` covers derived quantities such as integrals or derivatives.
     """
 
     U = 0
     V = 1
     P = 2
-    OTHER = 5
+    OTHER = 3
 
 
 @dataclass(kw_only=True)
 class Sensor(ABC):
-    """Sensor abstract base class, providing the abstract method eval().
+    """Abstract base class for all sensors.
 
-    Args:
-        sensor_type (SENSOR_TYPE): see SENSOR_TYPE
-        require_loading (bool): flag - some sensors require loading (e.g.
-            for defining their integration subdomain) after the FlowSolver
-            they are attached to is initialized.
+    Attributes
+    ----------
+    sensor_type :
+        Which field component this sensor extracts.
+    require_loading :
+        ``True`` if :meth:`load` must be called before the first :meth:`eval`
+        (e.g. integral sensors that need a subdomain).
     """
 
     sensor_type: SENSOR_TYPE
     require_loading: bool
 
     @abstractmethod
-    def eval(self, up):
-        # is it eval(up) or eval(u,v,p)? Absolutely AVOID split/merge in eval
-        """Evaluate measurement value from sensor on (mixed) field (u,p)
-        This function is going to be called a high number
-        of times, so it needs to be optimized.
-        The user is responsible for the parallelism compatibility
-        (see for example flu.MpiUtils.peval)"""
+    def eval(self, up: dolfin.Function) -> float:
+        """Return the scalar measurement from the mixed field ``(u, p)``.
+
+        Called once per time step; implementations must be MPI-compatible
+        (see :func:`utils.mpi.peval` for point evaluations).
+
+        Parameters
+        ----------
+        up :
+            Mixed-space dolfin.Function holding the current ``(u, p)`` state.
+
+        Returns
+        -------
+        float
+            Scalar sensor reading.
+        """
         pass
 
 
 @dataclass(kw_only=True)
 class SensorPoint(Sensor):
-    """Pointwise probe. It extracts information from the given field
-    at a given 2D point _self.position_.
+    """Pointwise probe that reads a single field component at a 2D location.
 
-    Args:
-        position (NDArray[np.float64]): position of probe
-        require_loading (bool) = False: no loading required
+    Parameters
+    ----------
+    sensor_type :
+        Which component to read (U, V, or P).
+    position :
+        2D probe location as ``[x, y]``.
     """
 
     position: NDArray[np.float64]
     require_loading: bool = False
 
-    def eval(self, up):
+    def eval(self, up: dolfin.Function) -> float:
         # warning: need to be compatible with parallel
-        return flu.MpiUtils.peval(up, dolfin.Point(self.position))[self.sensor_type]
+        return peval(up, dolfin.Point(self.position))[self.sensor_type]
         # for example, do not:
         # return up(self.position[0], self.position[1])[self.sensor_type]
 
 
 @dataclass(kw_only=True)
 class SensorIntegral(Sensor):
-    """Abstract base class for sensors performing integration on a subdomain,
-     providing the abstract method _load_. A SensorIntegral always require loading,
-     which corresponds to initializing a _dolfin.SubDomain_ and a _dolfin.Measure_.
+    """Abstract base class for sensors that integrate a quantity over a subdomain.
 
-    Args:
-        sensor_index (int): sensor index for marking the integration subdomain. If
-            instantiating several sensors, they should not be equal
-        ds (dolfin.Measure): curve element enabling dolfin integration
-        subdomain (dolfin.SubDomain): subdomain to integrate (1D or 2D)
-        require_loading (bool) = True: SensorIntegral always require loading
+    Subclasses must implement :meth:`load` (to build the subdomain and measure)
+    and :meth:`linear_form` (to define the integrand).
+
+    Attributes
+    ----------
+    sensor_index :
+        Integer tag used to mark the integration subdomain.  Must be unique
+        across all sensors attached to the same FlowSolver.
+    ds :
+        Integration measure (set by :meth:`load`).
+    subdomain :
+        Marked subdomain (set by :meth:`load`).
     """
 
     ds: Optional[dolfin.Measure] = None
@@ -93,30 +124,86 @@ class SensorIntegral(Sensor):
     require_loading: bool = True
 
     @abstractmethod
-    def load(self) -> None:
-        """Define and mark subdomain, define integration element ds or dx."""
+    def load(self, flowsolver: FlowSolver) -> None:
+        """Build the integration subdomain and measure from the live FlowSolver.
+
+        Must be called once after the FlowSolver is initialised, before the
+        first call to :meth:`eval`.  Implementations should populate
+        ``self.subdomain`` and ``self.ds``.
+
+        Parameters
+        ----------
+        flowsolver :
+            The live FlowSolver providing the mesh and boundary markers.
+        """
         pass
 
+    @abstractmethod
+    def linear_form(self, v: Any) -> Any:
+        """Return the UFL form that defines this sensor's measurement.
 
-@dataclass
+        The form must be linear in ``v``.  Two usage modes:
+
+        - ``v`` is a ``dolfin.Function``: ``dolfin.assemble(linear_form(v))``
+          returns the scalar measurement.
+        - ``v`` is a ``dolfin.TestFunction``: ``dolfin.assemble(linear_form(v))``
+          returns the corresponding row of the C matrix.
+
+        Requires :meth:`load` to have been called first.
+
+        Parameters
+        ----------
+        v :
+            A dolfin Function or TestFunction on the mixed space W.
+
+        Returns
+        -------
+        ufl.Form
+            UFL form linear in ``v``.
+        """
+        pass
+
+    def eval(self, up: dolfin.Function) -> float:
+        """Assemble linear_form over the loaded subdomain and return the scalar result."""
+        return dolfin.assemble(self.linear_form(up))
+
+
+@dataclass(kw_only=True)
 class SensorHorizontalWallShear(SensorIntegral):
-    """Cavity sensor, integrating the wall shear stress (dv/dx2) on a
-    portion of the channel bottom wall.
+    """Sensor that integrates the wall shear stress ``∂v/∂x₂`` along a bottom-wall segment.
 
-    Args:
-        x_sensor_left (float): left x-limit of the sensor
-        x_sensor_right (float): right x-limit of the sensor
-        y_sensor (float): height of the sensor
+    Parameters
+    ----------
+    sensor_type :
+        Component to measure (typically ``SENSOR_TYPE.OTHER``).
+    x_sensor_left :
+        Left x-limit of the integration segment.
+    x_sensor_right :
+        Right x-limit of the integration segment.
+    y_sensor :
+        Wall height (y-coordinate of the boundary segment).
     """
 
     x_sensor_left: float = 1.0
     x_sensor_right: float = 1.1
     y_sensor: float = 0.0
 
-    def eval(self, up):
-        return dolfin.assemble(up.dx(1)[0] * self.ds(int(self.sensor_index)))
+    def linear_form(self, v: Any) -> Any:
+        """Return the UFL form integrating ∂v[0]/∂x[1] over the wall segment.
 
-    def load(self, flowsolver):
+        Integrates the wall-normal derivative of the streamwise velocity
+        component (v[0] = u_x) along the marked horizontal boundary segment.
+        """
+        return v[0].dx(1) * self.ds(self.sensor_index)
+
+    def load(self, flowsolver: FlowSolver) -> None:
+        """Mark the wall segment and build the boundary measure ``self.ds``.
+
+        Parameters
+        ----------
+        flowsolver :
+            The live FlowSolver providing the mesh.
+        """
         sensor_subdomain = dolfin.CompiledSubDomain(
             "on_boundary && near(x[1], y_sensor, MESH_TOL) && x[0]>=x_sensor_left && x[0]<=x_sensor_right",
             MESH_TOL=dolfin.DOLFIN_EPS,
@@ -128,9 +215,6 @@ class SensorHorizontalWallShear(SensorIntegral):
         sensor_mark = dolfin.MeshFunction(
             "size_t", flowsolver.mesh, flowsolver.mesh.topology().dim() - 1
         )
-
-        if self.sensor_index is None:
-            self.sensor_index = SENSOR_INDEX_DEFAULT
 
         sensor_subdomain.mark(sensor_mark, self.sensor_index)
         self.subdomain = sensor_subdomain

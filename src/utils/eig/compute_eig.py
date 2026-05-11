@@ -5,24 +5,16 @@ Warning: sometimes compulsory to run "mpirun -n 1 python eig_utils.py"
 Warning: the function needs a few adjustments for running in parallel (~L216)
 '''
 
-import time
-from pathlib import Path
-
-import numpy as np
-import scipy as scp
-import scipy.sparse as spr
-import petsc4py
-from petsc4py import PETSc
-from slepc4py import SLEPc
-
 #from dolfin import *
 
-import functools
 #import matplotlib.pyplot as plt
 #from matplotlib import cm
+import time
 
-import pdb
-import warnings
+import numpy as np
+import scipy.sparse as spr
+from petsc4py import PETSc
+from slepc4py import SLEPc
 
 from utils.eig.eig_utils import *
 

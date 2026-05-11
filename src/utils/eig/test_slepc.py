@@ -1,10 +1,9 @@
-from pathlib import Path
 
 import scipy.sparse as spr
 from petsc4py import PETSc
 from slepc4py import SLEPc
 
-from utils.eig.eig_utils import get_mat_vp_slepc, sparse_to_petscmat
+from utils.eig.eig_utils import sparse_to_petscmat
 
 
 def main():

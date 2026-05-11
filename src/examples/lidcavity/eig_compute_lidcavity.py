@@ -4,8 +4,8 @@ Eigenvalues utilities
 Warning: does not run with MPI
 ----------------------------------------------------------------------
 Warning: these functions should be run in a dedicated slepc4py environment,
-including: slepc4py=*=*complex*, scipy, matplotlib, conda-build
-with conda-develop src
+including: slepc4py=*=*complex*, scipy, matplotlib
+Install with: pip install -e . --no-deps --no-build-isolation
 ----------------------------------------------------------------------
 """
 
@@ -22,7 +22,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # import scipy as scp
-import scipy.io as sio
 import scipy.sparse as spr
 from petsc4py import PETSc
 from slepc4py import SLEPc

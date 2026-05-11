@@ -1,0 +1,20 @@
+name: Fast Tests
+on: [push, pull_request]
+jobs:
+  test:
+    defaults:
+      run:
+        shell: bash -l {0}
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment.yml
+          activate-environment: "fenics"
+          auto-activate: false
+      - run: pip install -e . --no-deps --no-build-isolation --quiet
+      - run: pip install pytest-cov --quiet
+      - run: pytest tests/ -m "not slow and not mpi" -q --cov=flowcontrol --cov-report=term-missing

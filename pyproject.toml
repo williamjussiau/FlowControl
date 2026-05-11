@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flowcontrol"
+version = "0.1.0"
+description = "Flow simulation and feedback control with FEniCS/dolfin"
+authors = [{name = "William Jussiau", email = "william.jussiau@gmail.com"}]
+license = {file = "LICENSE.txt"}
+readme = "README.md"
+requires-python = ">=3.10"
+# FEniCS 2019.1.0 and its transitive dependencies (dolfin, petsc4py, slepc4py)
+# are conda-only and cannot be declared here.  Install the full environment with:
+#   conda env create -n fenics --file environment.yml
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.14",
+    "pandas>=2.2",
+    "control>=0.10",
+    "matplotlib",
+    "joblib",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+
+[project.optional-dependencies]
+# Optional dependencies for optimization algorithms
+optim_algs = ["smt>=1.0", "blackbox-opt>=1.0"]
+# Optional dependencies for mesh generation
+mesh = ["gmsh>=4.0", "meshio>=4.0", "python-gmsh"]
+# Dev/test dependencies
+dev = ["pytest", "pytest-cov"]
+# All optional dependencies
+all = ["flowcontrol[optim_algs,mesh]"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q -m 'not slow and not mpi'"
+markers = [
+    "slow: expensive simulations (deselect with -m 'not slow')",
+    "mpi: requires mpirun (deselect with -m 'not mpi')",
+]

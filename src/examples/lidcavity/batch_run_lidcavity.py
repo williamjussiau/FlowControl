@@ -1,6 +1,9 @@
-from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
 from pathlib import Path
+
 import numpy as np
+
+from examples.lidcavity.compute_steady_state_increasing_Re import Re_final as Re
+
 
 def run_lidcavity_with_ic(Re, xloc, yloc, radius, amplitude, save_dir):
     import logging
