@@ -50,7 +50,7 @@ class FlowExporter:
         Keys used: ``"U_restart"``, ``"Uprev_restart"``, ``"P_restart"``,
         ``"timeseries"``.
     fields:
-        Shared FlowFieldCollection. ``fields.STEADY.u/p`` are read for
+        Shared FlowFieldCollection. ``fields.U0`` and ``fields.P0`` are read for
         base-flow reconstruction; ``fields.Usave``, ``fields.Usave_n``,
         and ``fields.Psave`` are created lazily on first export.
     V:

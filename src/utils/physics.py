@@ -31,7 +31,6 @@ def compute_divergence(u: Function, P: FunctionSpace) -> Function:
 
 def get_div0_u(
     V: FunctionSpace,
-    P: FunctionSpace,
     xloc: float,
     yloc: float,
     size: float,

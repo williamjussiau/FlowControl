@@ -682,7 +682,8 @@ class FlowSolver(ABC):
             # f_n_field caches the body force from the previous step so that
             # _cn() can average ½(f^{n+1} + f^n) for second-order accuracy.
             # Initialized to zero (correct for the very first step).
-            self.f_n_field = dolfin.Function(self.W.sub(0).collapse())
+            self._V_vel = self.W.sub(0).collapse()
+            self.f_n_field = dolfin.Function(self._V_vel)
 
         for order in orders:
             extra = {"f_n": self.f_n_field} if order == "cn" else {}
@@ -752,9 +753,8 @@ class FlowSolver(ABC):
         # Cache body force for CN averaging: project current f into f_n_field
         # so the next step can use ½(f^{n+1} + f^n).
         if self.params_solver.time_scheme == "cn":
-            V_vel = self.W.sub(0).collapse()
-            dolfin.project(
-                self._gather_actuators_expressions(), V_vel, function=self.f_n_field
+            self.f_n_field.assign(
+                dolfin.project(self._gather_actuators_expressions(), self._V_vel)
             )
 
         # Measure
@@ -907,7 +907,7 @@ class FlowSolver(ABC):
 
     def _perturbation_div0(self, xloc: float = 0.0, yloc: float = 0.0, radius: float = 1.0) -> dolfin.Function:
         """Build a divergence-free Gaussian perturbation field merged with the base-flow pressure."""
-        u_nodiv = get_div0_u(self.V, self.P, xloc=xloc, yloc=yloc, size=radius)
+        u_nodiv = get_div0_u(self.V, xloc=xloc, yloc=yloc, size=radius)
         p_default = projectm(self.fields.P0, self.P)
         return self.merge(u=u_nodiv, p=p_default)
 
