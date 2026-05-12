@@ -1,6 +1,6 @@
 ## Conventions in the code
 * Before every method name, the `_` prefix is used whenever the method is not intended to be used outside of the body of the class.
-* `U, P` (capital) refer to the full fields $U(x,t), P(x,t)$, while `u, p` (small) refer to the perturbation fields $u'(x,t), p'(x,t)$ (see [Numerical Details](numerical-details.md)). For boundary conditions, `BC, bc` follow the same convention, and more generally, all names refering to flow fields is following the convention.
+* `U, P` (capital) refer to the full fields $U(x,t), P(x,t)$, while `u, p` (small) refer to the perturbation fields $u'(x,t), p'(x,t)$ (see [Numerical Details](numerical-details.md)). For boundary conditions, `BC, bc` follow the same convention, and more generally, all names referring to flow fields follow the convention.
 
 
 ## Advanced uses
@@ -9,7 +9,7 @@
 
 ---
 #### Parameter classes
-A handful of parameters are embedded in dataclasses prefixed with `Param*`, defined in the file `flowsolverparameters.py`: 
+A handful of parameters are embedded in dataclasses prefixed with `Param*`, defined in the module `flowsolverparameters`: 
 ```py
 ParamFlow
 ParamMesh
@@ -76,7 +76,7 @@ _default_steady_state_initial_guess(self) -> dolfin.UserExpression
 
 ---
 #### Inlet flow profile
-By default, the inlet flow profile is uniform, with velocity $(U_\infty, V_\infty) = (Uinf, 0)$ where Uinf is `ParamFlow.uinf`. This default profile may be modified in the method `make_BCs` with a `dolfin.Expression`. 
+By default, the inlet flow profile is uniform, with velocity $(U_\infty, V_\infty) = (Uinf, 0)$ where Uinf is `ParamFlow.uinf`. This default profile may be modified in the method `_make_BCs` with a `dolfin.Expression`. 
 
 The perturbation velocity boundary condition on this boundary is always $(0, 0)$.
 
@@ -112,7 +112,7 @@ The input `u_ctrl` may be defined by hand or stem from a controller in closed-lo
 
 Actuator have an assigned type, defined as an integer enumeration: `ACTUATOR_TYPE(IntEnum)`. It may be one of the following:
 * `ACTUATOR_TYPE.FORCE`: the actuator provides a volumic forcing. Its expression is automatically included in the momentum equation (in variational form).
-* `ACTUATOR_TYPE.BC`: the actuator modifies the boundary conditions dynamically. It should be reflected by the user when overriding `_make_boundaries(), _make_bcs()`. An example can be found in `examples/cylinder/cylinderflowsolver.py`:
+* `ACTUATOR_TYPE.BC`: the actuator modifies the boundary conditions dynamically. It should be reflected by the user when overriding `_make_boundaries(), _make_bcs()`. An example can be found in `src/examples/cylinder/cylinderflowsolver.py`:
 ```py
 def _make_bcs(self):
     ...
@@ -144,24 +144,18 @@ $${v_{act}}({x}, t) =  -  \dfrac{(x_1-l)(x_1+l)}{l^2} u(t)$$, with $l = \frac{1}
 
 _FEniCS syntax:_
 ```py
-def load_expression(self, flowsolver):
-    L = (
-        1
-        / 2
-        * flowsolver.params_flow.user_data["D"]
-        * np.sin(1 / 2 * self.angular_size_deg * dolfin.pi / 180)
-    )
+def _load_expression(self, V: dolfin.FunctionSpace, mesh: dolfin.Mesh) -> dolfin.Expression:
     expression = dolfin.Expression(
         [
             "0",
-            "(x[0]>=L || x[0] <=-L) ? 0 : u_ctrl * -1*(x[0]+L)*(x[0]-L) / (L*L)",
+            "(x[0]-x0>=L || x[0]-x0<=-L) ? 0 : u_ctrl * -1*(x[0]-x0+L)*(x[0]-x0-L) / (L*L)",
         ],
-        element=flowsolver.V.ufl_element(),
-        L=L,
+        element=V.ufl_element(),
+        L=self.width,
+        x0=self.position_x,
         u_ctrl=0.0,
     )
-
-    self.expression = expression
+    return expression
 ```
 
 
@@ -173,13 +167,13 @@ $$B({x})u(t)=\left[ 0, \eta \exp\left( \frac{\left(x_1 - x_1^0\right)^2 + \left(
 
 _FEniCS syntax:_
 ```py
-def load_expression(self, flowsolver):
+def _load_expression(self, V: dolfin.FunctionSpace, mesh: dolfin.Mesh) -> dolfin.Expression:
     expression = dolfin.Expression(
         [
             "0",
             "u_ctrl * eta*exp(-0.5*((x[0]-x10)*(x[0]-x10)+(x[1]-x20)*(x[1]-x20))/(sig*sig))",
         ],
-        element=flowsolver.V.ufl_element(),
+        element=V.ufl_element(),
         eta=1,
         sig=self.sigma,
         x10=self.position[0],
@@ -187,10 +181,10 @@ def load_expression(self, flowsolver):
         u_ctrl=1.0,
     )
 
-    BtB = dolfin.norm(expression, mesh=flowsolver.mesh)
+    BtB = dolfin.norm(expression, mesh=mesh)
     expression.eta = 1 / BtB
     expression.u_ctrl = 0.0
-    self.expression = expression
+    return expression
 ```
 
 
@@ -254,7 +248,7 @@ $y(t) = \int_{x \in S} \frac{\partial u_1}{\partial x_2} dx$
 
 _FEniCS syntax:_
 ```py
-def eval(self, up):
+def eval(self, up: dolfin.Function) -> float:
     return dolfin.assemble(up.dx(1)[0] * self.ds(int(self.sensor_index)))
 ```
 
@@ -308,12 +302,12 @@ When saving several time steps, a single xdmf file (and its h5 counterpart) is u
 
 
 #### Content
-Several full fields fields are saved simultaneously: $U(t)$ (current velocity `U`), $U(t-\delta t$) (previous velocity `Uprev`), $P(t)$ (current pressure `P`). Note that those fields are full fields, and not perturbation fields. When computed, the base flow is automatically saved in the subfolder `steady` of the path `ParamSave.data_output`.
+Several full fields fields are saved simultaneously: $U(t)$ (current velocity `U`), $U(t-\delta t)$ (previous velocity `Uprev`), $P(t)$ (current pressure `P`). Note that those fields are full fields, and not perturbation fields. When computed, the base flow is automatically saved in the subfolder `steady` of the path `ParamSave.data_output`.
 
 
 
 ### Start from initial condition (IC) at $t=0$
-At every simulated time step (starting from $t=0$, with `ParamTime.Tstart=0`), we evaluate whether the step is a multiple of `ParamSave.save_every`. If it is, the current field is saved as a `xdmf/h5` file. The file structure is summarized below. 
+At every simulated time step (starting from $t=0$ with `ParamTime.Tstart=0.0`), we evaluate whether the step is a multiple of `ParamSave.save_every`. If it is, the current field is saved as an `xdmf/h5` file. The file structure is summarized below. 
 
 <p align="center">
 <img src="https://github.com/user-attachments/assets/14fc68ee-7572-4e21-9c3a-59063612bf9d" alt="Illustration of the saving process" width="600" align=center/>
@@ -347,15 +341,24 @@ It is only possible to restart from a time instant that was actually saved (i.e.
 
 #### Automatic restart (recommended)
 
-At the end of a simulation, call `fs.write_timeseries()` — this writes a JSON sidecar file (`meta_restart*.json`) into `path_out` that records the time grid, time step, and number of saved checkpoints. On restart, simply set `ParamTime.Tstart` to the desired restart time and call `initialize_time_stepping(Tstart=...)`. The solver scans `path_out` for a matching sidecar automatically:
+During time-stepping, a JSON sidecar file (`meta_restart*.json`) is written to `path_out` at every checkpoint via `FlowExporter.write_metadata()`. This file records the time grid (`Tstart`, `dt`, `save_every`), the number of saved checkpoints, and the restart order. To restart, construct a new `FlowSolver` with `ParamTime.Tstart` set to the desired restart time, then call `initialize_time_stepping()` with that same time. The solver scans `path_out` for a matching sidecar automatically:
 
 ```py
-fs2 = CylinderFlowSolver(**params, Tstart=T_restart)
+# First run: produces checkpoints and JSON sidecar
+fs = CylinderFlowSolver(**params)
+...  # run simulation, checkpoints written automatically
+
+# Restart: Tstart must match a saved checkpoint
+params_time_restart = flowsolverparameters.ParamTime(
+    num_steps=..., dt=..., Tstart=T_restart
+)
+params_restart = {..., params_time=params_time_restart, ...}
+fs2 = CylinderFlowSolver(**params_restart)
 fs2.load_steady_state()
-fs2.initialize_time_stepping(Tstart=T_restart)
+fs2.initialize_time_stepping(Tstart=fs2.params_time.Tstart)
 ```
 
-No `ParamRestart` is needed. An example is in `examples/cylinder/cylinderflowsolver.py`.
+No `ParamRestart` is needed. An example is in `src/examples/cylinder/cylinderflowsolver.py`.
 
 #### Legacy restart (manual)
 

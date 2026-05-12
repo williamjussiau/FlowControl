@@ -34,7 +34,7 @@ Install with: `pip install flowcontrol[optim_algs,mesh]` or `pip install flowcon
 After setting up the conda environment, test the installation:
 
 1. Try importing FEniCS: `import dolfin`
-2. Run examples from the `examples` folder:
+2. Run examples from the `src/examples` folder:
    - `cylinder/run_cylinder_example.py` and `cavity/run_cavity_example.py` for time simulations
    - `mpitest/demo_poisson.py` with MPI (e.g., `mpirun -np 2 python demo_poisson.py`) to check parallel tools
 

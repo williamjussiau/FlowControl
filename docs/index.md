@@ -10,5 +10,4 @@ FlowControl is a Python toolbox for simulating and controlling 2D incompressible
 
 ## Reference
 
-- [API Documentation](api.md) — Core classes and modules
 - [Examples](examples.md) — Benchmark flow simulations

@@ -54,3 +54,5 @@ _make_function_spaces(self) -> tuple[dolfin.FunctionSpace, ...]
 ```
 
 Attempting to use nodal-enriched (or *bubble*) elements is not straightforward and may break parts of the code.
+
+To add a new time-integration scheme, subclass `NSForms` and add a new private method (e.g., `_my_scheme`) implementing your variational form, then extend the `transient()` dispatcher to recognize your scheme identifier. For example, Crank-Nicolson (``"cn"``) and BDF2 (``2``) are implemented via `_cn()` and `_order2()` methods respectively. Finally, pass your custom `NSForms` instance to the `FlowSolver` constructor.

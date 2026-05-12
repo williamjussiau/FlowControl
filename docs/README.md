@@ -10,7 +10,7 @@ FlowControl is an open-source toolbox for simulating and controlling 2D incompre
 - [Code Utility](code-utility.md) — Utility functions surrounding the code
 - [Numerical Details](numerical-details.md) — Details on the implementation
 - [Third-party Tools](third-party-tools.md) — Tools for mesh generation and visualization
-- [Examples](Examples.md) — Showcase of benchmark flows
+- [Examples](examples.md) — Showcase of benchmark flows
 - [FAQ](FAQ.md) — Frequently asked questions and debug ideas
 
 <p align="center">

@@ -88,7 +88,7 @@ A draft is given below. See the folder `examples` for more exhaustive code:
 ```python
 # Instantiate and initialize FlowSolver object
 fs = CylinderFlowSolver(...)
-fs.compute_steady_state(...)
+fs.compute_steady_state(u_ctrl=[0.0, 0.0])
 fs.initialize_time_stepping(...)
 
 # Instantiate Controller (e.g. load from .mat file)

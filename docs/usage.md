@@ -17,10 +17,10 @@ pytest tests/test_controller.py
 
 ```bash
 # Serial simulation
-python src/examples/cylinder/run_cylinder.py
+python src/examples/cylinder/run_cylinder_example.py
 
 # Parallel simulation (MPI)
-mpirun -n 4 python src/examples/cylinder/run_cylinder.py
+mpirun -n 4 python src/examples/cylinder/run_cylinder_example.py
 ```
 
 ## Configuration

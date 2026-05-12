@@ -4,7 +4,7 @@
 
 No meshing tools are shipped with this code, but [gmsh](https://gmsh.info/) (and [its Python API](https://pypi.org/project/gmsh/)) is suggested for generating meshes. The mesh should be exported to xdmf format, which can be generated thanks to [meshio](https://github.com/nschloe/meshio/tree/main). 
 
-Beware that the user is the sole responsible for the coherence of the mesh with respect to their definition of the boundaries (overriden _make_boundaries() method) and boundary conditions (overriden _make_bcs() method).
+Beware that the user is the sole responsible for the coherence of the mesh with respect to their definition of the boundaries (overridden `_make_boundaries()` method) and boundary conditions (overridden `_make_bcs()` method).
 
 For mesh conversion, the tool FEconv is also suggested - see [the Github repo](https://github.com/victorsndvg/FEconv) and [the website](https://victorsndvg.github.io/FEconv/description.xhtml). It was especially useful to convert meshes from FreeFem++ to FEniCS, in order to replicate results.
 

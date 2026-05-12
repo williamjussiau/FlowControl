@@ -55,7 +55,7 @@ A third variant `get_frequency_response_mpi` uses PETSc/MUMPS for parallel solve
 
 - `export_subdomains(fs.mesh, fs.boundaries.subdomain, path)` — export boundary subdomain markers to XDMF for inspection in Paraview. Import directly from `utils.io`, or via the convenience aggregator `import utils.utils_flowsolver as flu`.
 - `utils.io` — save/load sparse matrices and frequency response data to disk.
-- `utils.mpi.MpiUtils` — MPI broadcast helpers (e.g. `MpiUtils.mpi_broadcast` to gather sensor values on all ranks).
+- `utils.mpi` — MPI utilities including `mpi_broadcast` to gather sensor values on all ranks.
 
 
 ## Optimization Backend
