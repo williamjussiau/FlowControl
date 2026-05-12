@@ -59,8 +59,9 @@ For the cylinder case, we give an example below. We create two actuators forcing
 
 ```python
 # Actuators
-actuator_bc_1 = ActuatorBCParabolicV(angular_size_deg=10)
-actuator_bc_2 = ActuatorBCParabolicV(angular_size_deg=10)
+width = ActuatorBCParabolicV.angular_size_deg_to_width(angular_size_deg=10, cylinder_radius=0.5)
+actuator_bc_1 = ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_up")
+actuator_bc_2 = ActuatorBCParabolicV(width=width, position_x=0.0, boundary_name="actuator_lo")
 # Sensors
 sensor_feedback = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3, 0]))
 sensor_perf_1 = SensorPoint(sensor_type=SENSOR_TYPE.V, position=np.array([3.1, 1]))

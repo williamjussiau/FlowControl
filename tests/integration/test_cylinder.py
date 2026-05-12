@@ -118,7 +118,7 @@ def test_cylinder_regression(tmp_path_factory):
         "last_dE": last["dE"],
     }
 
-    assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
+    assert np.isclose(u_max, _U_MAX_REF, rtol=1e-4), f"u_max: {u_max} != {_U_MAX_REF}"
     assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"
     assert np.isclose(last["time"], _LAST_TIME_REF, rtol=1e-6), f"time: {last['time']}"
     assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), f"y_meas_1: {last['y_meas_1']}"

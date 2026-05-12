@@ -37,18 +37,15 @@ F = dot((3 * u - 4 * u_n + u_nn) / (2 * dt), v) * dx
     - div(u) * q * dx
 ```
 
-When one or several actuators are used, an additional term `-dot(f, v) * dx` is appended to the variational form, where `f` contains all the *volumic force* actuators contributions (i.e. `Actuator`s with the type `ACTUATOR_TYPE.FORCE`).
+When one or several actuators are used, an additional body-force term is added to the variational form, where `f` contains all the *volumic force* actuator contributions (i.e. `Actuator`s with type `ACTUATOR_TYPE.FORCE`). For the BDF1/BDF2 scheme this term is `-dot(f, v) * dx`. For the Crank-Nicolson scheme the body force is time-averaged between the current and previous steps: `-½ dot(f, v) * dx - ½ dot(f_n, v) * dx`, where `f_n` is the force from the previous time step. The CN scheme is self-starting — no BDF1 warm-up step is needed.
 
 ## How to Modify Numerical Schemes?
 
-To some extent, the toolbox aims at making the equations, numerical integration schemes and solvers replaceable by user-defined ones. For example, one may override the following methods:
+To some extent, the toolbox aims at making the equations, numerical integration schemes and solvers replaceable by user-defined ones. Variational forms are encapsulated in the `NSForms` class (`src/flowcontrol/nsforms.py`); to use custom forms, subclass `NSForms` and pass the instance when constructing the `FlowSolver`. The linear solver can be replaced by overriding the following method from `FlowSolver`:
 
 ```python
-_make_varf(self, order: int, **kwargs) -> dolfin.Form
-_make_solver(self, **kwargs) -> dolfin.KrylovSolver | dolfin.LUSolver
+_make_solver(self, order: int | str) -> dolfin.KrylovSolver | dolfin.LUSolver
 ```
-
-from the abstract class `FlowSolver` to implement new schemes or solvers.
 
 The FEM elements may be replaced with elements available within FEniCS by overriding:
 

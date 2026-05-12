@@ -40,6 +40,3 @@ After setting up the conda environment, test the installation:
 
 > ⚠️ If you observe that `mpirun` is excessively slow, see [this thread about MPI and OpenMP](https://fenicsproject.discourse.group/t/mumps-in-parallel-slower-than-in-serial/662).
 
-## Docker :whale:
-
-[Coming soon]

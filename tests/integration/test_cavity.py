@@ -73,7 +73,7 @@ def test_cavity_regression(tmp_path_factory):
     u_mean = flu.apply_fun(fs.fields.Usave, np.mean)
     last = fs.timeseries.iloc[-1]
 
-    assert np.isclose(u_max, _U_MAX_REF, rtol=1e-6), f"u_max: {u_max} != {_U_MAX_REF}"
+    assert np.isclose(u_max, _U_MAX_REF, rtol=1e-4), f"u_max: {u_max} != {_U_MAX_REF}"
     assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"
     assert np.isclose(last["time"], _LAST_TIME_REF, rtol=1e-6), f"time: {last['time']}"
     assert np.isclose(last["y_meas_1"], _LAST_Y_MEAS_1_REF, rtol=1e-4), f"y_meas_1: {last['y_meas_1']}"

@@ -43,7 +43,6 @@ self._mark_boundaries()
 self._load_actuators()
 self._load_sensors()
 self.bc = self._make_bcs()  # @abstract
-self.BC = self._make_BCs()
 ```
 
 
@@ -69,7 +68,7 @@ params_ic = flowsolverparameters.ParamIC(
 #### Base flow computation
 Good practice is to do Picard iterations, then Newton
 
-Initial guess for Picard only:
+Default initial guess (used when none is provided):
 ```py
 _default_steady_state_initial_guess(self) -> dolfin.UserExpression
 ```
@@ -88,7 +87,7 @@ Some helper classes were defined to embed flow fields more easily, especially be
 
 In order to split a `up` field into the corresponding `u, p` fields, the method `dolfin.Function.split` may be used. In order to reverse the operation and merge `u, p` into a single field `up`, the method `FlowSolver.merge` is advised.
 
-In addition, an object `FlowSolver` holds a `FlowFieldCollection` dataclass to gather all fields into a single structure for easier access. `FlowFieldCollection` contains lots of types of fields, among which the base flow, the initial perturbation, the current and previous perturbations... By default, the collection can be accessed through the attribute `FlowField.fields`.
+In addition, an object `FlowSolver` holds a `FlowFieldCollection` dataclass to gather all fields into a single structure for easier access. `FlowFieldCollection` contains lots of types of fields, among which the base flow, the initial perturbation, the current and previous perturbations... By default, the collection can be accessed through the attribute `FlowSolver.fields`.
 
 
 
@@ -197,11 +196,15 @@ def load_expression(self, flowsolver):
 
 
 3. Define new actuators
-One can readily define a new actuator by inheriting the base class `Actuator` and providing a dedicated expression through the `load_expression(self, flowsolver)` method.
+One can readily define a new actuator by inheriting the base class `Actuator` and overriding the abstract method `_load_expression`:
+
+```py
+def _load_expression(self, V: dolfin.FunctionSpace, mesh: dolfin.Mesh) -> dolfin.Expression:
+```
 
 :warning: Do not forget
-* Include a `u_ctrl` field in the `dolfin.Expression`. Its value may be changed in the body of the method (see `ActuatorForceGaussianV`), but it should be 0.0 when the method `load_expression(self, flowsolver)` exits.
-* Assign `self.expression = expression` at the end of `def load_expression(self, flowsolver)`.
+* Include a `u_ctrl` field in the `dolfin.Expression`. Its value may be changed in the body of the method (see `ActuatorForceGaussianV`), but it should be `0.0` when the method exits.
+* Return the expression at the end of `_load_expression`.
 
 
 
@@ -237,9 +240,11 @@ $y(t) = u_1(x_s, t)$ or $y(t) = u_2(x_s, t)$ or $y(t) = p(x_s, t)$ where $x_s$ i
 
 _FEniCS syntax:_
 ```py
-def eval(self, up):
-    return up(self.position[0], self.position[1])[self.sensor_type]
+def eval(self, up: dolfin.Function) -> float:
+    return peval(up, dolfin.Point(self.position))[self.sensor_type]
 ```
+
+> **Note:** Direct point evaluation `up(x, y)` is not MPI-safe. Always use `peval` from `utils.mpi` for point probes.
 
 * For a `SensorHorizontalWallShear(SensorIntegral)` (where `SensorIntegral` inherits directly from `Sensor`), the definition of the `eval()` method is more complex. First of all, the `load()` function defines a subdomain of integration with a given `index: int` and an associated `ds: dolfin.Measure`. The `eval()` method integrates (`assemble`) on the sensor subdomain (`self.ds(int(self.sensor_index))`) the quantity $\frac{\partial u_1}{\partial x_2}$.
 
@@ -337,16 +342,31 @@ This is particularly important to explain the next section.
 
 
 ### Restart a simulation from an arbitrary time instant $t$
-:warning: In order to restart a simulation from an arbitrary time instant, the process is a bit tricky due to FEniCS' way of saving and retrieving fields from the `xdmf/h5` files.
 
-We assume that we have performed a first simulation starting at time `ParamTime_1.Tstart`, with known parameters `ParamSave_1.save_every` and `ParamTime_1.dt`. In that case, we know that saved time steps correspond to instants multiple of `ParamSave_1.save_every * ParamTime_1.dt`. In consequence, it is only possible to restart a simulation from such a time instant (otherwise leading to an error). In order to perform a second simulation restarting from the first one, we proceed as follows:
-* set `ParamRestart_2.Trestartfrom = ParamTime_1.Tstart`. It indicates to the solver the location of the files to read the fields.
-* set `ParamRestart_2.dt_old` and `ParamRestart.save_every_old` to their corresponding values in `ParamTime_1`. This ensures that the fields are retrieved correctly, and permits changing the time step between the two simulations if necessary.
-* set `ParamTime_2.Tstart` as a multiple of `ParamSave_1.save_every * ParamTime_1.dt`, for example as `ParamTime_1.Tf`. From this information and the previous point, the solver will deduce the right index to read in the `h5` file.
+It is only possible to restart from a time instant that was actually saved (i.e. a multiple of `ParamSave.save_every * ParamTime.dt`).
 
-By doing so, the second simulation should be reading the correct index in the `xdmf/h5` files saved by the first simulation, and use it as an initial condition for starting.
+#### Automatic restart (recommended)
 
-The process is summarized below, and an example can be found in `examples/cylinder/cylindeflowsolver.py`.
+At the end of a simulation, call `fs.write_timeseries()` — this writes a JSON sidecar file (`meta_restart*.json`) into `path_out` that records the time grid, time step, and number of saved checkpoints. On restart, simply set `ParamTime.Tstart` to the desired restart time and call `initialize_time_stepping(Tstart=...)`. The solver scans `path_out` for a matching sidecar automatically:
+
+```py
+fs2 = CylinderFlowSolver(**params, Tstart=T_restart)
+fs2.load_steady_state()
+fs2.initialize_time_stepping(Tstart=T_restart)
+```
+
+No `ParamRestart` is needed. An example is in `examples/cylinder/cylinderflowsolver.py`.
+
+#### Legacy restart (manual)
+
+For simulations run before the JSON sidecar mechanism was introduced, or when the sidecar file is unavailable, provide a `ParamRestart` object:
+* set `ParamRestart.Trestartfrom` to the start time of the original simulation.
+* set `ParamRestart.dt_old` and `ParamRestart.save_every_old` to the values used in the original run.
+* set `ParamTime.Tstart` to the desired restart time (must be a saved checkpoint).
+
+The solver uses these fields to compute the checkpoint index in the `h5` file.
+
+The saving/restarting process is summarized below.
 
 <p align="center">
 <img src="https://github.com/user-attachments/assets/97b65fcd-f1b5-4484-ada6-77e3ab380e95" alt="Illustration of the restarting process from saved files" width="600">
