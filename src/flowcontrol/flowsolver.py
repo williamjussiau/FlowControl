@@ -23,7 +23,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Iterable, Sequence
 
 import dolfin
 import numpy as np
@@ -67,7 +67,7 @@ class FlowSolver(ABC):
         params_mesh: flowsolverparameters.ParamMesh,
         params_control: flowsolverparameters.ParamControl,
         params_ic: flowsolverparameters.ParamIC,
-        params_restart: Optional[flowsolverparameters.ParamRestart] = None,
+        params_restart: flowsolverparameters.ParamRestart | None = None,
         verbose: int = 1,
     ) -> None:
         # Validate parameters
@@ -114,7 +114,7 @@ class FlowSolver(ABC):
         params_mesh: flowsolverparameters.ParamMesh,
         params_control: flowsolverparameters.ParamControl,
         params_ic: flowsolverparameters.ParamIC,
-        params_restart: Optional[flowsolverparameters.ParamRestart] = None,
+        params_restart: flowsolverparameters.ParamRestart | None = None,
     ) -> None:
         """Validate parameter combinations.
 
@@ -342,7 +342,7 @@ class FlowSolver(ABC):
         self,
         u_ctrl: list,
         method: str = "newton",
-        initial_guess: Optional[dolfin.Function] = None,
+        initial_guess: dolfin.Function | None = None,
         max_iter: int = 10,
         **kwargs,
     ) -> None:
@@ -407,7 +407,7 @@ class FlowSolver(ABC):
 
         self._assign_steady_state(U0, P0)
 
-    def load_steady_state(self, path_u_p: Optional[Sequence[Path]] = None) -> None:
+    def load_steady_state(self, path_u_p: Sequence[Path] | None = None) -> None:
         """Load U0/P0 from XDMF files, verify mesh compatibility, and store in fields."""
         paths = path_u_p or (self.paths.U0, self.paths.P0)
         self._check_steady_state_compatible(Path(paths[0]))
@@ -445,7 +445,7 @@ class FlowSolver(ABC):
         self.fields.UP0 = self.merge(U0, P0)
         self.E0 = 0.5 * dolfin.norm(U0, norm_type="L2", mesh=self.mesh) ** 2
 
-    def _define_initial_guess(self, initial_guess: Optional[dolfin.Function] = None) -> dolfin.Function:
+    def _define_initial_guess(self, initial_guess: dolfin.Function | None = None) -> dolfin.Function:
         """Return a valid initial guess for the steady-state solver.
 
         Falls back to a uniform-flow field at uinf when none is provided.
@@ -461,7 +461,7 @@ class FlowSolver(ABC):
 
     # ── Time stepping ─────────────────────────────────────────────────────────
 
-    def initialize_time_stepping(self, Tstart: float = 0.0, ic: Optional[dolfin.Function] = None) -> None:
+    def initialize_time_stepping(self, Tstart: float = 0.0, ic: dolfin.Function | None = None) -> None:
         """Prepare all time-stepping fields and log the initial condition.
 
         Must be called once before the first call to :meth:`step`.  Resets the
@@ -499,7 +499,7 @@ class FlowSolver(ABC):
             dE=self.compute_perturbation_energy(),
         )
 
-    def _initialize_with_ic(self, ic: Optional[dolfin.Function] = None) -> tuple[dolfin.Function, ...]:
+    def _initialize_with_ic(self, ic: dolfin.Function | None = None) -> tuple[dolfin.Function, ...]:
         """Initialise time-stepping fields from an initial condition at t=0.
 
         Starts from zero perturbation when ic is None. A non-zero ParamIC amplitude
@@ -558,7 +558,7 @@ class FlowSolver(ABC):
             return result
         return self._find_restart_from_params(Tstart)
 
-    def _find_restart_from_json(self, Tstart: float) -> Optional[tuple[dict, int, Path]]:
+    def _find_restart_from_json(self, Tstart: float) -> tuple[dict, int, Path] | None:
         """Scan path_out for JSON sidecars and return the one covering Tstart."""
         path_out = self.params_save.path_out
         for json_path in sorted(path_out.glob("meta_restart*.json")):
@@ -700,7 +700,7 @@ class FlowSolver(ABC):
 
         self._up_work = dolfin.Function(self.W)  # reused every step to avoid per-step allocation
 
-    def step(self, u_ctrl: NDArray[np.float64]) -> Optional[NDArray[np.float64]]:
+    def step(self, u_ctrl: NDArray[np.float64]) -> NDArray[np.float64] | None:
         """Advance the simulation by one time step.
 
         Parameters
@@ -828,7 +828,7 @@ class FlowSolver(ABC):
         """Return ½‖u'‖²_L2, the kinetic energy of the current perturbation field."""
         return 0.5 * dolfin.norm(self.fields.u_, norm_type="L2", mesh=self.mesh) ** 2
 
-    def compute_energy_field(self, export: bool = False, filename: Optional[Path | str] = None) -> dolfin.Function:
+    def compute_energy_field(self, export: bool = False, filename: Path | str | None = None) -> dolfin.Function:
         """Project u'·u' onto a P4 space and optionally write it to XDMF.
 
         Returns a scalar energy-density field on the P4 space.

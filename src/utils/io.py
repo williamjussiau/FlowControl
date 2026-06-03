@@ -3,7 +3,7 @@
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import dolfin
 import matplotlib.pyplot as plt
@@ -64,8 +64,8 @@ def export_complex_field(
     V: dolfin.FunctionSpace,
     P: dolfin.FunctionSpace,
     file_prefix: Path,
-    time_steps: Optional[list[float]] = None,
-    parts: Optional[list[str]] = None,
+    time_steps: list[float] | None = None,
+    parts: list[str] | None = None,
 ) -> None:
     """Export complex fields to XDMF files, split into velocity and pressure.
 
@@ -274,7 +274,7 @@ def export_sparse_matrix(
 
 def export_dof_map(
     W: dolfin.FunctionSpace,
-    plotsz: Optional[int] = None,
+    plotsz: int | None = None,
     figname: str | Path = "dofmap.png",
 ) -> None:
     """Save an image showing DOF distribution by subspace (u, v, p) for W."""
@@ -301,8 +301,8 @@ def save_Hw(
     ww: np.ndarray,
     save_dir: Path,
     save_suffix: str = "",
-    input_labels: Optional[list[str]] = None,
-    output_labels: Optional[list[str]] = None,
+    input_labels: list[str] | None = None,
+    output_labels: list[str] | None = None,
 ) -> None:
     """Save frequency response data to .mat files.
 
@@ -369,8 +369,8 @@ def plot_Hw(
     ww: np.ndarray,
     save_dir: Path,
     save_suffix: str = "",
-    input_labels: Optional[list[str]] = None,
-    output_labels: Optional[list[str]] = None,
+    input_labels: list[str] | None = None,
+    output_labels: list[str] | None = None,
 ) -> None:
     """Plot and save Bode diagrams for each (output, input) pair.
 

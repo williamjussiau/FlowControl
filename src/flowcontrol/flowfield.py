@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import dolfin
 
@@ -80,22 +79,22 @@ class FlowFieldCollection:
     """
 
     # Base flow (full field) — linearization point
-    U0: Optional[dolfin.Function] = None
-    P0: Optional[dolfin.Function] = None
-    UP0: Optional[dolfin.Function] = None
+    U0: dolfin.Function | None = None
+    P0: dolfin.Function | None = None
+    UP0: dolfin.Function | None = None
     # Initial condition (pert field)
-    ic: Optional[FlowField] = None
+    ic: FlowField | None = None
     # Current and past solutions (pert field)
-    u_: Optional[dolfin.Function] = None
-    p_: Optional[dolfin.Function] = None
-    up_: Optional[dolfin.Function] = None
-    u_n: Optional[dolfin.Function] = None
-    u_nn: Optional[dolfin.Function] = None
-    p_n: Optional[dolfin.Function] = None
+    u_: dolfin.Function | None = None
+    p_: dolfin.Function | None = None
+    up_: dolfin.Function | None = None
+    u_n: dolfin.Function | None = None
+    u_nn: dolfin.Function | None = None
+    p_n: dolfin.Function | None = None
     # Saved fields (full field)
-    Usave: Optional[dolfin.Function] = None
-    Psave: Optional[dolfin.Function] = None
-    Usave_n: Optional[dolfin.Function] = None
+    Usave: dolfin.Function | None = None
+    Psave: dolfin.Function | None = None
+    Usave_n: dolfin.Function | None = None
 
 
 @dataclass

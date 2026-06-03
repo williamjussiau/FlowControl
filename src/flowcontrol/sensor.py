@@ -15,7 +15,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from flowcontrol.flowsolver import FlowSolver
@@ -118,8 +118,8 @@ class SensorIntegral(Sensor):
         Marked subdomain (set by :meth:`load`).
     """
 
-    ds: Optional[dolfin.Measure] = None
-    subdomain: Optional[dolfin.SubDomain] = None
+    ds: dolfin.Measure | None = None
+    subdomain: dolfin.SubDomain | None = None
     sensor_index: int = SENSOR_INDEX_DEFAULT
     require_loading: bool = True
 

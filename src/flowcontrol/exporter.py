@@ -26,7 +26,6 @@ Typical usage::
 
 import json
 import logging
-from typing import Optional
 
 import dolfin
 import numpy as np
@@ -78,8 +77,8 @@ class FlowExporter:
         self._save_every = save_every
         self._records: list[dict] = []
         self._checkpoints_written: int = 0
-        self._u_cols: Optional[list[str]] = None  # cached on first log() call
-        self._y_cols: Optional[list[str]] = None  # cached on first log() call
+        self._u_cols: list[str] | None = None  # cached on first log() call
+        self._y_cols: list[str] | None = None  # cached on first log() call
 
     # ── Field export ──────────────────────────────────────────────────────────
 

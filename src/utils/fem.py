@@ -17,13 +17,14 @@ projectm = functools.partial(dolfin.project, solver_type="mumps")
 
 
 def apply_fun(u: dolfin.Function, fun: Callable[[np.ndarray], Any]) -> Any:
-    """Apply a numpy function to a dolfin.Function vector."""
-    return fun(u.vector().get_local())
+    """Apply a numpy function to a dolfin.Function vector (MPI-safe).
 
-
-def show_max(u: dolfin.Function, name: str = "") -> None:
-    """Log the max value of a dolfin.Function."""
-    logger.info('Max of vector "%s" is: %f', name, apply_fun(u, np.max))
+    Gathers all rank-local partitions before applying fun, so reductions like
+    np.max or np.mean operate on the full global DOF array on every rank.
+    """
+    local = u.vector().get_local()
+    all_local = dolfin.MPI.comm_world.allgather(local)
+    return fun(np.concatenate(all_local))
 
 
 def print0(*args: Any, **kwargs: Any) -> None:
@@ -85,18 +86,14 @@ def get_subspace_dofs(W: dolfin.FunctionSpace) -> dict[str, np.ndarray]:
     }
 
 
-def summarize_timings(
-    fs: Any, t0: float | None = None, dolfin_timings: bool = False
-) -> None:
+def summarize_timings(fs: Any, t0: float | None = None, dolfin_timings: bool = False) -> None:
     """Log timing summary for a completed FlowSolver run."""
     if fs.iter > 3:
         if t0 is not None:
             logger.info("Total time is: %f", time.time() - t0)
         logger.info("Iteration 1 time     --- %E", fs.timeseries.loc[1, "runtime"])
         logger.info("Iteration 2 time     --- %E", fs.timeseries.loc[2, "runtime"])
-        logger.info(
-            "Mean iteration time  --- %E", np.mean(fs.timeseries.loc[3:, "runtime"])
-        )
+        logger.info("Mean iteration time  --- %E", np.mean(fs.timeseries.loc[3:, "runtime"]))
         logger.info(
             "Time/iter/dof        --- %E",
             np.mean(fs.timeseries.loc[3:, "runtime"]) / fs.W.dim(),

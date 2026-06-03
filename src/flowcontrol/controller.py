@@ -10,7 +10,7 @@ Controller : continuous-time state-space system (subclass of control.StateSpace)
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 import control
 import numpy as np
@@ -34,8 +34,8 @@ class Controller(control.StateSpace):
         B: NDArray[np.float64],
         C: NDArray[np.float64],
         D: NDArray[np.float64],
-        file: Optional[Path] = None,
-        x0: Optional[NDArray[np.float64]] = None,
+        file: Path | None = None,
+        x0: NDArray[np.float64] | None = None,
     ):
         """Initialise a Controller from (A, B, C, D) matrices and an optional initial state.
 
@@ -60,7 +60,7 @@ class Controller(control.StateSpace):
 
     @classmethod
     def from_file(
-        cls, file: Path, x0: Optional[NDArray[np.float64]] = None
+        cls, file: Path, x0: NDArray[np.float64] | None = None
     ) -> Controller:
         """Load a Controller from a ``.mat`` file.
 
@@ -92,8 +92,8 @@ class Controller(control.StateSpace):
         B: NDArray[np.float64],
         C: NDArray[np.float64],
         D: NDArray[np.float64],
-        file: Optional[Path] = None,
-        x0: Optional[NDArray[np.float64]] = None,
+        file: Path | None = None,
+        x0: NDArray[np.float64] | None = None,
     ) -> Controller:
         """Construct a Controller directly from (A, B, C, D) matrices.
 

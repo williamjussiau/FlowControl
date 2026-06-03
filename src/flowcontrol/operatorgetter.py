@@ -5,7 +5,6 @@ linearized operators (A, E, B, C) needed for stability analysis and control desi
 """
 
 import logging
-from typing import Optional
 
 import dolfin
 import numpy as np
@@ -25,9 +24,9 @@ class OperatorGetter:
 
     def get_A(
         self,
-        UP0: Optional[dolfin.Function] = None,
+        UP0: dolfin.Function | None = None,
         autodiff: bool = True,
-        u_ctrl: Optional[NDArray[np.float64]] = None,
+        u_ctrl: NDArray[np.float64] | None = None,
     ) -> dolfin.PETScMatrix:
         """Assemble the linearized dynamic matrix A = -dF/dUP0.
 
@@ -107,7 +106,7 @@ class OperatorGetter:
 
     def get_B(
         self,
-        UP0: Optional[dolfin.Function] = None,
+        UP0: dolfin.Function | None = None,
     ) -> NDArray[np.float64]:
         """Assemble the actuation matrix B.
 
@@ -242,7 +241,7 @@ class OperatorGetter:
     def get_all(
         self,
         autodiff: bool = True,
-        u_ctrl: Optional[NDArray[np.float64]] = None,
+        u_ctrl: NDArray[np.float64] | None = None,
     ) -> tuple:
         """Compute all four state-space operators in one call.
 

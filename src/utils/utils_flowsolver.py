@@ -16,7 +16,6 @@ from utils.fem import (  # noqa: F401, E402
     or_cpp,
     print0,
     projectm,
-    show_max,
     summarize_timings,
 )
 

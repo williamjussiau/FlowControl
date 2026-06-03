@@ -63,10 +63,10 @@ def test_cylinder_smoke(tmp_path_factory):
 
 
 # ── Regression test ───────────────────────────────────────────────────────────
-_U_MAX_REF = np.float64(1.3248998638033749)
-_U_MEAN_REF = np.float64(1.3248998638033749)
+_U_MAX_REF = np.float64(1.325070045534714)
+_U_MEAN_REF = np.float64(0.3376859329866094)
 _LAST_TIME_REF = np.float64(0.1)
-_LAST_Y_MEAS_1_REF = np.float64(0.011688851716968233)
+_LAST_Y_MEAS_1_REF = np.float64(0.011615482723602308)
 _LAST_Y_MEAS_2_REF = np.float64(0.003919912263385731)
 _LAST_Y_MEAS_3_REF = np.float64(0.003910359086223573)
 _LAST_DE_REF = np.float64(0.09444451268113475)

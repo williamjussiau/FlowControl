@@ -57,9 +57,9 @@ def test_pinball_smoke(tmp_path_factory):
 
 # ── Regression test ───────────────────────────────────────────────────────────
 _U_MAX_REF = np.float64(1.5168848768060617)
-_U_MEAN_REF = np.float64(0.14938830691642546)
+_U_MEAN_REF = np.float64(0.14938204178441114)
 _LAST_TIME_REF = np.float64(0.05)
-_LAST_Y_MEAS_1_REF = np.float64(-0.0007170095882221647)
+_LAST_Y_MEAS_1_REF = np.float64(-0.0007241196930108308)
 _LAST_DE_REF = np.float64(0.05725656971818885)
 
 

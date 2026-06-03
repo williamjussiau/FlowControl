@@ -13,7 +13,7 @@ Typical usage::
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import dolfin
 import ufl
@@ -65,8 +65,8 @@ class NSForms:
         U0: dolfin.Function,
         u_n: dolfin.Function,
         f: dolfin.Expression | dolfin.Constant,
-        u_nn: Optional[dolfin.Function] = None,
-        f_n: Optional[dolfin.Function] = None,
+        u_nn: dolfin.Function | None = None,
+        f_n: dolfin.Function | None = None,
     ) -> ufl.Form:
         """Linearized transient NS variational form of given BDF order.
 

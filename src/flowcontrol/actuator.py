@@ -17,7 +17,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from flowcontrol.flowsolver import FlowSolver
@@ -64,7 +64,7 @@ class Actuator(ABC):
     """
 
     actuator_type: ACTUATOR_TYPE
-    expression: Optional[dolfin.Expression] = None
+    expression: dolfin.Expression | None = None
     # only on (u,v) not p if type is force, for BC on syntax of DirichletBC
 
     @abstractmethod
@@ -129,8 +129,8 @@ class ActuatorBC(Actuator):
         :meth:`load_expression`, or manually for legacy callers.
     """
 
-    boundary_name: Optional[str] = None
-    boundary: Optional[dolfin.SubDomain] = None
+    boundary_name: str | None = None
+    boundary: dolfin.SubDomain | None = None
 
     def load_expression(self, flowsolver: FlowSolver) -> dolfin.Expression:
         """Build the actuator expression and resolve the boundary subdomain.

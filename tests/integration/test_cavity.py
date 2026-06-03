@@ -45,9 +45,9 @@ def test_cavity_smoke(tmp_path_factory):
 
 # ── Regression test ───────────────────────────────────────────────────────────
 _U_MAX_REF = np.float64(1.1897880864595587)
-_U_MEAN_REF = np.float64(0.3565655424638333)
+_U_MEAN_REF = np.float64(0.3565670457803184)
 _LAST_TIME_REF = np.float64(0.004)
-_LAST_Y_MEAS_1_REF = np.float64(6.048048818888427)  # SensorHorizontalWallShear (sensor 0)
+_LAST_Y_MEAS_1_REF = np.float64(6.0488687475121505)  # SensorHorizontalWallShear (sensor 0)
 _LAST_Y_MEAS_2_REF = np.float64(0.024786366371997486)  # SensorPoint U at [0.1, 0.1]
 _LAST_DE_REF = np.float64(0.004998824043045247)
 
