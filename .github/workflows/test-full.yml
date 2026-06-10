@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      OMP_NUM_THREADS: 1
     steps:
       - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3

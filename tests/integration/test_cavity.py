@@ -44,12 +44,14 @@ def test_cavity_smoke(tmp_path_factory):
 
 
 # ── Regression test ───────────────────────────────────────────────────────────
+_U0_MAX_REF = np.float64(1.053181755992023)  # TODO: fill after running
+_U0_MEAN_REF = np.float64(0.3497226515169121)  # TODO: fill after running
 _U_MAX_REF = np.float64(1.1897880864595587)
 _U_MEAN_REF = np.float64(0.3565670457803184)
 _LAST_TIME_REF = np.float64(0.004)
 _LAST_Y_MEAS_1_REF = np.float64(6.0488687475121505)  # SensorHorizontalWallShear (sensor 0)
-_LAST_Y_MEAS_2_REF = np.float64(0.024786366371997486)  # SensorPoint U at [0.1, 0.1]
-_LAST_DE_REF = np.float64(0.004998824043045247)
+_LAST_Y_MEAS_2_REF = np.float64(0.024799707355708498)  # SensorPoint U at [0.1, 0.1]
+_LAST_DE_REF = np.float64(0.005000924582291293)
 
 
 @pytest.mark.slow
@@ -62,6 +64,13 @@ def test_cavity_regression(tmp_path_factory):
     fs = CavityFlowSolver.make_default(Re=7500, path_out=path_out, num_steps=10, save_every=5)
     fs.compute_steady_state(method="picard", max_iter=10, tol=1e-7, u_ctrl=[0.0])
     fs.compute_steady_state(method="newton", max_iter=10, u_ctrl=[0.0], initial_guess=fs.fields.UP0)
+
+    u0_max = flu.apply_fun(fs.fields.U0, np.max)
+    u0_mean = flu.apply_fun(fs.fields.U0, np.mean)
+    print(f"[base flow] u0_max={u0_max:.16g}  u0_mean={u0_mean:.16g}")
+    assert np.isclose(u0_max, _U0_MAX_REF, rtol=1e-6), f"u0_max: {u0_max}"
+    assert np.isclose(u0_mean, _U0_MEAN_REF, rtol=1e-6), f"u0_mean: {u0_mean}"
+
     fs.initialize_time_stepping(ic=None)
 
     for _ in range(fs.params_time.num_steps):

@@ -56,11 +56,13 @@ def test_pinball_smoke(tmp_path_factory):
 
 
 # ── Regression test ───────────────────────────────────────────────────────────
+_U0_MAX_REF = np.float64(1.463395784527965)
+_U0_MEAN_REF = np.float64(0.1477130662080712)
 _U_MAX_REF = np.float64(1.5168848768060617)
 _U_MEAN_REF = np.float64(0.14938204178441114)
 _LAST_TIME_REF = np.float64(0.05)
 _LAST_Y_MEAS_1_REF = np.float64(-0.0007241196930108308)
-_LAST_DE_REF = np.float64(0.05725656971818885)
+_LAST_DE_REF = np.float64(0.05722263472621765)
 
 
 @pytest.mark.slow
@@ -84,6 +86,12 @@ def test_pinball_regression(tmp_path_factory):
         u_ctrl=[0.0, 0.0, 0.0],
         initial_guess=fs.fields.UP0,
     )
+
+    u0_max = flu.apply_fun(fs.fields.U0, np.max)
+    u0_mean = flu.apply_fun(fs.fields.U0, np.mean)
+    assert np.isclose(u0_max, _U0_MAX_REF, rtol=1e-6), f"u0_max: {u0_max}"
+    assert np.isclose(u0_mean, _U0_MEAN_REF, rtol=1e-6), f"u0_mean: {u0_mean}"
+
     fs.initialize_time_stepping(ic=None)
 
     for _ in range(fs.params_time.num_steps):

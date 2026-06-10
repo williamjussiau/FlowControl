@@ -389,9 +389,9 @@ class FlowSolver(ABC):
         else:
             raise ValueError(f"method must be 'newton' or 'picard', got {method!r}")
 
-        U0, P0 = UP0.split(deepcopy=True)
-        U0 = projectm(U0, self.V)
-        P0 = projectm(P0, self.P)
+        U0 = dolfin.Function(self.V)
+        P0 = dolfin.Function(self.P)
+        dolfin.FunctionAssigner([self.V, self.P], self.W).assign([U0, P0], UP0)
 
         if self.params_save.save_every:
             write_xdmf(self.paths.U0, U0, "U0", time_step=0.0, append=False, write_mesh=True)

@@ -44,6 +44,8 @@ def test_lidcavity_smoke(tmp_path_factory):
 
 
 # ── Regression test ───────────────────────────────────────────────────────────
+_U0_MAX_REF = np.float64(1.000000000000008)  # TODO: fill after running
+_U0_MEAN_REF = np.float64(0.0020234251738529907)  # TODO: fill after running
 _U_MAX_REF = np.float64(1.000000000000008)
 _U_MEAN_REF = np.float64(0.0020222416653700877)
 _LAST_TIME_REF = np.float64(0.05)
@@ -61,6 +63,13 @@ def test_lidcavity_regression(tmp_path_factory):
 
     fs = LidCavityFlowSolver.make_default(Re=1000, path_out=path_out, num_steps=10, save_every=5)
     fs.compute_steady_state(method="picard", max_iter=40, tol=1e-7, u_ctrl=[0.0])
+
+    u0_max = flu.apply_fun(fs.fields.U0, np.max)
+    u0_mean = flu.apply_fun(fs.fields.U0, np.mean)
+    print(f"[base flow] u0_max={u0_max:.16g}  u0_mean={u0_mean:.16g}")
+    assert np.isclose(u0_max, _U0_MAX_REF, rtol=1e-6), f"u0_max: {u0_max}"
+    assert np.isclose(u0_mean, _U0_MEAN_REF, rtol=1e-6), f"u0_mean: {u0_mean}"
+
     fs.initialize_time_stepping(ic=None)
 
     for _ in range(fs.params_time.num_steps):

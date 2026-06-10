@@ -63,13 +63,15 @@ def test_cylinder_smoke(tmp_path_factory):
 
 
 # ── Regression test ───────────────────────────────────────────────────────────
+_U0_MAX_REF = np.float64(1.1921615450014942)  # TODO: fill after running
+_U0_MEAN_REF = np.float64(0.336746427968607)  # TODO: fill after running
 _U_MAX_REF = np.float64(1.325070045534714)
 _U_MEAN_REF = np.float64(0.3376859329866094)
 _LAST_TIME_REF = np.float64(0.1)
 _LAST_Y_MEAS_1_REF = np.float64(0.011615482723602308)
-_LAST_Y_MEAS_2_REF = np.float64(0.003919912263385731)
-_LAST_Y_MEAS_3_REF = np.float64(0.003910359086223573)
-_LAST_DE_REF = np.float64(0.09444451268113475)
+_LAST_Y_MEAS_2_REF = np.float64(0.003860524805395703)
+_LAST_Y_MEAS_3_REF = np.float64(0.0038461597025207803)
+_LAST_DE_REF = np.float64(0.09462807324653322)
 
 
 @pytest.mark.slow
@@ -81,6 +83,13 @@ def test_cylinder_regression(tmp_path_factory):
     fs = CylinderFlowSolver.make_default(Re=100, path_out=path_out, num_steps=10, save_every=5)
     fs.compute_steady_state(method="picard", max_iter=3, tol=1e-7, u_ctrl=[0.0, 0.0])
     fs.compute_steady_state(method="newton", max_iter=25, u_ctrl=[0.0, 0.0], initial_guess=fs.fields.UP0)
+
+    u0_max = flu.apply_fun(fs.fields.U0, np.max)
+    u0_mean = flu.apply_fun(fs.fields.U0, np.mean)
+    print(f"[base flow] u0_max={u0_max:.16g}  u0_mean={u0_mean:.16g}")
+    assert np.isclose(u0_max, _U0_MAX_REF, rtol=1e-6), f"u0_max: {u0_max}"
+    assert np.isclose(u0_mean, _U0_MEAN_REF, rtol=1e-6), f"u0_mean: {u0_mean}"
+
     fs.initialize_time_stepping(ic=None)
 
     Kss = Controller.from_file(file=CONTROLLER_PATH, x0=None)
@@ -107,16 +116,6 @@ def test_cylinder_regression(tmp_path_factory):
     u_max = flu.apply_fun(fs_restart.fields.Usave, np.max)
     u_mean = flu.apply_fun(fs_restart.fields.Usave, np.mean)
     last = fs_restart.timeseries.iloc[-1]
-
-    refs = {
-        "u_max": u_max,
-        "u_mean": u_mean,
-        "last_time": last["time"],
-        "last_y_meas_1": last["y_meas_1"],
-        "last_y_meas_2": last["y_meas_2"],
-        "last_y_meas_3": last["y_meas_3"],
-        "last_dE": last["dE"],
-    }
 
     assert np.isclose(u_max, _U_MAX_REF, rtol=1e-4), f"u_max: {u_max} != {_U_MAX_REF}"
     assert np.isclose(u_mean, _U_MEAN_REF, rtol=1e-6), f"u_mean: {u_mean} != {_U_MEAN_REF}"

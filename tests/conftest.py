@@ -1,5 +1,9 @@
+import os
 import sys
 from pathlib import Path
+
+# Force single-threaded MUMPS so direct-solver results are reproducible across runs.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 import dolfin
 import pytest
