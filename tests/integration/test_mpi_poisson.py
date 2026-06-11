@@ -37,6 +37,7 @@ def test_demo_poisson_mpi(tmp_path):
         text=True,
         cwd=tmp_path,  # pvd/pvtu output files land here, not in the source tree
         env=env,
+        timeout=300,
     )
     assert result.returncode == 0, (
         f"mpirun exited with code {result.returncode}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"

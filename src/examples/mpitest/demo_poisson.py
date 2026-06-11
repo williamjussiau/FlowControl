@@ -188,7 +188,7 @@ dolfin.solve(a == L, u, bc)
 
 # Save solution in VTK format
 
-file = dolfin.File(str(pathlib.Path(__file__).parent / "poisson.pvd"))
+file = dolfin.File("poisson.pvd")
 file << u
 
 # Plot solution
