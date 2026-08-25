@@ -50,12 +50,12 @@ The toolbox allows the user to define actuators for forcing and sensors to probe
 
 Four canonical [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) often used for control are shipped with the current code:
 
-| Use-case | Description |
-| ------- | ----------- |
-| Cylinder | Flow past a cylinder at Re=100 |
-| Cavity | Flow over an open cavity at Re=7500 |
-| Lid-driven cavity | Flow in a lid-driven cavity at Re=8000 |
-| Pinball | Flow past three staggered cylinders at Re=100 |
+| Use-case | Description | Suggested Reynolds number |
+| ------- | ----------- | ------------------------- |
+| Cylinder | Flow past a cylinder | Re=100 |
+| Lid-driven cavity | Flow in a lid-driven cavity | Re=8000 |
+| Open cavity | Flow over an open cavity | Re=7500 |
+| Fluidic pinball | Flow past 3 cylinders | Re=100 |
 
 ### Examples of Use of the Toolbox
 
