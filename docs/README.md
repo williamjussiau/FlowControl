@@ -17,7 +17,7 @@ FlowControl is an open-source toolbox for simulating and controlling 2D incompre
 <img src="./illustrations/cylinder_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow past a cylinder at Re=100. The self-sustained, periodic oscillations of the flow (known as vortex shedding) gradually disappear as the controller actuates the flow." width="500"/>
 </p>
 
-The toolbox is shipped with two benchmarks for flow control and allows for easy implementation of new cases.
+The toolbox is shipped with four benchmarks for flow control and allows for easy implementation of new cases.
 
 <p align="center">
 <img src="./illustrations/cavity_stabilization.gif" alt="Animated GIF featuring the stabilization of the flow over an open cavity at Re=7500. The self-sustained, quasi-periodic oscillations of the flow gradually disappear as the controller actuates the flow." width="500"/>
@@ -35,10 +35,10 @@ The core of the toolbox is in Python and relies on [FEniCS 2019.1.0](https://fen
 
 By default, the toolbox integrates in time the **Incompressible Navier-Stokes equations**. For a 2D flow defined by its velocity ${v}({x}, t) = [v_1({x}, t), v_2({x}, t)]$ and pressure $p({x}, t)$ inside a domain ${x} = [x_1, x_2] \in\Omega$, the equations read as follows:
 
-$$\left\{\begin{aligned} 
-&  \frac{\partial {v}}{\partial t} + ({v} \cdot \nabla){v} = -\nabla p +  \frac{1}{Re}\nabla^2 {v}   \
-&  \nabla \cdot {v} = 0
-\end{aligned}\right.$$
+$$\begin{cases}
+\dfrac{\partial {v}}{\partial t} + ({v} \cdot \nabla){v} = -\nabla p + \dfrac{1}{Re}\nabla^2 {v} \\[4pt]
+\nabla \cdot {v} = 0
+\end{cases}$$
 
 The only numerical parameter of the non-dimensional equations, the Reynolds number defined as $Re = \frac{UL}{\nu}$, balances convective and viscous terms.
 
@@ -46,14 +46,16 @@ The only numerical parameter of the non-dimensional equations, the Reynolds numb
 
 The toolbox allows the user to define actuators for forcing and sensors to probe the flow. It also provides utility for controller design and implementation.
 
-### Two Benchmarks
+### Four Benchmarks
 
-Two canonical [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) often used for control are shipped with the current code:
+Four canonical [oscillator flows](https://journals.aps.org/prfluids/pdf/10.1103/PhysRevFluids.1.040501) often used for control are shipped with the current code:
 
 | Use-case | Description |
 | ------- | ----------- |
 | Cylinder | Flow past a cylinder at Re=100 |
 | Cavity | Flow over an open cavity at Re=7500 |
+| Lid-driven cavity | Flow in a lid-driven cavity at Re=8000 |
+| Pinball | Flow past three staggered cylinders at Re=100 |
 
 ### Examples of Use of the Toolbox
 
@@ -66,11 +68,9 @@ The following articles were based on previous versions of the code:
 ## Roadmap
 
 - Complete the documentation :book:
-- Refactor and release additional control-related tools
-- Update the project to [FEniCSx](https://fenicsproject.org/documentation/)
-- Sort and check all utility functions
-- Implement general form for operator computation
+- Refactor and release additional control-related utility tools (frequency response, eigenvalue, optimisation)
 - Docker/venv/pip support
+- Update the project to [FEniCSx](https://fenicsproject.org/documentation/)
 
 ## Contact
 
